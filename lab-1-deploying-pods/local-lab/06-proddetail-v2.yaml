@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proddetail
+  namespace: workshop
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: proddetail
+  template:
+    metadata:
+      labels:
+        app: proddetail
+        version: v2
+    spec:
+      containers:
+        - name: proddetail
+          image: python:3.12-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              touch /tmp/healthy /tmp/ready
+              cd /tmp
+              echo "hello from proddetail VERSION 2 (rolling update worked!)" > index.html
+              python3 -m http.server 3000
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command: ["cat", "/tmp/healthy"]
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["cat", "/tmp/ready"]
+            initialDelaySeconds: 3
+            periodSeconds: 2
+            failureThreshold: 3

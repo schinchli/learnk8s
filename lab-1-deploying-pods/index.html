@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Learn Kubernetes by watching it happen — animated, narrated, step-by-step labs covering pods, services, probes, rolling updates, SRE failure modes, and AWS EKS.">
+<meta name="theme-color" content="#06080d">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kubernetes Learning Labs">
+<meta property="og:description" content="Animated, narrated, step-by-step Kubernetes labs. Pods, services, probes, rolling updates, SRE scenarios, AWS EKS.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<title>Kubernetes Learning Labs</title>
+<style>
+  :root {
+    --bg: #06080d;
+    --panel: #11151c;
+    --panel-light: #1f2738;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --good: #27AE60;
+    --bad: #E74C3C;
+    --warning: #F39C12;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(ellipse at top, rgba(56, 189, 248, 0.05), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(155, 89, 182, 0.04), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 18px 28px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.85), rgba(155, 89, 182, 0.85)), var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  header h1 { margin: 0; font-size: 1.4em; }
+  header p { margin: 4px 0 0; opacity: 0.85; font-size: 0.92em; }
+  header .actions {
+    position: absolute; top: 18px; right: 28px;
+    display: flex; gap: 8px;
+  }
+  header .actions button {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 14px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  header .actions button:hover { background: rgba(255,255,255,0.18); }
+
+  /* ====== Shared slim left rail (cross-lab nav) ====== */
+  body { padding-left: 60px; }
+  .rail {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 60px; z-index: 200;
+    background: #0c1018; border-right: 1px solid #1f2738;
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .rail-brand {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: white; font-size: 0.9em;
+    text-decoration: none; margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+  .rail-link {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; color: white;
+    text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .rail-link:hover { background: rgba(255,255,255,0.08); }
+  .rail-link.active { background: rgba(56, 189, 248, 0.18); }
+  .rail-link.active::before {
+    content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px;
+    width: 3px; background: #38bdf8;
+    border-radius: 0 2px 2px 0;
+  }
+  .rail-link:hover::after {
+    content: attr(title);
+    position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+    background: #1f2738; color: #f1f5f9;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid #475569;
+    z-index: 300; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* ====== Welcome / dashboard ====== */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 32px 64px;
+  }
+  .welcome-hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .welcome-hero h2 {
+    font-size: 2.2em; margin: 0 0 12px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+  }
+  .welcome-hero p {
+    color: var(--muted); font-size: 1.05em;
+    margin: 0; line-height: 1.6;
+  }
+
+  .lab-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  a.lab-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 14px;
+    padding: 22px;
+    text-decoration: none;
+    color: var(--text);
+    display: block;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  a.lab-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    border-color: var(--accent);
+  }
+  a.lab-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), #818cf8);
+  }
+  .lab-card .icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6em;
+    margin-bottom: 14px;
+  }
+  .lab-card h3 { margin: 0 0 6px; font-size: 1.05em; font-weight: 700; }
+  .lab-card p { margin: 0 0 12px; color: var(--muted); font-size: 0.88em; line-height: 1.55; }
+  .lab-card .meta {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    font-size: 0.72em; color: var(--muted);
+  }
+  .lab-card .badge {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-light);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .lab-card .badge.new { background: rgba(80, 200, 120, 0.15); color: #4ade80; border-color: rgba(80, 200, 120, 0.4); }
+  .lab-card .badge.prod { background: rgba(231, 76, 60, 0.15); color: #f87171; border-color: rgba(231, 76, 60, 0.4); }
+  .lab-card .badge.aws { background: rgba(237, 113, 0, 0.15); color: #fb923c; border-color: rgba(237, 113, 0, 0.4); }
+
+  /* ====== Settings modal ====== */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+    z-index: 999;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.94);
+    width: 480px; max-width: 92vw;
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 14px;
+    padding: 28px;
+    opacity: 0; pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal.open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1; pointer-events: auto;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .modal-header h2 {
+    margin: 0; font-size: 1.2em; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .modal .close-btn {
+    background: var(--panel-light); border: 1px solid #475569;
+    color: var(--text); width: 32px; height: 32px; border-radius: 50%;
+    cursor: pointer; font-size: 1em;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal .close-btn:hover { background: var(--bad); border-color: var(--bad); }
+  .setting-row {
+    margin: 16px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .setting-row .label {
+    flex: 1;
+    display: flex; flex-direction: column;
+  }
+  .setting-row .label .name { font-weight: 600; font-size: 0.95em; }
+  .setting-row .label .desc { font-size: 0.78em; color: var(--muted); margin-top: 2px; }
+  .setting-row select, .setting-row input[type="range"] {
+    background: #0a0e1a; color: var(--text);
+    border: 1px solid #475569; border-radius: 6px;
+    padding: 6px 10px; font-size: 0.9em;
+    font-family: inherit;
+    min-width: 180px;
+  }
+  .toggle {
+    position: relative; width: 44px; height: 24px;
+    background: var(--panel-light); border-radius: 12px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--text); transition: transform 0.2s;
+  }
+  .toggle.on { background: var(--good); }
+  .toggle.on::after { transform: translateX(20px); }
+  .modal-footer {
+    margin-top: 22px; padding-top: 16px;
+    border-top: 1px solid var(--panel-light);
+    font-size: 0.78em; color: var(--muted);
+  }
+  .kbd {
+    background: #334155; color: var(--text);
+    border: 1px solid #475569; border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 6px;
+    font-family: ui-monospace, monospace; font-size: 0.8em;
+    margin: 0 2px;
+  }
+
+  html, body { overflow-x: hidden; }
+
+  /* ====== Responsive breakpoints ====== */
+  @media (max-width: 720px) {
+    body { padding-left: 50px; }
+    .rail { width: 50px; }
+    .rail-brand { width: 36px; height: 36px; }
+    .rail-link { width: 38px; height: 38px; font-size: 1.1em; }
+    header { padding: 14px 18px; }
+    header h1 { font-size: 1.1em; }
+    header p { font-size: 0.82em; }
+    header .actions { position: static; margin-top: 8px; }
+    main { padding: 24px 16px 48px; }
+    .welcome-hero h2 { font-size: 1.6em; }
+    .welcome-hero p { font-size: 0.95em; }
+    .lab-cards { grid-template-columns: 1fr; }
+    .modal { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="index.html" class="rail-link active" title="Dashboard">🏠</a>
+  <a href="animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="learn-visually.html" class="rail-link" title="Visual Reference">📘</a>
+</aside>
+
+<header style="position:relative;">
+  <h1>🏠 Kubernetes Learning Labs</h1>
+  <p>Animated · narrated · step-by-step. Pick where to start.</p>
+  <div class="actions">
+    <button id="open-settings">⚙️ Settings</button>
+  </div>
+</header>
+
+<main>
+  <div class="welcome-hero">
+    <h2>Learn Kubernetes by watching it happen</h2>
+    <p>Three labs. Animated. Narrated. Step-by-step controllable. Pick where to start.</p>
+  </div>
+  <div class="lab-cards">
+    <a class="lab-card" href="animated-lab.html">
+      <div class="icon">📚</div>
+      <h3>Lab 1: Core Concepts</h3>
+      <p>The fundamentals — namespaces, deployments, ReplicaSets, pods, containers, services, labels, endpoints, probes, rolling updates. 38 steps.</p>
+      <div class="meta">
+        <span class="badge">38 steps</span>
+        <span class="badge">~6 min</span>
+        <span class="badge new">Start here</span>
+      </div>
+    </a>
+    <a class="lab-card" href="animated-lab-production.html">
+      <div class="icon">🚨</div>
+      <h3>Production Scenarios</h3>
+      <p>Real failure modes SRE teams hit: node failure, HPA scale-out, CrashLoopBackOff, OOMKilled, drain blocked by PDB. Five scenarios.</p>
+      <div class="meta">
+        <span class="badge">5 scenarios</span>
+        <span class="badge">~12 min</span>
+        <span class="badge prod">SRE</span>
+      </div>
+    </a>
+    <a class="lab-card" href="animated-lab-aws.html">
+      <div class="icon">☁️</div>
+      <h3>AWS EKS Lab</h3>
+      <p>Lab 1 mapped to AWS infrastructure. VPC, subnets, EKS control plane, EC2 workers, ELB, ECR, IAM, CloudWatch — what your cluster actually runs on.</p>
+      <div class="meta">
+        <span class="badge">20 steps</span>
+        <span class="badge">~4 min</span>
+        <span class="badge aws">AWS</span>
+      </div>
+    </a>
+    <a class="lab-card" href="learn-visually.html">
+      <div class="icon">📘</div>
+      <h3>Visual Reference</h3>
+      <p>Static, scrollable page with every concept laid out: container vs VM, service routing, probe state machines, rolling update timeline. Good for review.</p>
+      <div class="meta">
+        <span class="badge">Reference</span>
+        <span class="badge">No animation</span>
+      </div>
+    </a>
+  </div>
+</main>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="modal-backdrop"></div>
+<div class="modal" id="settings-modal">
+  <div class="modal-header">
+    <h2>⚙️ Settings</h2>
+    <button class="close-btn" id="close-settings">✕</button>
+  </div>
+  <div class="setting-row">
+    <div class="label">
+      <div class="name">Narration</div>
+      <div class="desc">Hear each step spoken via TTS</div>
+    </div>
+    <div class="toggle" id="setting-narration"></div>
+  </div>
+  <div class="setting-row">
+    <div class="label">
+      <div class="name">Voice</div>
+      <div class="desc">Pick a system voice (⭐ = premium)</div>
+    </div>
+    <select id="setting-voice"></select>
+  </div>
+  <div class="setting-row">
+    <div class="label">
+      <div class="name">Auto-play speed</div>
+      <div class="desc">Seconds between steps when playing</div>
+    </div>
+    <select id="setting-speed">
+      <option value="6000">Very slow (6s)</option>
+      <option value="4000" selected>Slow (4s)</option>
+      <option value="2500">Medium (2.5s)</option>
+      <option value="1500">Fast (1.5s)</option>
+    </select>
+  </div>
+  <div class="modal-footer">
+    Shortcuts:
+    <span class="kbd">,</span> open settings ·
+    <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> jump between labs ·
+    <span class="kbd">Esc</span> close
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SETTING_KEYS = {
+  narration: ['k8s-lab-muted', 'k8s-prod-muted', 'k8s-aws-muted'],
+  voice:     ['k8s-lab-voice', 'k8s-prod-voice', 'k8s-aws-voice'],
+};
+
+// Modal open/close
+function openSettings() { $('settings-modal').classList.add('open'); $('modal-backdrop').classList.add('open'); }
+function closeSettings() { $('settings-modal').classList.remove('open'); $('modal-backdrop').classList.remove('open'); }
+$('open-settings').onclick = openSettings;
+$('close-settings').onclick = closeSettings;
+$('modal-backdrop').onclick = closeSettings;
+
+// Narration toggle: writes the muted flag to ALL labs' localStorage keys
+function getNarration() { return localStorage.getItem('k8s-lab-muted') !== '1'; }
+function setNarration(on) {
+  const v = on ? '0' : '1';
+  SETTING_KEYS.narration.forEach(k => localStorage.setItem(k, v));
+  $('setting-narration').classList.toggle('on', on);
+}
+$('setting-narration').classList.toggle('on', getNarration());
+$('setting-narration').onclick = () => setNarration(!getNarration());
+
+// Voice picker
+function setVoice(name) {
+  SETTING_KEYS.voice.forEach(k => localStorage.setItem(k, name));
+}
+function populateVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+  const PREFER = ['Ava','Zoe','Allison','Samantha','Karen','Daniel'];
+  const score = v => {
+    let s = 0;
+    if (/Premium/i.test(v.name)) s += 100;
+    else if (/Siri/i.test(v.name)) s += 80;
+    else if (/Enhanced/i.test(v.name)) s += 60;
+    const base = v.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+    const i = PREFER.indexOf(base);
+    if (i !== -1) s += (20 - i);
+    if (/Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Jester|Trinoids|Whisper|Zarvox|Albert|Fred/i.test(v.name)) s -= 50;
+    return s;
+  };
+  voices.sort((a, b) => score(b) - score(a));
+  const sel = $('setting-voice');
+  sel.innerHTML = '';
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = (/Premium|Siri|Enhanced/i.test(v.name) ? '⭐ ' : '') + v.name;
+    sel.appendChild(opt);
+  });
+  const saved = localStorage.getItem('k8s-lab-voice');
+  if (saved && voices.find(v => v.name === saved)) sel.value = saved;
+}
+if ('speechSynthesis' in window) {
+  speechSynthesis.onvoiceschanged = populateVoices;
+  populateVoices();
+}
+$('setting-voice').onchange = (e) => setVoice(e.target.value);
+
+// Speed
+$('setting-speed').value = localStorage.getItem('k8s-labs-speed') || '4000';
+$('setting-speed').onchange = (e) => localStorage.setItem('k8s-labs-speed', e.target.value);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === ',') { e.preventDefault(); openSettings(); }
+  else if (e.key === 'Escape') { closeSettings(); }
+  else if (e.key === '0') { location.href = 'index.html'; }
+  else if (e.key === '1') { location.href = 'animated-lab.html'; }
+  else if (e.key === '2') { location.href = 'animated-lab-production.html'; }
+  else if (e.key === '3') { location.href = 'animated-lab-aws.html'; }
+  else if (e.key === '4') { location.href = 'learn-visually.html'; }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prodcatalog
+  namespace: workshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prodcatalog
+  template:
+    metadata:
+      labels:
+        app: prodcatalog
+    spec:
+      containers:
+        - name: prodcatalog
+          image: hashicorp/http-echo:latest
+          args:
+            - "-text=hello from prodcatalog (product catalog service)"
+            - "-listen=:5000"
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prodcatalog
+  namespace: workshop
+  labels:
+    app: prodcatalog
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      name: http
+  selector:
+    app: prodcatalog

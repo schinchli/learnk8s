@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Static visual reference for Kubernetes: container vs VM, pod hierarchy, service routing, probe state machines, rolling update timeline. Color-coded, scannable.">
+<meta name="theme-color" content="#06080d">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kubernetes — Visual Reference">
+<meta property="og:description" content="Every K8s concept laid out visually: container vs VM, service routing, probes, rolling updates.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<title>Visual Reference — Kubernetes Labs</title>
+<style>
+  :root {
+    --container: #FF8C42;
+    --container-bg: rgba(255, 140, 66, 0.12);
+    --pod: #4A90E2;
+    --pod-bg: rgba(74, 144, 226, 0.12);
+    --replicaset: #50C878;
+    --replicaset-bg: rgba(80, 200, 120, 0.12);
+    --deployment: #9B59B6;
+    --deployment-bg: rgba(155, 89, 182, 0.14);
+    --service: #1ABC9C;
+    --service-bg: rgba(26, 188, 156, 0.12);
+    --node: #94a3b8;
+    --node-bg: rgba(148, 163, 184, 0.1);
+    --ns: #E67E22;
+    --ns-bg: rgba(230, 126, 34, 0.1);
+    --bad: #E74C3C;
+    --good: #27AE60;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --bg: #06080d;
+    --card: #11151c;
+    --card-border: #1f2738;
+    --code-bg: #03050a;
+    --code-fg: #c5e478;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    margin: 0; padding: 0; line-height: 1.55;
+  }
+  header {
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    color: white; padding: 48px 32px;
+  }
+  header h1 { margin: 0 0 8px 0; font-size: 2.2em; }
+  header p { margin: 0; opacity: 0.9; font-size: 1.1em; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px; }
+
+  section {
+    background: var(--card); border-radius: 12px;
+    margin: 32px 0; padding: 32px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05);
+  }
+  section h2 {
+    margin-top: 0; font-size: 1.6em;
+    border-bottom: 3px solid var(--bg); padding-bottom: 12px;
+  }
+  section h3 { color: var(--muted); font-weight: 600; margin-top: 28px; }
+
+  .legend {
+    display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 24px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 0.85em; font-weight: 600;
+    border: 2px solid;
+  }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chip.container { color: var(--container); border-color: var(--container); background: var(--container-bg); }
+  .chip.container .dot { background: var(--container); }
+  .chip.pod { color: var(--pod); border-color: var(--pod); background: var(--pod-bg); }
+  .chip.pod .dot { background: var(--pod); }
+  .chip.replicaset { color: var(--replicaset); border-color: var(--replicaset); background: var(--replicaset-bg); }
+  .chip.replicaset .dot { background: var(--replicaset); }
+  .chip.deployment { color: var(--deployment); border-color: var(--deployment); background: var(--deployment-bg); }
+  .chip.deployment .dot { background: var(--deployment); }
+  .chip.service { color: var(--service); border-color: var(--service); background: var(--service-bg); }
+  .chip.service .dot { background: var(--service); }
+  .chip.ns { color: var(--ns); border-color: var(--ns); background: var(--ns-bg); }
+  .chip.ns .dot { background: var(--ns); }
+
+  /* Box drawings for resources */
+  .box {
+    border: 3px solid; border-radius: 10px; padding: 14px;
+    display: inline-block; margin: 6px; vertical-align: top;
+    min-width: 180px; background: white; position: relative;
+  }
+  .box .label {
+    position: absolute; top: -12px; left: 12px;
+    background: white; padding: 0 8px;
+    font-size: 0.75em; font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .box .name { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700; font-size: 1em; }
+  .box .sub { font-size: 0.85em; color: var(--muted); margin-top: 4px; }
+
+  .container-box { border-color: var(--container); background: var(--container-bg); }
+  .container-box .label { color: var(--container); }
+  .pod-box { border-color: var(--pod); background: var(--pod-bg); }
+  .pod-box .label { color: var(--pod); }
+  .replicaset-box { border-color: var(--replicaset); background: var(--replicaset-bg); }
+  .replicaset-box .label { color: var(--replicaset); }
+  .deployment-box { border-color: var(--deployment); background: var(--deployment-bg); border-width: 3px; padding: 18px; }
+  .deployment-box .label { color: var(--deployment); }
+  .service-box { border-color: var(--service); background: var(--service-bg); }
+  .service-box .label { color: var(--service); }
+  .ns-box { border-color: var(--ns); background: var(--ns-bg); border-style: dashed; padding: 24px; border-radius: 14px; }
+  .ns-box .label { color: var(--ns); }
+  .node-box { border-color: var(--node); background: var(--node-bg); padding: 28px; }
+  .node-box .label { color: var(--node); }
+
+  .nested { padding: 18px; }
+
+  pre.cmd {
+    background: var(--code-bg); color: var(--code-fg);
+    padding: 16px; border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9em; overflow-x: auto;
+    margin: 12px 0;
+  }
+  pre.cmd .prompt { color: #94a3b8; }
+  pre.cmd .flag { color: #fbbf24; }
+  pre.cmd .arg { color: #34d399; }
+  pre.cmd .comment { color: #64748b; font-style: italic; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    font-size: 0.95em;
+  }
+  table th, table td {
+    text-align: left; padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  table th { background: #f3f4f6; font-weight: 700; }
+  table tr:hover { background: #fafbfc; }
+
+  /* Side-by-side: command + render */
+  .split {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin: 16px 0;
+  }
+  .split > div {
+    border-radius: 8px; padding: 14px;
+    background: #f9fafb; border: 1px solid #e5e7eb;
+  }
+  .split h4 { margin: 0 0 8px 0; font-size: 0.9em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Arrows */
+  .arrow {
+    display: inline-block; padding: 0 10px;
+    color: var(--muted); font-weight: 700; font-size: 1.4em;
+  }
+
+  /* Rolling update timeline */
+  .timeline {
+    display: flex; flex-direction: column; gap: 12px;
+    margin: 24px 0;
+  }
+  .timeline-step {
+    display: grid; grid-template-columns: 70px 1fr;
+    gap: 16px; align-items: center;
+  }
+  .timeline-step .t {
+    background: var(--deployment); color: white;
+    border-radius: 6px; padding: 8px;
+    text-align: center; font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .timeline-step .pods {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  }
+  .mini-pod {
+    width: 60px; height: 60px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 0.7em; font-weight: 700; border: 2px solid;
+    transition: all 0.4s;
+  }
+  .mini-pod .v { font-size: 1.1em; }
+  .mini-pod.v1 { background: var(--pod-bg); border-color: var(--pod); color: var(--pod); }
+  .mini-pod.v2 { background: var(--replicaset-bg); border-color: var(--replicaset); color: var(--replicaset); }
+  .mini-pod.starting { opacity: 0.5; border-style: dashed; }
+  .mini-pod.terminating { opacity: 0.5; text-decoration: line-through; background: #fee; border-color: var(--bad); color: var(--bad); }
+  .mini-pod.ready::after { content: " ✓"; }
+
+  /* State diagrams for probes */
+  .probe-flow {
+    background: #f9fafb; border-radius: 10px; padding: 20px;
+    margin: 16px 0;
+  }
+  .state {
+    display: inline-block; padding: 10px 18px; margin: 6px;
+    border: 3px solid; border-radius: 999px;
+    font-weight: 700; font-size: 0.95em;
+  }
+  .state.healthy { border-color: var(--good); color: var(--good); background: #e6f7ee; }
+  .state.unhealthy { border-color: var(--bad); color: var(--bad); background: #fdecea; }
+  .state.warming { border-color: var(--container); color: var(--container); background: var(--container-bg); }
+
+  .callout {
+    background: linear-gradient(90deg, #fff7e6, #fffdf5);
+    border-left: 5px solid var(--container);
+    padding: 14px 18px; border-radius: 6px;
+    margin: 16px 0;
+  }
+  .callout.good { background: linear-gradient(90deg, #e8f7ee, #f3fbf5); border-left-color: var(--good); }
+  .callout.bad  { background: linear-gradient(90deg, #fdecea, #fef5f4); border-left-color: var(--bad); }
+
+  /* Container vs VM */
+  .vm-vs-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+  .stack { border: 2px solid #d1d5db; border-radius: 10px; overflow: hidden; }
+  .stack .layer {
+    padding: 12px 16px; border-bottom: 1px solid #e5e7eb;
+    font-weight: 600; text-align: center;
+  }
+  .stack .layer:last-child { border-bottom: 0; }
+  .layer.hw   { background: #1f2937; color: #e2e8f0; }
+  .layer.host { background: #374151; color: #e2e8f0; }
+  .layer.hyp  { background: #6366f1; color: white; }
+  .layer.vm   { background: #c7d2fe; color: #312e81; }
+  .layer.app  { background: var(--container-bg); color: var(--container); }
+  .layer.docker { background: #2563eb; color: white; }
+
+  .icon { font-size: 1.4em; margin-right: 6px; }
+  .center { text-align: center; }
+  small.muted { color: var(--muted); }
+
+  /* ====== Shared slim left rail (cross-lab nav) ====== */
+  body { padding-left: 60px; }
+  .rail {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 60px; z-index: 200;
+    background: #0c1018; border-right: 1px solid #1f2738;
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .rail-brand {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: white; font-size: 0.9em;
+    text-decoration: none; margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+  .rail-link {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; color: white;
+    text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .rail-link:hover { background: rgba(255,255,255,0.08); }
+  .rail-link.active { background: rgba(56, 189, 248, 0.18); }
+  .rail-link.active::before {
+    content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px;
+    width: 3px; background: #38bdf8;
+    border-radius: 0 2px 2px 0;
+  }
+  .rail-link:hover::after {
+    content: attr(title);
+    position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+    background: #1f2738; color: #f1f5f9;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid #475569;
+    z-index: 300; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* ====== Dark mode overrides for previously light-themed elements ====== */
+  section {
+    background: var(--card);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px var(--card-border);
+  }
+  section h2 { border-bottom-color: var(--card-border); }
+  table th { background: #1a2030; color: var(--text); }
+  table th, table td { border-bottom-color: var(--card-border); }
+  table tr:hover { background: rgba(255, 255, 255, 0.03); }
+  .split > div {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: var(--card-border);
+  }
+  .box { background: var(--card); }
+  .box .label { background: var(--card); }
+  .probe-flow {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--card-border);
+  }
+  .state.healthy   { background: rgba(80, 200, 120, 0.15); }
+  .state.unhealthy { background: rgba(231, 76, 60, 0.15); }
+  .state.warming   { background: rgba(255, 140, 66, 0.15); }
+  .callout {
+    background: linear-gradient(90deg, rgba(255, 140, 66, 0.08), rgba(255, 140, 66, 0.03));
+  }
+  .callout.good { background: linear-gradient(90deg, rgba(39, 174, 96, 0.1), rgba(39, 174, 96, 0.03)); }
+  .callout.bad  { background: linear-gradient(90deg, rgba(231, 76, 60, 0.1), rgba(231, 76, 60, 0.03)); }
+  .stack { border-color: var(--card-border); background: var(--card); }
+  .stack .layer { border-bottom-color: var(--card-border); }
+  .mini-pod.terminating { background: rgba(231, 76, 60, 0.15); }
+  /* the inline-style light containers inside sections — flip to dark */
+  section [style*="background: white"]   { background: var(--card) !important; }
+  section [style*="background: #f3f4f6"] { background: rgba(255,255,255,0.03) !important; border: 1px solid var(--card-border); }
+  /* Footer code shows the file path; keep monospace look but on dark */
+  footer code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; color: var(--text); }
+
+  html, body { overflow-x: hidden; }
+  /* Big nested architecture boxes need horizontal scroll on narrow screens, not page scroll */
+  .b-ns, .box.node-box, .b-deployment { max-width: 100%; }
+  section .center { overflow-x: auto; }
+
+  /* ====== Responsive breakpoints ====== */
+  @media (max-width: 900px) {
+    main { padding: 20px 16px; }
+    section { padding: 20px; margin: 20px 0; }
+    .vm-vs-container { grid-template-columns: 1fr; gap: 16px; }
+    .split { grid-template-columns: 1fr; }
+    header { padding: 28px 20px; }
+    header h1 { font-size: 1.6em; }
+    header p { font-size: 0.95em; }
+    table { font-size: 0.85em; }
+    table th, table td { padding: 8px 10px; }
+  }
+  @media (max-width: 720px) {
+    body { padding-left: 50px; }
+    .rail { width: 50px; }
+    .rail-brand { width: 36px; height: 36px; }
+    .rail-link { width: 38px; height: 38px; font-size: 1.1em; }
+    .term-visual { font-size: 0.75em; }
+  }
+</style>
+</head>
+<body>
+<aside class="rail">
+  <a href="index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="learn-visually.html" class="rail-link active" title="Visual Reference">📘</a>
+</aside>
+<header>
+  <h1>Kubernetes, visually</h1>
+  <p>Container → Pod → ReplicaSet → Deployment → Service. Plus rolling updates, probes, and what each <code>kubectl</code> command actually does behind the scenes.</p>
+</header>
+
+<main>
+
+<section>
+  <h2>Color legend (used throughout)</h2>
+  <div class="legend">
+    <span class="chip container"><span class="dot"></span>Container</span>
+    <span class="chip pod"><span class="dot"></span>Pod</span>
+    <span class="chip replicaset"><span class="dot"></span>ReplicaSet</span>
+    <span class="chip deployment"><span class="dot"></span>Deployment</span>
+    <span class="chip service"><span class="dot"></span>Service</span>
+    <span class="chip ns"><span class="dot"></span>Namespace</span>
+  </div>
+</section>
+
+<section>
+  <h2>1 · What is a container?</h2>
+  <p>A container is just <strong>a normal Linux process</strong> running on your host kernel — but the kernel lies to it about the world. It thinks it has its own filesystem, its own network interfaces, its own process tree. It sees almost nothing of the host.</p>
+  <p>The lies are produced by three kernel features: <strong>namespaces</strong> (what you can see), <strong>cgroups</strong> (how much you can use), and <strong>chroot/overlay filesystems</strong> (which files exist).</p>
+
+  <div class="vm-vs-container">
+    <div>
+      <h3 class="center">Virtual Machine (heavy)</h3>
+      <div class="stack">
+        <div class="layer app">App</div>
+        <div class="layer vm">Guest OS · libs · kernel</div>
+        <div class="layer hyp">Hypervisor (VMware, KVM)</div>
+        <div class="layer host">Host OS</div>
+        <div class="layer hw">Physical hardware</div>
+      </div>
+      <p class="center"><small class="muted">Every VM ships its own kernel → GBs of RAM, minutes to boot.</small></p>
+    </div>
+    <div>
+      <h3 class="center">Container (light)</h3>
+      <div class="stack">
+        <div class="layer app">App + libs only</div>
+        <div class="layer docker">Container runtime (containerd)</div>
+        <div class="layer host">Host OS + <strong>shared kernel</strong></div>
+        <div class="layer hw">Physical hardware</div>
+      </div>
+      <p class="center"><small class="muted">All containers share one kernel → MBs of RAM, milliseconds to boot.</small></p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Mental shortcut:</strong> a VM virtualises <em>hardware</em>. A container virtualises <em>the OS view</em>. That's why containers are 100× lighter — they don't carry an OS, they borrow one.
+  </div>
+
+  <h3>The container in our lab</h3>
+  <div class="split">
+    <div>
+      <h4>YAML we wrote</h4>
+      <pre class="cmd"><span class="arg">containers:</span>
+  - <span class="arg">name:</span> proddetail
+    <span class="arg">image:</span> python:3.12-alpine
+    <span class="arg">command:</span> [<span class="flag">"/bin/sh"</span>, <span class="flag">"-c"</span>]
+    <span class="arg">args:</span>
+      - touch /tmp/healthy /tmp/ready
+        python3 -m http.server 3000
+    <span class="arg">ports:</span>
+      - <span class="arg">containerPort:</span> 3000</pre>
+    </div>
+    <div>
+      <h4>What actually runs on the node</h4>
+      <div class="box container-box">
+        <span class="label">CONTAINER</span>
+        <div class="name">proddetail</div>
+        <div class="sub">
+          <span class="icon">🖼️</span> image: python:3.12-alpine<br>
+          <span class="icon">⚙️</span> PID 1: <code>python3 -m http.server 3000</code><br>
+          <span class="icon">🌐</span> listening on :3000<br>
+          <span class="icon">📁</span> own /tmp, own /proc, own network interface
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · What is a Pod?</h2>
+  <p>A Pod is a <strong>thin wrapper around one or more containers</strong> that share a network and a small set of disks. From outside the pod looks like one machine: one IP, one localhost, one DNS name.</p>
+  <p>99% of pods have <strong>exactly one container</strong>. The multi-container pattern is for tightly-coupled "sidecars" (log shipper, proxy) that need to share localhost with the main app.</p>
+
+  <div class="center" style="margin: 24px 0;">
+    <div class="box pod-box" style="min-width: 380px;">
+      <span class="label">POD</span>
+      <div class="name">proddetail-784d8f4b99-7lr5g</div>
+      <div class="sub">
+        IP: 10.244.0.14 · node: minikube
+      </div>
+      <div style="margin-top: 14px; padding: 12px; background: white; border-radius: 6px;">
+        <small class="muted">Shared network namespace · shared volumes</small>
+        <div style="margin-top: 8px;">
+          <div class="box container-box" style="min-width: 0;">
+            <span class="label">CONTAINER</span>
+            <div class="name">proddetail</div>
+            <div class="sub">python3 :3000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Pod ≠ Container — three differences that matter</h3>
+  <table>
+    <tr><th></th><th>Container</th><th>Pod</th></tr>
+    <tr><td><strong>Scheduling unit</strong></td><td>No — runtimes don't move containers between hosts.</td><td>Yes — Kubernetes schedules <em>pods</em> onto nodes.</td></tr>
+    <tr><td><strong>IP address</strong></td><td>No own IP — would share the host's.</td><td>Gets its own cluster-internal IP (e.g. 10.244.0.14).</td></tr>
+    <tr><td><strong>Lifecycle</strong></td><td>Just a process — when it crashes, it's gone.</td><td>Can hold multiple containers, restart them, share storage.</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Why the abstraction exists:</strong> Kubernetes wanted a unit bigger than a container (so you can colocate sidecars) but smaller than a VM. That unit is the Pod.
+  </div>
+</section>
+
+<section>
+  <h2>3 · The full hierarchy</h2>
+  <p>You almost never create a Pod directly. You write a Deployment, and three nested controllers do the work.</p>
+
+  <div class="center">
+    <div class="box deployment-box" style="min-width: 700px;">
+      <span class="label">DEPLOYMENT</span>
+      <div class="name">proddetail</div>
+      <div class="sub">desired state: "I want 3 replicas, image python:3.12-alpine"</div>
+
+      <div style="margin-top: 18px;">
+        <div class="box replicaset-box" style="min-width: 620px;">
+          <span class="label">REPLICASET</span>
+          <div class="name">proddetail-784d8f4b99</div>
+          <div class="sub">job: keep exactly 3 pods matching <code>app=proddetail</code> alive</div>
+
+          <div style="display: flex; justify-content: center; gap: 12px; margin-top: 14px;">
+            <div class="box pod-box" style="min-width: 0;">
+              <span class="label">POD</span>
+              <div class="name">…7lr5g</div>
+              <div class="sub">10.244.0.14</div>
+              <div style="margin-top:8px;"><div class="box container-box" style="min-width:0; padding:8px;"><span class="label">CTR</span><div class="name" style="font-size:0.9em;">proddetail</div></div></div>
+            </div>
+            <div class="box pod-box" style="min-width: 0;">
+              <span class="label">POD</span>
+              <div class="name">…k2gn2</div>
+              <div class="sub">10.244.0.15</div>
+              <div style="margin-top:8px;"><div class="box container-box" style="min-width:0; padding:8px;"><span class="label">CTR</span><div class="name" style="font-size:0.9em;">proddetail</div></div></div>
+            </div>
+            <div class="box pod-box" style="min-width: 0;">
+              <span class="label">POD</span>
+              <div class="name">…tcktg</div>
+              <div class="sub">10.244.0.16</div>
+              <div style="margin-top:8px;"><div class="box container-box" style="min-width:0; padding:8px;"><span class="label">CTR</span><div class="name" style="font-size:0.9em;">proddetail</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Who's responsible for what?</h3>
+  <table>
+    <tr><th>Level</th><th>Job</th><th>You write?</th></tr>
+    <tr><td><span class="chip deployment"><span class="dot"></span>Deployment</span></td><td>Pod template + update strategy (rolling, recreate). Manages ReplicaSets.</td><td><strong>Yes</strong></td></tr>
+    <tr><td><span class="chip replicaset"><span class="dot"></span>ReplicaSet</span></td><td>Keep N pods of a specific template alive. Spawns replacements when pods die.</td><td>Auto-created</td></tr>
+    <tr><td><span class="chip pod"><span class="dot"></span>Pod</span></td><td>The actual unit that gets scheduled to a node. Hosts container(s).</td><td>Auto-created</td></tr>
+    <tr><td><span class="chip container"><span class="dot"></span>Container</span></td><td>The running process.</td><td>Defined in pod template</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>4 · Service — the stable address</h2>
+  <p>Pods are <strong>mortal</strong>. They die, restart, get new IPs constantly. So you can't just save a pod's IP and call it.</p>
+  <p>A Service is a <strong>permanent virtual IP and DNS name</strong> that load-balances to whichever pods match its selector right now.</p>
+
+  <div class="center" style="margin-top: 20px;">
+    <div class="box service-box" style="min-width: 320px;">
+      <span class="label">SERVICE</span>
+      <div class="name">proddetail</div>
+      <div class="sub">
+        type: ClusterIP<br>
+        virtual IP: 10.109.233.228:3000 · DNS: proddetail.workshop.svc.cluster.local<br>
+        <strong>selector:</strong> app=proddetail
+      </div>
+    </div>
+    <div style="font-size: 2em; color: var(--muted); margin: 10px;">▼  routes to any pod with matching label  ▼</div>
+    <div>
+      <div class="box pod-box"><span class="label">POD</span><div class="name">10.244.0.14</div><div class="sub">label app=proddetail ✓</div></div>
+      <div class="box pod-box"><span class="label">POD</span><div class="name">10.244.0.15</div><div class="sub">label app=proddetail ✓</div></div>
+      <div class="box pod-box"><span class="label">POD</span><div class="name">10.244.0.16</div><div class="sub">label app=proddetail ✓</div></div>
+    </div>
+  </div>
+
+  <h3>Labels and selectors — the glue of Kubernetes</h3>
+  <p>Almost every "X connects to Y" relationship in Kubernetes is implemented with labels. The Service has a <strong>selector</strong>; pods have <strong>labels</strong>; they match → wired.</p>
+
+  <div class="split">
+    <div>
+      <h4>Service selector</h4>
+<pre class="cmd"><span class="arg">spec:</span>
+  <span class="arg">selector:</span>
+    app: proddetail</pre>
+    </div>
+    <div>
+      <h4>Pod labels</h4>
+<pre class="cmd"><span class="arg">metadata:</span>
+  <span class="arg">labels:</span>
+    app: proddetail
+    version: v2</pre>
+    </div>
+  </div>
+
+  <div class="callout bad">
+    <strong>#1 source of bugs:</strong> the Service's selector doesn't match any pod's labels. Result: <code>Endpoints: &lt;none&gt;</code> and no traffic flows. Always check with <code>kubectl get endpoints &lt;svc&gt;</code>.
+  </div>
+</section>
+
+<section>
+  <h2>5 · Versioning &amp; rolling updates — the magic moment</h2>
+  <p>Here's what your eyes saw earlier when we went from v1 → v2 with zero downtime.</p>
+
+  <h3>The setup</h3>
+  <p>Before the change, the Deployment is pointing at <strong>ReplicaSet A</strong> (v1) with 3 pods. We change the pod template → Deployment creates <strong>ReplicaSet B</strong> (v2) and orchestrates a controlled handoff.</p>
+
+  <h3>The strategy knobs</h3>
+  <div class="split">
+    <div>
+      <h4>What we wrote</h4>
+<pre class="cmd"><span class="arg">strategy:</span>
+  type: RollingUpdate
+  <span class="arg">rollingUpdate:</span>
+    maxSurge: 1
+    maxUnavailable: 0</pre>
+    </div>
+    <div>
+      <h4>What it means</h4>
+      <ul>
+        <li><strong>maxSurge: 1</strong> — at most 4 pods total during the rollout (3 desired + 1 extra).</li>
+        <li><strong>maxUnavailable: 0</strong> — never fewer than 3 Ready pods. Capacity never dips.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Frame-by-frame timeline</h3>
+  <div class="timeline">
+    <div class="timeline-step">
+      <div class="t">t = 0s</div>
+      <div class="pods">
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <span style="margin-left:8px; color: var(--muted);">3 Ready · Service routes to all 3</span>
+      </div>
+    </div>
+    <div class="timeline-step">
+      <div class="t">t = 1s</div>
+      <div class="pods">
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v2 starting">v2<span class="v">◌</span></div>
+        <span style="margin-left:8px; color: var(--muted);">apply v2 → new RS spawns pod #1 (not Ready yet)</span>
+      </div>
+    </div>
+    <div class="timeline-step">
+      <div class="t">t = 4s</div>
+      <div class="pods">
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 terminating">v1<span class="v">●</span></div>
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <span style="margin-left:8px; color: var(--muted);">v2 passes readiness → one v1 starts draining</span>
+      </div>
+    </div>
+    <div class="timeline-step">
+      <div class="t">t = 8s</div>
+      <div class="pods">
+        <div class="mini-pod v1 ready">v1<span class="v">●</span></div>
+        <div class="mini-pod v1 terminating">v1<span class="v">●</span></div>
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <span style="margin-left:8px; color: var(--muted);">v2 pod #2 Ready · v1 pod #2 draining</span>
+      </div>
+    </div>
+    <div class="timeline-step">
+      <div class="t">t = 14s</div>
+      <div class="pods">
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <div class="mini-pod v2 ready">v2<span class="v">●</span></div>
+        <span style="margin-left:8px; color: var(--muted);">All v2 · old ReplicaSet scaled to 0 (kept for rollback)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <strong>The key invariant:</strong> Service Endpoints only ever contain <em>Ready</em> pods. New pods don't get traffic until they pass readiness; old pods stop getting traffic the moment Kubernetes decides to terminate them. That's how 0 requests fail across the rollover.
+  </div>
+
+  <h3>ReplicaSets after the rollout</h3>
+  <table>
+    <tr><th>ReplicaSet</th><th>Pods</th><th>Role</th></tr>
+    <tr><td><code>proddetail-6bb476c4b6</code></td><td>0</td><td>Ancient (no probes). Kept for rollback.</td></tr>
+    <tr><td><code>proddetail-784d8f4b99</code></td><td>0</td><td>v1 with probes. Kept for rollback.</td></tr>
+    <tr><td><code>proddetail-74f9b4b4b9</code></td><td><strong>3</strong></td><td><strong>Active.</strong> v2.</td></tr>
+  </table>
+
+  <h3>One-command rollback</h3>
+<pre class="cmd"><span class="prompt">$</span> kubectl rollout undo deployment/proddetail <span class="flag">-n</span> workshop
+<span class="comment"># Same algorithm — just scales the OLD RS back up and NEW RS back down.
+# Service Endpoints update continuously. Zero downtime, both directions.</span></pre>
+</section>
+
+<section>
+  <h2>6 · Probes — self-healing in two flavors</h2>
+
+  <h3>Liveness vs readiness — the one-sentence distinction</h3>
+  <table>
+    <tr><th></th><th>Liveness probe fails</th><th>Readiness probe fails</th></tr>
+    <tr><td><strong>What happens to the pod</strong></td><td style="background:#fdecea;">🔪 Container <strong>killed and restarted</strong></td><td style="background:#fff7e6;">🚧 Pod stays alive, <strong>removed from Service Endpoints</strong></td></tr>
+    <tr><td><strong>RESTARTS counter</strong></td><td>+1</td><td>0</td></tr>
+    <tr><td><strong>Pod name</strong></td><td>same (container restarts inside same pod)</td><td>same</td></tr>
+    <tr><td><strong>Use it for</strong></td><td>Detecting deadlocks, stuck processes</td><td>Warming up, draining, dep outages</td></tr>
+  </table>
+
+  <h3>Readiness probe — visual state machine</h3>
+  <div class="probe-flow">
+    <div class="state warming">⏳ NotReady (warming up)</div>
+    <span class="arrow">→</span>
+    <div class="state healthy">✅ Ready · in Endpoints</div>
+    <span class="arrow">⇄</span>
+    <div class="state unhealthy">⛔ NotReady · removed from Endpoints</div>
+    <p><small class="muted">Pod can flip back and forth indefinitely. <strong>Never gets killed.</strong></small></p>
+  </div>
+
+  <h3>Liveness probe — visual state machine</h3>
+  <div class="probe-flow">
+    <div class="state healthy">✅ Running</div>
+    <span class="arrow">→</span>
+    <div class="state unhealthy">⚠️ Failing probes</div>
+    <span class="arrow">→</span>
+    <div class="state warming">🔪 SIGKILL · exit code 137</div>
+    <span class="arrow">→</span>
+    <div class="state healthy">✅ Restarted (RESTARTS++)</div>
+    <p><small class="muted">After failureThreshold consecutive failures, kubelet kills and restarts the container.</small></p>
+  </div>
+
+  <h3>What we actually demonstrated</h3>
+  <div class="split">
+    <div>
+      <h4>Readiness fail</h4>
+<pre class="cmd"><span class="prompt">$</span> kubectl exec $POD -- rm /tmp/ready
+<span class="comment"># 8s later:</span>
+<span class="prompt">$</span> kubectl get endpoints proddetail
+NAME         ENDPOINTS
+proddetail                <span class="comment">← empty!</span>
+
+<span class="prompt">$</span> kubectl get pod
+NAME           READY   STATUS    RESTARTS
+proddetail-x   0/1     Running   0
+<span class="comment">  ▲ not Ready    ▲ but alive    ▲ never killed</span></pre>
+    </div>
+    <div>
+      <h4>Liveness fail</h4>
+<pre class="cmd"><span class="prompt">$</span> kubectl exec $POD -- rm /tmp/healthy
+<span class="comment"># ~12s later:</span>
+<span class="prompt">$</span> kubectl get pod
+NAME           READY  STATUS   RESTARTS
+proddetail-x   1/1    Running  <strong>1</strong> (18s ago)
+<span class="comment">                                  ▲ killed and restarted</span>
+
+<span class="prompt">$</span> kubectl get events ...
+Warning  Unhealthy  Liveness probe failed
+Normal   Killing    Container will be restarted</pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>7 · What each kubectl command actually does</h2>
+  <p>kubectl is just an HTTP client for the Kubernetes API server. Every command becomes a REST call to <code>/api/v1/...</code>.</p>
+
+  <h3>kubectl apply -f file.yaml</h3>
+  <div class="split">
+    <div>
+      <h4>What you type</h4>
+<pre class="cmd"><span class="prompt">$</span> kubectl apply <span class="flag">-f</span> deployment.yaml</pre>
+    </div>
+    <div>
+      <h4>Behind the scenes</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>YAML → JSON</li>
+        <li>HTTP PUT/PATCH to API server</li>
+        <li>API server validates &amp; writes to <strong>etcd</strong></li>
+        <li>Deployment controller wakes up, sees new desired state</li>
+        <li>Creates/updates ReplicaSet</li>
+        <li>ReplicaSet controller creates Pod objects</li>
+        <li>Scheduler picks a node for each pod</li>
+        <li>kubelet on that node pulls the image and starts the container</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>kubectl get / describe / exec — what they really are</h3>
+  <table>
+    <tr><th>Command</th><th>REST equivalent</th><th>What it returns</th></tr>
+    <tr><td><code>kubectl get pods</code></td><td><code>GET /api/v1/namespaces/.../pods</code></td><td>Table view of pod list</td></tr>
+    <tr><td><code>kubectl describe pod x</code></td><td><code>GET pod x</code> + <code>GET events?involvedObject=x</code></td><td>Verbose pod state + recent events</td></tr>
+    <tr><td><code>kubectl exec -it pod -- bash</code></td><td><code>POST /pods/x/exec?command=bash</code> (WebSocket)</td><td>Bidirectional tunnel to a process inside the container</td></tr>
+    <tr><td><code>kubectl logs pod</code></td><td><code>GET /pods/x/log</code></td><td>The container's stdout/stderr stream</td></tr>
+    <tr><td><code>kubectl rollout undo deploy/x</code></td><td><code>PATCH</code> deployment with old pod-template-hash</td><td>Reverses the spec back to a previous revision</td></tr>
+  </table>
+
+  <h3>The control loop — why this all keeps working</h3>
+  <p>Every Kubernetes controller is the same shape:</p>
+
+  <div class="center">
+    <div style="display: inline-block; padding: 20px; background: #f3f4f6; border-radius: 10px;">
+      <div class="state healthy">1. Observe current state</div>
+      <span class="arrow">→</span>
+      <div class="state warming">2. Compare to desired state (etcd)</div>
+      <span class="arrow">→</span>
+      <div class="state unhealthy">3. Act to close the gap</div>
+      <span class="arrow">↻</span>
+    </div>
+  </div>
+
+  <p style="text-align:center; margin-top:16px;"><small class="muted">Forever. This is the loop. Pods die → ReplicaSet notices → spawns new pod. You change image → Deployment notices → rolling update. <strong>Everything in Kubernetes is one of these loops.</strong></small></p>
+</section>
+
+<section>
+  <h2>8 · The full picture (what we built today)</h2>
+
+  <div class="center">
+    <div class="box node-box" style="min-width: 880px;">
+      <span class="label">NODE (minikube)</span>
+      <div class="sub" style="margin-bottom: 14px;">10.244.0.0/16 pod network</div>
+
+      <div class="box ns-box" style="min-width: 820px;">
+        <span class="label">NAMESPACE: workshop</span>
+
+        <div style="margin-top: 18px;">
+          <div class="box service-box"><span class="label">SERVICE frontend</span><div class="name">NodePort :30616</div><div class="sub">selector: app=frontend</div></div>
+          <div class="box service-box"><span class="label">SERVICE prodcatalog</span><div class="name">ClusterIP :5000</div><div class="sub">selector: app=prodcatalog</div></div>
+          <div class="box service-box"><span class="label">SERVICE proddetail</span><div class="name">ClusterIP :3000</div><div class="sub">selector: app=proddetail</div></div>
+        </div>
+
+        <div style="margin-top: 18px;">
+          <div class="box deployment-box" style="vertical-align: top;">
+            <span class="label">DEPLOYMENT frontend</span>
+            <div class="name">replicas: 1</div>
+            <div style="margin-top:10px;">
+              <div class="box pod-box" style="min-width:0;"><span class="label">POD</span>
+                <div class="box container-box" style="min-width:0; padding:6px; margin-top:6px;"><span class="label">CTR</span><div class="name" style="font-size:0.85em;">nginx</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="box deployment-box" style="vertical-align: top;">
+            <span class="label">DEPLOYMENT prodcatalog</span>
+            <div class="name">replicas: 1</div>
+            <div style="margin-top:10px;">
+              <div class="box pod-box" style="min-width:0;"><span class="label">POD</span>
+                <div class="box container-box" style="min-width:0; padding:6px; margin-top:6px;"><span class="label">CTR</span><div class="name" style="font-size:0.85em;">http-echo</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="box deployment-box" style="vertical-align: top;">
+            <span class="label">DEPLOYMENT proddetail</span>
+            <div class="name">replicas: 3</div>
+            <div style="margin-top:10px;">
+              <div class="box pod-box" style="min-width:0;"><span class="label">POD</span>
+                <div class="box container-box" style="min-width:0; padding:6px; margin-top:6px;"><span class="label">CTR</span><div class="name" style="font-size:0.85em;">python</div></div>
+              </div>
+              <div class="box pod-box" style="min-width:0;"><span class="label">POD</span>
+                <div class="box container-box" style="min-width:0; padding:6px; margin-top:6px;"><span class="label">CTR</span><div class="name" style="font-size:0.85em;">python</div></div>
+              </div>
+              <div class="box pod-box" style="min-width:0;"><span class="label">POD</span>
+                <div class="box container-box" style="min-width:0; padding:6px; margin-top:6px;"><span class="label">CTR</span><div class="name" style="font-size:0.85em;">python</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="callout good" style="margin-top: 24px;">
+    <strong>If you can explain this diagram out loud, you understand 80% of practical Kubernetes.</strong> The remaining 20% is volumes, ingress, RBAC, and statefulsets — all variations on the same patterns you see here.
+  </div>
+</section>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,2319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lab 1 of the Kubernetes learning series. Animated walkthrough of namespaces, deployments, ReplicaSets, pods, containers, services, labels, endpoints, probes, and rolling updates — 38 navigable steps with voice narration.">
+<meta name="theme-color" content="#06080d">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Lab 1: Core Kubernetes Concepts — Animated">
+<meta property="og:description" content="38 step-by-step animations covering pods, services, probes, rolling updates. Press → to advance.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<title>Lab 1: Core Concepts — Kubernetes Labs</title>
+<style>
+  :root {
+    --container: #FF8C42;
+    --pod: #4A90E2;
+    --replicaset: #50C878;
+    --deployment: #9B59B6;
+    --service: #1ABC9C;
+    --ns: #E67E22;
+    --bad: #E74C3C;
+    --good: #27AE60;
+    --warning: #F39C12;
+    --bg: #06080d;
+    --panel: #11151c;
+    --panel-light: #1f2738;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --term-bg: #03050a;
+    --term-fg: #c5e478;
+    --accent: #38bdf8;
+    --glow: rgba(56, 189, 248, 0.15);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(ellipse at top, rgba(56, 189, 248, 0.05), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(155, 89, 182, 0.04), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 28px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.85), rgba(155, 89, 182, 0.85)), var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  header h1 { margin: 0; font-size: 1.4em; }
+  header p { margin: 4px 0 0; opacity: 0.85; font-size: 0.92em; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 0.7fr 1.8fr;
+    gap: 12px;
+    padding: 12px;
+    max-width: 1700px;
+    margin: 0 auto;
+  }
+
+  /* ====== Step navigator (top bar) ====== */
+  .navbar {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .nav-actions {
+    display: flex; gap: 10px; align-items: center;
+  }
+  .nav-actions select {
+    background: var(--panel-light); color: var(--text);
+    border: 1px solid #475569; border-radius: 6px;
+    padding: 6px 10px; font-size: 0.85em; font-family: inherit;
+  }
+  .nav-buttons { display: flex; gap: 6px; }
+  .nav-buttons button {
+    min-width: 38px; padding: 7px 11px;
+    font-size: 1em;
+  }
+  .step-info {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .step-info .title {
+    font-weight: 700; font-size: 1.05em; color: var(--accent);
+  }
+  .step-info .progress-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .step-counter {
+    font-family: ui-monospace, monospace; font-size: 0.85em;
+    color: var(--muted); min-width: 110px;
+  }
+  .progress-bar {
+    flex: 1; height: 6px; background: #1e293b;
+    border-radius: 3px; overflow: hidden; border: 1px solid #334155;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .kbd {
+    background: #334155; color: var(--text);
+    border: 1px solid #475569; border-bottom-width: 2px;
+    border-radius: 4px; padding: 2px 8px;
+    font-family: ui-monospace, monospace; font-size: 0.8em;
+    margin: 0 3px;
+  }
+  .nav-help {
+    font-size: 0.8em; color: var(--muted);
+    text-align: right;
+  }
+
+  /* ====== Panels ====== */
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid var(--panel-light);
+  }
+  .panel h2 {
+    margin: 0 0 8px 0;
+    font-size: 0.78em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    padding: 2px 4px;
+  }
+
+  /* ====== Terminal ====== */
+  .terminal {
+    background: var(--term-bg);
+    border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    padding: 10px 12px;
+    height: 560px;
+    overflow-y: auto;
+    line-height: 1.55;
+    border: 1px solid #1f2937;
+  }
+  .term-line { color: var(--term-fg); white-space: pre-wrap; word-break: break-all; }
+  .term-line .prompt { color: #38bdf8; font-weight: 700; }
+  .term-line .cmd { color: #fde68a; }
+  .term-line.out  { color: #94a3b8; }
+  .term-line.good { color: #4ade80; }
+  .term-line.bad  { color: #f87171; }
+  .term-line.warn { color: #fbbf24; }
+  .term-line.title { color: #a78bfa; font-weight: 700; padding-top: 6px; padding-bottom: 2px; }
+  .term-line.note  { color: #818cf8; font-style: italic; }
+  .cursor { background: var(--term-fg); color: var(--term-bg); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { background: transparent; color: var(--term-fg); } }
+
+  /* ====== Cluster diagram ====== */
+  .cluster {
+    height: 560px;
+    background: #0a0e1a;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    position: relative;
+  }
+  /* When multiple ReplicaSets exist (rollout in flight), show them side-by-side */
+  .rs-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .rs-grid.rs-cols-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rs-wrap-drained { opacity: 0.5; }
+  /* Tighter spacing inside the cluster diagram now that it has more room */
+  .b-ns { padding: 12px; }
+  .b-deployment { padding: 10px; }
+
+  .box {
+    border: 2px solid; border-radius: 8px; padding: 8px 10px;
+    background: rgba(255,255,255,0.03);
+    margin: 4px; display: inline-block; vertical-align: top;
+    transition: border-color 0.3s ease, background 0.3s ease,
+                box-shadow 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+    position: relative;
+    min-width: 110px;
+  }
+  .box .tag {
+    font-size: 0.65em; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; opacity: 0.9;
+    margin-bottom: 2px;
+  }
+  .box .name {
+    font-family: ui-monospace, monospace; font-size: 0.85em;
+    font-weight: 700; word-break: break-all;
+  }
+  .box .meta {
+    font-size: 0.7em; color: var(--muted); margin-top: 3px;
+  }
+  .box.just-added { animation: spawn-soft 0.45s ease-out; }
+  .box.changed    { animation: pulse-soft 0.7s ease-out; }
+  .box.dying      { animation: dying-soft 0.5s ease-out forwards; }
+  .box.killed     { animation: killpod-soft 0.65s ease-out; }
+
+  @keyframes spawn-soft {
+    0%   { opacity: 0; transform: scale(0.94); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+    40%      { box-shadow: 0 0 16px 2px rgba(251, 191, 36, 0.45); }
+  }
+  @keyframes dying-soft {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0.25; transform: scale(0.92); }
+  }
+  @keyframes killpod-soft {
+    0%   { background: rgba(231, 76, 60, 0.45); border-color: var(--bad); transform: scale(1); }
+    35%  { background: rgba(231, 76, 60, 0.55); transform: scale(0.95); box-shadow: 0 0 18px rgba(231, 76, 60, 0.5); }
+    100% { background: rgba(74, 144, 226, 0.1); border-color: var(--pod); transform: scale(1); }
+  }
+
+  .b-ns         { border-color: var(--ns); color: var(--ns); border-style: dashed; padding: 14px; min-width: 100%; background: rgba(230, 126, 34, 0.06); }
+  .b-deployment { border-color: var(--deployment); color: var(--deployment); background: rgba(155, 89, 182, 0.08); padding: 12px; }
+  .b-replicaset { border-color: var(--replicaset); color: var(--replicaset); background: rgba(80, 200, 120, 0.08); padding: 10px; }
+  .b-pod        { border-color: var(--pod); color: var(--pod); background: rgba(74, 144, 226, 0.1); }
+  .b-pod.ready    { box-shadow: 0 0 14px rgba(80, 200, 120, 0.45); }
+  .b-pod.notready { border-color: var(--warning); color: var(--warning); box-shadow: 0 0 14px rgba(243, 156, 18, 0.5); }
+  .b-pod.v2       { border-color: var(--replicaset); color: var(--replicaset); background: rgba(80, 200, 120, 0.14); }
+  .b-container  { border-color: var(--container); color: var(--container); background: rgba(255, 140, 66, 0.1); padding: 4px 8px; margin-top: 6px; }
+  .b-service    { border-color: var(--service); color: var(--service); background: rgba(26, 188, 156, 0.08); }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin: 8px 0; }
+  .label-h { font-size: 0.7em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 4px; }
+
+  /* Request packet */
+  .packet {
+    position: absolute;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 16px var(--accent);
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* ====== Stats ====== */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    grid-column: 1 / -1;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    transition: background 0.3s;
+  }
+  .stat .v {
+    font-size: 1.6em; font-weight: 700;
+    font-family: ui-monospace, monospace;
+    transition: color 0.3s;
+  }
+  .stat .l { font-size: 0.68em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .stat .v.good { color: var(--good); }
+  .stat .v.warn { color: var(--warning); }
+  .stat .v.bad  { color: var(--bad); }
+  .stat.changed { background: rgba(56, 189, 248, 0.15); }
+
+  /* ====== Commentary panel ====== */
+  .explain {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #0d1320, #131a2a);
+    border-radius: 14px;
+    padding: 22px 26px;
+    border: 1px solid var(--panel-light);
+    border-left: 4px solid var(--accent);
+    min-height: 120px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .explain-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .explain-left { min-width: 0; }
+  .explain-right { display: none; }
+  .explain .step-label {
+    font-size: 0.72em; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .explain h3 { margin: 0 0 10px; font-size: 1.2em; color: var(--text); font-weight: 700; }
+  .explain p  { margin: 0; color: var(--muted); font-size: 0.95em; line-height: 1.65; }
+  .explain p strong { color: var(--text); }
+  .explain p code   { background: #050810; padding: 2px 6px; border-radius: 4px; color: #fde68a; font-size: 0.92em; }
+
+  .narration-label {
+    font-size: 0.72em; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .narration-status-inline {
+    font-size: 0.9em; color: var(--muted); font-weight: 600;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(148, 163, 184, 0.1);
+    text-transform: none; letter-spacing: 0;
+  }
+  .narration-status-inline.speaking {
+    color: #4ade80; background: rgba(74, 222, 128, 0.12);
+  }
+  .narration-quote {
+    background: linear-gradient(135deg, #050810, #0b1020);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 1.08em;
+    line-height: 1.65;
+    color: var(--text);
+    font-style: italic;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.08);
+    transition: all 0.3s ease;
+  }
+  .narration-quote.active {
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3), 0 0 24px rgba(56, 189, 248, 0.12);
+  }
+  .narration-quote::before {
+    content: '"';
+    position: absolute;
+    left: 8px; top: -8px;
+    font-size: 2.4em;
+    color: var(--accent);
+    opacity: 0.3;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+  .narration-quote #narration-text {
+    display: block;
+    padding-left: 16px;
+  }
+
+  button {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  button:hover:not(:disabled) { background: #475569; border-color: #64748b; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0a0e1a; }
+  button.primary:hover:not(:disabled) { background: #7dd3fc; }
+
+  .endpoints {
+    display: inline-block; margin-left: 8px;
+    font-size: 0.72em; color: var(--muted);
+    font-family: ui-monospace, monospace;
+    cursor: pointer;
+  }
+  .endpoints .ep { color: var(--good); margin: 0 2px; }
+  .endpoints .ep.dead { color: var(--bad); text-decoration: line-through; }
+  .endpoints:hover { background: rgba(255,255,255,0.05); border-radius: 4px; }
+
+  /* ====== Clickable boxes ====== */
+  .box {
+    cursor: pointer;
+  }
+  .box:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .box:hover .tag::after {
+    content: ' 🔍';
+    opacity: 0.7;
+  }
+  .click-hint {
+    text-align: center; font-size: 0.78em;
+    color: var(--accent); margin-top: 8px;
+    padding: 6px 10px; background: rgba(56, 189, 248, 0.08);
+    border-radius: 6px; border: 1px dashed rgba(56, 189, 248, 0.3);
+  }
+
+  /* ====== Detail side panel ====== */
+  .detail-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 999;
+  }
+  .detail-backdrop.open { opacity: 1; pointer-events: auto; }
+  .detail-panel {
+    position: fixed; top: 0; right: 0;
+    width: 460px; max-width: 92vw;
+    height: 100vh;
+    background: linear-gradient(180deg, #1e293b, #0f172a);
+    border-left: 1px solid var(--panel-light);
+    padding: 28px;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    overflow-y: auto;
+  }
+  .detail-panel.open { transform: translateX(0); }
+  .detail-panel .close-btn {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--panel-light); border: 1px solid #475569;
+    color: var(--text); width: 36px; height: 36px;
+    border-radius: 50%; cursor: pointer;
+    font-size: 1.1em; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .detail-panel .close-btn:hover { background: var(--bad); border-color: var(--bad); }
+
+  .term-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    border: 2px solid;
+  }
+  .term-header .icon-circle {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8em;
+    background: rgba(255,255,255,0.1);
+  }
+  .term-header .label {
+    font-size: 0.7em; text-transform: uppercase; letter-spacing: 2px;
+    opacity: 0.8; margin-bottom: 4px;
+  }
+  .term-header .name { font-size: 1.6em; font-weight: 800; }
+  .term-header.h-namespace  { border-color: var(--ns); color: var(--ns); background: rgba(230, 126, 34, 0.1); }
+  .term-header.h-deployment { border-color: var(--deployment); color: var(--deployment); background: rgba(155, 89, 182, 0.12); }
+  .term-header.h-replicaset { border-color: var(--replicaset); color: var(--replicaset); background: rgba(80, 200, 120, 0.12); }
+  .term-header.h-pod        { border-color: var(--pod); color: var(--pod); background: rgba(74, 144, 226, 0.12); }
+  .term-header.h-container  { border-color: var(--container); color: var(--container); background: rgba(255, 140, 66, 0.12); }
+  .term-header.h-service    { border-color: var(--service); color: var(--service); background: rgba(26, 188, 156, 0.12); }
+  .term-header.h-endpoints  { border-color: var(--accent); color: var(--accent); background: rgba(56, 189, 248, 0.12); }
+  .term-header.h-labels     { border-color: #f472b6; color: #f472b6; background: rgba(244, 114, 182, 0.12); }
+
+  .term-section { margin: 18px 0; }
+  .term-section h4 {
+    font-size: 0.75em; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--accent); margin: 0 0 8px; font-weight: 700;
+  }
+  .term-section p, .term-section li {
+    color: var(--text); font-size: 0.92em; line-height: 1.65;
+    margin: 0;
+  }
+  .term-section ul { margin: 0; padding-left: 20px; }
+  .term-section ul li { margin: 6px 0; }
+  .term-section p strong { color: var(--accent); }
+  .term-section code {
+    background: #0a0e1a; padding: 2px 6px;
+    border-radius: 4px; font-size: 0.88em;
+    color: #fde68a;
+  }
+
+  .term-oneliner {
+    font-size: 1.05em; font-style: italic;
+    color: var(--text); line-height: 1.5;
+    padding: 14px; border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--accent);
+  }
+
+  .term-analogy {
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    padding: 14px; border-radius: 8px;
+    font-size: 0.92em; color: #fde68a;
+  }
+  .term-analogy::before { content: '💡 '; font-size: 1.2em; }
+
+  .term-visual {
+    background: #0a0e1a;
+    border-radius: 8px; padding: 18px;
+    text-align: center;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85em;
+    line-height: 1.7;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--muted);
+  }
+
+  .see-also { display: flex; flex-wrap: wrap; gap: 6px; }
+  .see-also .chip {
+    background: var(--panel-light);
+    border: 1px solid #475569;
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 0.82em; cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .see-also .chip:hover { background: var(--accent); color: #0a0e1a; border-color: var(--accent); }
+
+  .fact-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .fact-grid .fact {
+    background: rgba(255,255,255,0.03);
+    padding: 10px 12px; border-radius: 6px;
+    font-size: 0.84em;
+    border-left: 3px solid var(--accent);
+  }
+  .fact-grid .fact .k { color: var(--muted); font-size: 0.78em; }
+  .fact-grid .fact .v { color: var(--text); font-weight: 600; margin-top: 2px; }
+
+  /* ====== Shared slim left rail (cross-lab nav) ====== */
+  body { padding-left: 60px; }
+  .rail {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 60px; z-index: 200;
+    background: #0c1018; border-right: 1px solid #1f2738;
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .rail-brand {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: white; font-size: 0.9em;
+    text-decoration: none; margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+  .rail-link {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; color: white;
+    text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .rail-link:hover { background: rgba(255,255,255,0.08); }
+  .rail-link.active { background: rgba(56, 189, 248, 0.18); }
+  .rail-link.active::before {
+    content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px;
+    width: 3px; background: #38bdf8;
+    border-radius: 0 2px 2px 0;
+  }
+  .rail-link:hover::after {
+    content: attr(title);
+    position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+    background: #1f2738; color: #f1f5f9;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid #475569;
+    z-index: 300; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* Prevent off-screen panels (term-detail) from forcing horizontal scroll */
+  html, body { overflow-x: hidden; }
+
+  /* ====== View Transitions API — smooth cross-fades between steps ====== */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.32s;
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation: none; }
+    .box.just-added, .box.changed, .box.dying, .box.killed,
+    .b-pod, .b-replicaset, .b-deployment, .b-service { animation: none !important; transition: none !important; }
+  }
+
+  /* ====== Rail footer (voice settings trigger) ====== */
+  .rail-spacer { flex: 1; min-height: 12px; }
+  .rail-link.voice-trigger {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .rail-link.voice-trigger.narration-off { opacity: 0.4; }
+
+  /* ====== Voice settings popup (anchored to rail footer) ====== */
+  .voice-popup {
+    position: fixed;
+    bottom: 16px; left: 68px;
+    width: 280px; max-width: calc(100vw - 80px);
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 250;
+    opacity: 0; pointer-events: none;
+    transform: translateX(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .voice-popup.open {
+    opacity: 1; pointer-events: auto;
+    transform: translateX(0);
+  }
+  .voice-popup-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+    font-size: 0.85em; font-weight: 700;
+    color: var(--text);
+  }
+  .voice-popup-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 1em; cursor: pointer; padding: 0;
+    width: 22px; height: 22px;
+  }
+  .voice-popup-close:hover { color: var(--text); }
+  .voice-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0;
+    font-size: 0.85em;
+  }
+  .voice-row .lbl { color: var(--muted); }
+  .voice-row select,
+  .voice-row input[type="range"] {
+    background: #0a0e1a; color: var(--text);
+    border: 1px solid #475569; border-radius: 4px;
+    padding: 4px 8px; font-size: 0.85em;
+    max-width: 160px;
+    font-family: inherit;
+  }
+
+  /* ====== Responsive breakpoints ====== */
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .explain-grid { grid-template-columns: 1fr; gap: 16px; }
+    .terminal, .cluster { height: 420px; }
+    .navbar { grid-template-columns: auto 1fr; row-gap: 10px; }
+    .nav-help { grid-column: 1 / -1; text-align: left; }
+  }
+  @media (max-width: 720px) {
+    body { padding-left: 50px; }
+    .rail { width: 50px; }
+    .rail-brand { width: 36px; height: 36px; }
+    .rail-link { width: 38px; height: 38px; font-size: 1.1em; }
+    header { padding: 14px 18px; }
+    header h1 { font-size: 1.05em; }
+    header p { font-size: 0.78em; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .layout { padding: 10px; gap: 10px; }
+    .terminal { font-size: 11px; height: 320px; }
+    .cluster { height: 360px; }
+    .navbar { grid-template-columns: 1fr; }
+    .step-info { order: -1; }
+    .voice-controls { flex-wrap: wrap; }
+    .voice-controls select { max-width: 130px; }
+    .rs-grid.rs-cols-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ====== Voice / narration controls ====== */
+  .voice-controls {
+    display: flex; gap: 8px; align-items: center;
+    font-size: 0.82em; color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .voice-controls select, .voice-controls input[type="range"] {
+    background: var(--panel-light); color: var(--text);
+    border: 1px solid #475569; border-radius: 4px;
+    padding: 3px 6px; font-size: 0.92em;
+  }
+  .voice-controls input[type="range"] { padding: 0; width: 90px; }
+  .voice-controls label { color: var(--muted); font-size: 0.85em; }
+  .voice-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.78em; color: var(--accent);
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(56, 189, 248, 0.1);
+    min-width: 90px; justify-content: center;
+  }
+  .voice-status.idle  { color: var(--muted); background: transparent; }
+  .voice-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse-dot 1s infinite;
+  }
+  .voice-status.idle .dot { background: var(--muted); animation: none; }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+  button.mute-btn { padding: 8px 12px; min-width: 42px; }
+  button.mute-btn.muted { background: rgba(231, 76, 60, 0.2); border-color: var(--bad); }
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="animated-lab.html" class="rail-link active" title="Lab 1: Core Concepts">📚</a>
+  <a href="animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="learn-visually.html" class="rail-link" title="Visual Reference">📘</a>
+  <div class="rail-spacer"></div>
+  <button class="rail-link voice-trigger" id="voice-trigger" title="Voice settings">🎙</button>
+</aside>
+
+<div class="voice-popup" id="voice-popup">
+  <div class="voice-popup-header">
+    <span>🎙 Narration</span>
+    <button class="voice-popup-close" id="voice-popup-close" aria-label="Close">✕</button>
+  </div>
+  <div class="voice-row">
+    <span class="lbl">On / off</span>
+    <button id="btn-mute" class="mute-btn" title="Toggle narration (M)">🔊</button>
+  </div>
+  <div class="voice-row">
+    <span class="lbl">Voice</span>
+    <select id="voice-select"></select>
+  </div>
+  <div class="voice-row">
+    <span class="lbl">Speed</span>
+    <input id="rate-range" type="range" min="0.7" max="1.4" step="0.05" value="0.95">
+  </div>
+  <div class="voice-row" style="border-top:1px solid var(--panel-light); padding-top:10px; font-size:0.78em; color:var(--muted);">
+    <span style="line-height:1.4;">Tip: ⭐ Premium voices download via Settings → Accessibility → Spoken Content</span>
+  </div>
+</div>
+
+<header>
+  <h1>🎬 Lab 1 — Kubernetes core concepts, animated</h1>
+</header>
+
+<div class="layout">
+
+  <!-- ===== Step navigator ===== -->
+  <div class="navbar">
+    <div class="step-info">
+      <div class="title" id="step-title">Loading…</div>
+      <div class="progress-row">
+        <div class="step-counter" id="step-counter">0 / 0</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <select id="speed-select" title="Auto-play speed">
+        <option value="6000">Very slow (6s)</option>
+        <option value="4000" selected>Slow (4s)</option>
+        <option value="2500">Medium (2.5s)</option>
+        <option value="1500">Fast (1.5s)</option>
+      </select>
+      <div class="nav-buttons">
+        <button id="btn-prev" title="Previous step (←)">◀</button>
+        <button id="btn-next" class="primary" title="Next step (→)">▶</button>
+        <button id="btn-play" title="Play/pause (Space)">⏯</button>
+        <button id="btn-reset" title="Restart (Home)">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Stats (top — at-a-glance counters) ===== -->
+  <div class="stats">
+    <div class="stat"><div class="v" id="s-deps">0</div><div class="l">Deployments</div></div>
+    <div class="stat"><div class="v" id="s-rs">0</div><div class="l">ReplicaSets</div></div>
+    <div class="stat"><div class="v good" id="s-pods">0</div><div class="l">Pods Ready</div></div>
+    <div class="stat"><div class="v" id="s-svcs">0</div><div class="l">Services</div></div>
+    <div class="stat"><div class="v warn" id="s-restarts">0</div><div class="l">Total Restarts</div></div>
+  </div>
+
+  <!-- ===== Animations (middle — terminal + cluster) ===== -->
+  <div class="panel">
+    <h2>💻 Terminal</h2>
+    <div id="terminal" class="terminal"></div>
+  </div>
+
+  <div class="panel">
+    <h2>🌐 Live cluster state</h2>
+    <div id="cluster" class="cluster"></div>
+  </div>
+
+  <!-- ===== Commentary (bottom — read what's being narrated) ===== -->
+  <div class="explain">
+    <div class="explain-grid">
+      <div class="explain-left">
+        <div class="step-label" id="explain-label">STEP 0</div>
+        <h3 id="explain-title">Welcome</h3>
+        <p id="explain-text">Press <span class="kbd">→</span> or click <strong>▶</strong> to begin the walkthrough.</p>
+        <div class="click-hint">💡 Click any colored box in the cluster diagram above to learn what it is.</div>
+      </div>
+      <div class="explain-right">
+        <div class="narration-label">🎙 Narration <span id="narration-status-inline" class="narration-status-inline">idle</span></div>
+        <div class="narration-quote" id="narration-quote">
+          <span id="narration-text">Press the play button or arrow key to start. Each step has spoken commentary that explains what's happening on screen.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Term detail side panel ===== -->
+<div id="detail-backdrop" class="detail-backdrop"></div>
+<aside id="detail-panel" class="detail-panel" role="dialog" aria-modal="true">
+  <button class="close-btn" id="detail-close" title="Close (Esc)">✕</button>
+  <div id="detail-content"></div>
+</aside>
+
+<script>
+// ============================================================================
+//  STEP DEFINITIONS — the entire lab as a list of small, navigable steps
+// ============================================================================
+//   Each step describes: mutation to apply, terminal lines to add, explanation.
+// ============================================================================
+
+function initialState() {
+  return {
+    namespace: null,
+    deployment: null,
+    replicasets: [],
+    pods: [],
+    service: null,
+    podCounter: 0,
+    sendPacket: null,  // { fromKind, toPodId }
+    highlight: null,   // { kind, id } for "just changed" indicator
+  };
+}
+
+// Helpers to keep mutations terse
+const cloneState = (s) => JSON.parse(JSON.stringify(s));
+const podHash = (rsHash, n) => `pod${rsHash}${String(n).padStart(2, '0').slice(-3)}`;
+
+const steps = [
+  // ============ INTRO ============
+  {
+    title: "Empty cluster",
+    explain: {
+      h: "An empty Kubernetes cluster",
+      p: "Nothing's running yet. The cluster has internal namespaces (<code>default</code>, <code>kube-system</code>, etc.) but no app. We'll build one from scratch."
+    },
+    term: [{ k: 'note', t: '# Empty cluster — about to build the lab from scratch' }],
+    apply: (s) => s,
+  },
+
+  // ============ NAMESPACE ============
+  {
+    title: "Create namespace",
+    explain: {
+      h: "Namespace = logical folder",
+      p: "A <strong>namespace</strong> is a folder inside the cluster. Everything we build next lives inside <code>workshop</code>. Deleting the namespace later will cascade-delete every pod, deployment, and service inside it — a clean way to tear down experiments."
+    },
+    term: [
+      { k: 'title', t: '═══ Create namespace ═══' },
+      { k: 'cmd',  t: 'kubectl create namespace workshop' },
+      { k: 'good', t: 'namespace/workshop created' },
+    ],
+    apply: (s) => { s.namespace = 'workshop'; return s; },
+  },
+
+  // ============ DEPLOYMENT ============
+  {
+    title: "Write deployment YAML",
+    explain: {
+      h: "Declarative configuration",
+      p: "Before sending anything to Kubernetes, we describe the <strong>desired state</strong> in YAML. Note the key fields: <code>replicas: 1</code> (how many pods), <code>selector</code> (which pods this owns), and <code>template</code> (the blueprint for new pods)."
+    },
+    term: [
+      { k: 'note', t: '# proddetail-deployment.yaml' },
+      { k: 'out',  t: 'apiVersion: apps/v1' },
+      { k: 'out',  t: 'kind: Deployment' },
+      { k: 'out',  t: 'metadata:' },
+      { k: 'out',  t: '  name: proddetail' },
+      { k: 'out',  t: '  namespace: workshop' },
+      { k: 'out',  t: 'spec:' },
+      { k: 'out',  t: '  replicas: 1' },
+      { k: 'out',  t: '  selector:' },
+      { k: 'out',  t: '    matchLabels: { app: proddetail }' },
+      { k: 'out',  t: '  template:' },
+      { k: 'out',  t: '    metadata: { labels: { app: proddetail } }' },
+      { k: 'out',  t: '    spec:' },
+      { k: 'out',  t: '      containers:' },
+      { k: 'out',  t: '        - name: proddetail' },
+      { k: 'out',  t: '          image: python:3.12-alpine' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Apply deployment to API server",
+    explain: {
+      h: "kubectl apply → API server → etcd",
+      p: "The CLI converts the YAML to JSON and PUTs it to the API server, which validates and writes it to <code>etcd</code> (the cluster's database). No pods exist yet — only the <em>intent</em> has been recorded."
+    },
+    term: [
+      { k: 'title', t: '═══ Apply Deployment ═══' },
+      { k: 'cmd',   t: 'kubectl apply -f proddetail-deployment.yaml -n workshop' },
+      { k: 'good',  t: 'deployment.apps/proddetail created' },
+    ],
+    apply: (s) => {
+      s.deployment = { name: 'proddetail', replicas: 1, version: 1 };
+      s.highlight = { kind: 'deployment' };
+      return s;
+    },
+  },
+  {
+    title: "Deployment controller creates ReplicaSet",
+    explain: {
+      h: "Controllers reconcile state",
+      p: "The <strong>Deployment controller</strong> notices the new Deployment object. Its job: create a <strong>ReplicaSet</strong> matching the pod template. The ReplicaSet's job in turn is to keep exactly N pods of that template alive."
+    },
+    term: [
+      { k: 'out', t: '[deployment-controller] new Deployment detected, creating ReplicaSet...' },
+      { k: 'out', t: 'replicaset.apps/proddetail-784d8f4b99 created (desired=1, current=0)' },
+    ],
+    apply: (s) => {
+      s.replicasets.push({ id: 'proddetail-784d8f4b99', hash: '784d8f4b99', version: 1, desired: 1 });
+      s.highlight = { kind: 'replicaset', id: 'proddetail-784d8f4b99' };
+      return s;
+    },
+  },
+  {
+    title: "ReplicaSet creates Pod object",
+    explain: {
+      h: "Pod object created — but not running yet",
+      p: "The ReplicaSet controller sees desired=1 / current=0 and creates a Pod object. The pod exists in etcd but isn't running on any machine. The <strong>scheduler</strong> will pick a node next."
+    },
+    term: [
+      { k: 'out', t: '[replicaset-controller] desired=1, current=0 → creating Pod' },
+      { k: 'out', t: 'pod/proddetail-784d8f4b99-pod00 created (Status: Pending)' },
+    ],
+    apply: (s) => {
+      const podId = podHash('784d8f4b99', s.podCounter++);
+      s.pods.push({ id: 'proddetail-784d8f4b99-' + podId, rsId: 'proddetail-784d8f4b99', version: 1, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-784d8f4b99-' + podId };
+      return s;
+    },
+  },
+  {
+    title: "Scheduler assigns to node",
+    explain: {
+      h: "Scheduler picks a worker node",
+      p: "The <strong>scheduler</strong> looks at every node's free capacity, taints, affinities, etc., and assigns the pod to a node. The kubelet on that node now becomes responsible for running it."
+    },
+    term: [
+      { k: 'out', t: '[scheduler] pod scheduled to node: minikube' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].phase = 'Scheduled'; s.highlight = { kind: 'pod', id: s.pods[s.pods.length - 1].id }; return s; },
+  },
+  {
+    title: "kubelet pulls the image",
+    explain: {
+      h: "Container runtime fetches the image",
+      p: "The kubelet asks the container runtime (containerd) to pull <code>python:3.12-alpine</code>. First time can take seconds; cached pulls are instant. Once present locally, the container can start."
+    },
+    term: [
+      { k: 'out', t: '[kubelet] Pulling python:3.12-alpine ...' },
+      { k: 'out', t: '[kubelet] Successfully pulled python:3.12-alpine (53MB)' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].phase = 'ImagePulled'; return s; },
+  },
+  {
+    title: "Container starts",
+    explain: {
+      h: "Process running, port open",
+      p: "kubelet creates and starts the container. The Python HTTP server begins listening on port 3000. The pod's phase becomes <code>Running</code>, but it's not yet <em>Ready</em> — the readiness probe runs first."
+    },
+    term: [
+      { k: 'out', t: '[kubelet] Created container proddetail' },
+      { k: 'out', t: '[kubelet] Started container — listening on :3000' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].phase = 'Running'; return s; },
+  },
+  {
+    title: "Readiness probe passes → Ready",
+    explain: {
+      h: "Pod is now Ready",
+      p: "The readiness probe checks the container is healthy. Once it passes, the pod is marked <strong>Ready</strong> — meaning Services (when we add them) will route traffic here. Look at the green glow on the pod."
+    },
+    term: [
+      { k: 'out', t: '[kubelet] Readiness probe passed ✓' },
+      { k: 'good', t: 'pod/proddetail-784d8f4b99-pod00 Ready (1/1)' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].ready = true; s.highlight = { kind: 'pod', id: s.pods[s.pods.length - 1].id }; return s; },
+  },
+
+  // ============ SERVICE ============
+  {
+    title: "Apply Service",
+    explain: {
+      h: "Service = stable virtual IP + DNS",
+      p: "Pod IPs change constantly (every restart!). A <strong>Service</strong> gives you a permanent name (<code>proddetail.workshop.svc.cluster.local</code>) and load-balances across all pods matching its <code>selector</code>."
+    },
+    term: [
+      { k: 'title', t: '═══ Apply Service ═══' },
+      { k: 'cmd',   t: 'kubectl apply -f proddetail-service.yaml -n workshop' },
+      { k: 'good',  t: 'service/proddetail created' },
+    ],
+    apply: (s) => {
+      s.service = { name: 'proddetail', type: 'ClusterIP', port: 3000, selector: 'proddetail' };
+      s.highlight = { kind: 'service' };
+      return s;
+    },
+  },
+  {
+    title: "Service selector matches Pod labels",
+    explain: {
+      h: "Labels + selector = wiring",
+      p: "Service has <code>selector: app=proddetail</code>. Pod has <code>label: app=proddetail</code>. <strong>They match</strong> — so the pod's IP is automatically added to the Service's endpoints. If labels didn't match, endpoints would be empty and no traffic would flow."
+    },
+    term: [
+      { k: 'out',  t: '[endpoints-controller] matching pods for service/proddetail:' },
+      { k: 'out',  t: '  → pod proddetail-784d8f4b99-pod00 (10.244.0.3)' },
+      { k: 'good', t: 'endpoints/proddetail updated: [10.244.0.3:3000]' },
+    ],
+    apply: (s) => { s.highlight = { kind: 'service' }; return s; },
+  },
+
+  // ============ SCALE ============
+  {
+    title: "Scale to 3 replicas — kubectl",
+    explain: {
+      h: "Increase capacity",
+      p: "We're going to scale the deployment from 1 → 3 replicas. The ReplicaSet will create 2 more pods so 3 total are running. This isn't a rolling update — just adding pods of the same version."
+    },
+    term: [
+      { k: 'title', t: '═══ Scale to 3 ═══' },
+      { k: 'cmd',   t: 'kubectl scale deployment proddetail --replicas=3 -n workshop' },
+      { k: 'good',  t: 'deployment.apps/proddetail scaled' },
+    ],
+    apply: (s) => { s.deployment.replicas = 3; s.replicasets[0].desired = 3; s.highlight = { kind: 'deployment' }; return s; },
+  },
+  {
+    title: "ReplicaSet spawns Pod #2",
+    explain: {
+      h: "Reconciliation in action",
+      p: "ReplicaSet now wants 3 pods but only has 1. The controller creates Pod #2. Same template, new random suffix. It goes through the same lifecycle: Pending → Scheduled → ImagePulled → Running → Ready."
+    },
+    term: [
+      { k: 'out', t: '[replicaset-controller] desired=3, current=1 → creating Pod' },
+      { k: 'out', t: 'pod/proddetail-784d8f4b99-pod01 starting...' },
+    ],
+    apply: (s) => {
+      const id = podHash('784d8f4b99', s.podCounter++);
+      s.pods.push({ id: 'proddetail-784d8f4b99-' + id, rsId: 'proddetail-784d8f4b99', version: 1, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-784d8f4b99-' + id };
+      return s;
+    },
+  },
+  {
+    title: "Pod #2 becomes Ready",
+    explain: {
+      h: "Second pod joins endpoints",
+      p: "Pod #2 passes readiness. Service's endpoints list now contains <strong>2 pod IPs</strong>. Traffic load-balances across both."
+    },
+    term: [
+      { k: 'good', t: 'pod/proddetail-784d8f4b99-pod01 Ready (1/1)' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].ready = true; s.pods[s.pods.length - 1].phase = 'Running'; s.highlight = { kind: 'pod', id: s.pods[s.pods.length - 1].id }; return s; },
+  },
+  {
+    title: "ReplicaSet spawns Pod #3",
+    explain: {
+      h: "Third pod starting",
+      p: "Same process for pod #3. The ReplicaSet keeps creating pods until current = desired."
+    },
+    term: [
+      { k: 'out', t: '[replicaset-controller] desired=3, current=2 → creating Pod' },
+      { k: 'out', t: 'pod/proddetail-784d8f4b99-pod02 starting...' },
+    ],
+    apply: (s) => {
+      const id = podHash('784d8f4b99', s.podCounter++);
+      s.pods.push({ id: 'proddetail-784d8f4b99-' + id, rsId: 'proddetail-784d8f4b99', version: 1, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-784d8f4b99-' + id };
+      return s;
+    },
+  },
+  {
+    title: "Pod #3 Ready — 3/3",
+    explain: {
+      h: "Desired state achieved",
+      p: "All 3 pods Ready. The Service load-balances across all of them. Look at the stats panel — Pods Ready = 3."
+    },
+    term: [
+      { k: 'good', t: 'pod/proddetail-784d8f4b99-pod02 Ready (1/1)' },
+      { k: 'good', t: 'deployment proddetail: 3/3 replicas Ready' },
+    ],
+    apply: (s) => { s.pods[s.pods.length - 1].ready = true; s.pods[s.pods.length - 1].phase = 'Running'; s.highlight = { kind: 'pod', id: s.pods[s.pods.length - 1].id }; return s; },
+  },
+
+  // ============ TRAFFIC ============
+  {
+    title: "Send traffic — request 1",
+    explain: {
+      h: "Round-robin load balancing",
+      p: "We curl the Service. Kubernetes' built-in load balancer (kube-proxy via iptables/IPVS) sends the request to one of the 3 ready endpoints. Watch the cyan packet fly to pod #1."
+    },
+    term: [
+      { k: 'title', t: '═══ Send traffic ═══' },
+      { k: 'cmd',   t: 'curl http://proddetail.workshop:3000' },
+      { k: 'good',  t: '→ pod #1 responded: "hello from proddetail v1"' },
+    ],
+    apply: (s) => { s.sendPacket = { toPodIndex: 0 }; return s; },
+  },
+  {
+    title: "Request 2 → pod #2",
+    explain: {
+      h: "Next request, next pod",
+      p: "Same Service, next request goes to a different pod. The Service distributes requests across all ready endpoints (default: round-robin)."
+    },
+    term: [{ k: 'good', t: '→ pod #2 responded: "hello from proddetail v1"' }],
+    apply: (s) => { s.sendPacket = { toPodIndex: 1 }; return s; },
+  },
+  {
+    title: "Request 3 → pod #3",
+    explain: {
+      h: "All three pods get hits",
+      p: "Third request goes to pod #3. After 3 requests, each pod has served exactly 1 — that's how round-robin works at small scale."
+    },
+    term: [{ k: 'good', t: '→ pod #3 responded: "hello from proddetail v1"' }],
+    apply: (s) => { s.sendPacket = { toPodIndex: 2 }; return s; },
+  },
+
+  // ============ ROLLING UPDATE ============
+  {
+    title: "Apply v2 — rolling update begins",
+    explain: {
+      h: "Update strategy: RollingUpdate",
+      p: "We change the image to v2 and apply. Because <code>strategy: RollingUpdate</code> with <code>maxSurge: 1, maxUnavailable: 0</code>, Kubernetes will: (1) add up to 1 extra pod, (2) never let Ready pods drop below 3. New ReplicaSet is created — old one stays at desired=3 for now."
+    },
+    term: [
+      { k: 'title', t: '═══ Rolling update v1 → v2 ═══' },
+      { k: 'cmd',   t: 'kubectl apply -f proddetail-v2.yaml -n workshop' },
+      { k: 'good',  t: 'deployment.apps/proddetail configured' },
+      { k: 'warn',  t: 'Strategy: RollingUpdate · maxSurge=1 · maxUnavailable=0' },
+      { k: 'out',   t: '[deployment-controller] new ReplicaSet created: proddetail-74f9b4b4b9 (desired=1)' },
+    ],
+    apply: (s) => {
+      s.replicasets.push({ id: 'proddetail-74f9b4b4b9', hash: '74f9b4b4b9', version: 2, desired: 1 });
+      s.deployment.version = 2;
+      s.highlight = { kind: 'replicaset', id: 'proddetail-74f9b4b4b9' };
+      return s;
+    },
+  },
+  {
+    title: "New v2 pod #1 spawning",
+    explain: {
+      h: "Surge: 4th pod is starting",
+      p: "Total pods is now 4 (3 v1 + 1 v2 starting). This is the <code>maxSurge</code> in action — we can briefly exceed the desired count to make room for the new version. Old pods keep serving traffic — Service Endpoints still has 3 v1 pods."
+    },
+    term: [
+      { k: 'out', t: '[replicaset-controller] new RS desired=1 → creating Pod (v2)' },
+      { k: 'out', t: 'pod/proddetail-74f9b4b4b9-pod00 (v2) Pending...' },
+    ],
+    apply: (s) => {
+      const id = podHash('74f9b4b4b9', s.podCounter++);
+      s.pods.push({ id: 'proddetail-74f9b4b4b9-' + id, rsId: 'proddetail-74f9b4b4b9', version: 2, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-74f9b4b4b9-' + id };
+      return s;
+    },
+  },
+  {
+    title: "New v2 pod Ready",
+    explain: {
+      h: "v2 joins endpoints",
+      p: "v2 passes readiness → joins Service endpoints. Endpoints now has 4 pods. The next thing that happens: old ReplicaSet scales down by 1."
+    },
+    term: [
+      { k: 'good', t: 'pod/proddetail-74f9b4b4b9-pod00 (v2) Ready ✓' },
+      { k: 'good', t: 'endpoints/proddetail now: [v1, v1, v1, v2]' },
+    ],
+    apply: (s) => { const p = s.pods[s.pods.length - 1]; p.ready = true; p.phase = 'Running'; s.highlight = { kind: 'pod', id: p.id }; return s; },
+  },
+  {
+    title: "Terminate old v1 pod #1",
+    explain: {
+      h: "Drain & terminate",
+      p: "Deployment controller signals the old ReplicaSet to scale to 2. One v1 pod gets a graceful shutdown signal (SIGTERM). It's removed from Service endpoints immediately, then the container has its termination grace period (default 30s) to clean up."
+    },
+    term: [
+      { k: 'warn', t: 'terminating pod/proddetail-784d8f4b99-pod00 (v1)' },
+      { k: 'out',  t: '  → removed from endpoints' },
+      { k: 'out',  t: '  → SIGTERM sent, grace period 30s' },
+    ],
+    apply: (s) => {
+      const oldPod = s.pods.find(p => p.rsId === 'proddetail-784d8f4b99' && p.ready);
+      if (oldPod) { oldPod.dying = true; oldPod.ready = false; s.highlight = { kind: 'pod', id: oldPod.id }; }
+      s.replicasets[0].desired = 2;
+      return s;
+    },
+  },
+  {
+    title: "Old v1 pod #1 gone",
+    explain: {
+      h: "Pod removed",
+      p: "After grace period, the pod is fully deleted. We're back to 3 Ready pods (2 v1 + 1 v2). The process now repeats: spawn another v2, terminate another v1."
+    },
+    term: [{ k: 'out', t: 'pod/proddetail-784d8f4b99-pod00 deleted' }],
+    apply: (s) => {
+      const idx = s.pods.findIndex(p => p.dying);
+      if (idx >= 0) s.pods.splice(idx, 1);
+      return s;
+    },
+  },
+  {
+    title: "v2 pod #2 spawning",
+    explain: {
+      h: "Surge again — same algorithm",
+      p: "Same logic: spawn another v2 pod. Old ReplicaSet still at desired=2."
+    },
+    term: [{ k: 'out', t: 'pod/proddetail-74f9b4b4b9-pod01 (v2) starting...' }],
+    apply: (s) => {
+      const newRS = s.replicasets[1]; newRS.desired = 2;
+      const id = podHash('74f9b4b4b9', s.podCounter++);
+      s.pods.push({ id: 'proddetail-74f9b4b4b9-' + id, rsId: 'proddetail-74f9b4b4b9', version: 2, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-74f9b4b4b9-' + id };
+      return s;
+    },
+  },
+  {
+    title: "v2 pod #2 Ready",
+    explain: {
+      h: "Endpoints: 2 v1 + 2 v2",
+      p: "Half the traffic now goes to v2. Users seamlessly experience a mix while the rollout finishes. <strong>Zero downtime.</strong>"
+    },
+    term: [{ k: 'good', t: 'pod/proddetail-74f9b4b4b9-pod01 (v2) Ready ✓' }],
+    apply: (s) => { const p = s.pods[s.pods.length - 1]; p.ready = true; p.phase = 'Running'; s.highlight = { kind: 'pod', id: p.id }; return s; },
+  },
+  {
+    title: "Terminate v1 pod #2",
+    explain: {
+      h: "Drain next old pod",
+      p: "Another v1 leaves the rotation. Endpoints: 1 v1 + 2 v2."
+    },
+    term: [{ k: 'warn', t: 'terminating pod/proddetail-784d8f4b99-pod01 (v1)' }],
+    apply: (s) => {
+      const oldPod = s.pods.find(p => p.rsId === 'proddetail-784d8f4b99' && p.ready);
+      if (oldPod) { oldPod.dying = true; oldPod.ready = false; s.highlight = { kind: 'pod', id: oldPod.id }; }
+      s.replicasets[0].desired = 1;
+      return s;
+    },
+  },
+  {
+    title: "v2 pod #3 spawning",
+    explain: {
+      h: "Last surge",
+      p: "Final v2 pod starts. Once it's Ready, the last v1 will be terminated and the rollout completes."
+    },
+    term: [{ k: 'out', t: 'pod/proddetail-74f9b4b4b9-pod02 (v2) starting...' }],
+    apply: (s) => {
+      const idx = s.pods.findIndex(p => p.dying);
+      if (idx >= 0) s.pods.splice(idx, 1);
+      const newRS = s.replicasets[1]; newRS.desired = 3;
+      const id = podHash('74f9b4b4b9', s.podCounter++);
+      s.pods.push({ id: 'proddetail-74f9b4b4b9-' + id, rsId: 'proddetail-74f9b4b4b9', version: 2, phase: 'Pending', ready: false, restarts: 0 });
+      s.highlight = { kind: 'pod', id: 'proddetail-74f9b4b4b9-' + id };
+      return s;
+    },
+  },
+  {
+    title: "v2 pod #3 Ready — terminate last v1",
+    explain: {
+      h: "Almost there",
+      p: "3rd v2 pod ready. Endpoints: 1 v1 + 3 v2. Now the very last v1 gets terminated."
+    },
+    term: [
+      { k: 'good', t: 'pod/proddetail-74f9b4b4b9-pod02 (v2) Ready ✓' },
+      { k: 'warn', t: 'terminating final v1 pod...' },
+    ],
+    apply: (s) => {
+      const p = s.pods[s.pods.length - 1]; p.ready = true; p.phase = 'Running';
+      const oldPod = s.pods.find(pp => pp.rsId === 'proddetail-784d8f4b99' && pp.ready);
+      if (oldPod) { oldPod.dying = true; oldPod.ready = false; s.highlight = { kind: 'pod', id: oldPod.id }; }
+      s.replicasets[0].desired = 0;
+      return s;
+    },
+  },
+  {
+    title: "Rollout complete",
+    explain: {
+      h: "All v2, old RS preserved",
+      p: "3/3 v2 pods Ready. Old ReplicaSet still exists with desired=0 — kept for rollback. Notice the deploy never dropped below 3 Ready pods at any point. <strong>Zero downtime achieved.</strong>"
+    },
+    term: [
+      { k: 'good', t: 'deployment "proddetail" successfully rolled out (3/3 v2)' },
+      { k: 'note', t: 'old ReplicaSet kept at desired=0 — preserved for rollback' },
+    ],
+    apply: (s) => {
+      const idx = s.pods.findIndex(p => p.dying);
+      if (idx >= 0) s.pods.splice(idx, 1);
+      return s;
+    },
+  },
+
+  // ============ READINESS PROBE FAIL ============
+  {
+    title: "Break a readiness probe",
+    explain: {
+      h: "Simulate a temporary outage",
+      p: "We <code>kubectl exec</code> into a pod and delete the file the readiness probe checks for. The pod is still running — but it'll soon be marked NotReady, and the Service will pull it from endpoints."
+    },
+    term: [
+      { k: 'title', t: '═══ Break readiness probe ═══' },
+      { k: 'cmd',   t: 'kubectl exec proddetail-74f9b4b4b9-pod00 -- rm /tmp/ready' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Probe fails 3× → pod NotReady",
+    explain: {
+      h: "Removed from endpoints",
+      p: "After 3 consecutive failures, kubelet flips the pod to <strong>NotReady</strong>. <strong>Crucially: it's not killed.</strong> The Service updates endpoints — that pod no longer gets traffic. Look at the pod box: orange border, no green glow."
+    },
+    term: [
+      { k: 'bad',  t: 'Readiness probe failed 1× · cat: /tmp/ready: not found' },
+      { k: 'bad',  t: 'Readiness probe failed 2×' },
+      { k: 'bad',  t: 'Readiness probe failed 3× → marking NotReady' },
+      { k: 'warn', t: 'endpoints/proddetail updated: pod-pod05 REMOVED' },
+    ],
+    apply: (s) => {
+      const v2Pod = s.pods.find(p => p.version === 2 && p.ready);
+      if (v2Pod) { v2Pod.ready = false; v2Pod.notready = true; s.highlight = { kind: 'pod', id: v2Pod.id }; }
+      return s;
+    },
+  },
+  {
+    title: "Recover readiness",
+    explain: {
+      h: "touch /tmp/ready",
+      p: "Recreate the file. Probe passes again. Pod is re-added to endpoints. <strong>No restart, no downtime for other pods.</strong> Notice the RESTARTS counter is still 0."
+    },
+    term: [
+      { k: 'cmd',  t: 'kubectl exec proddetail-74f9b4b4b9-pod00 -- touch /tmp/ready' },
+      { k: 'good', t: 'Readiness probe ✓ → pod added back to endpoints' },
+    ],
+    apply: (s) => {
+      const notReady = s.pods.find(p => p.notready);
+      if (notReady) { notReady.ready = true; notReady.notready = false; s.highlight = { kind: 'pod', id: notReady.id }; }
+      return s;
+    },
+  },
+
+  // ============ LIVENESS PROBE FAIL ============
+  {
+    title: "Break a liveness probe",
+    explain: {
+      h: "This one's harsher",
+      p: "Liveness probe failure means \"the pod is stuck — kill it.\" We delete the file the liveness probe checks. After 3 failures, kubelet sends SIGKILL to the container. <strong>Same pod name, but the container inside gets recreated.</strong>"
+    },
+    term: [
+      { k: 'title', t: '═══ Break liveness probe ═══' },
+      { k: 'cmd',   t: 'kubectl exec proddetail-74f9b4b4b9-pod01 -- rm /tmp/healthy' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Probe fails → kubelet kills container",
+    explain: {
+      h: "SIGKILL, exit code 137",
+      p: "After 3 consecutive liveness failures, kubelet sends SIGKILL. Container exits with code 137 (= 128 + signal 9). The pod is briefly NotReady while the container restarts. Watch the red kill animation."
+    },
+    term: [
+      { k: 'bad', t: 'Liveness probe failed 1× · cat: /tmp/healthy: not found' },
+      { k: 'bad', t: 'Liveness probe failed 2×' },
+      { k: 'bad', t: 'Liveness probe failed 3× → killing container' },
+      { k: 'bad', t: 'Container killed (exit code 137 · SIGKILL)' },
+    ],
+    apply: (s) => {
+      const target = s.pods.filter(p => p.version === 2)[1];
+      if (target) { target.ready = false; target.killing = true; s.highlight = { kind: 'pod', id: target.id }; }
+      return s;
+    },
+  },
+  {
+    title: "Container restarted",
+    explain: {
+      h: "Same pod, RESTARTS = 1",
+      p: "Container restarted in place. The pod's name is unchanged — only the container inside is new. <strong>RESTARTS counter is now 1.</strong> Compare: readiness fail → no restart. Liveness fail → restart. This is the core difference."
+    },
+    term: [
+      { k: 'warn', t: 'restarting container...' },
+      { k: 'good', t: 'pod/proddetail-74f9b4b4b9-pod01 Ready ✓ (RESTARTS=1)' },
+    ],
+    apply: (s) => {
+      const target = s.pods.find(p => p.killing);
+      if (target) { target.killing = false; target.ready = true; target.restarts = 1; s.highlight = { kind: 'pod', id: target.id }; }
+      return s;
+    },
+  },
+
+  // ============ END ============
+  {
+    title: "Demo complete",
+    explain: {
+      h: "You saw every primitive",
+      p: "Namespace · Deployment · ReplicaSet · Pod · Container · Service · Labels/Selectors · Endpoints · Rolling Update · Readiness · Liveness. Use <span class='kbd'>←</span> to step back through anything you want to rewatch."
+    },
+    term: [
+      { k: 'title', t: '═══ Done ═══' },
+      { k: 'good',  t: '✨ You\'ve seen every primitive Lab 1 covers.' },
+      { k: 'note',  t: '# Step backward with ← to rewatch anything.' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  PLAYER
+// ============================================================================
+const $ = (id) => document.getElementById(id);
+let cursor = -1;        // current step index (-1 = pre-start)
+let playing = false;
+let playTimer = null;
+
+function computeStateAt(idx) {
+  let s = initialState();
+  for (let i = 0; i <= idx && i < steps.length; i++) {
+    s.highlight = null;
+    s.sendPacket = null;
+    s = steps[i].apply(s);
+  }
+  return s;
+}
+
+function computeTermAt(idx) {
+  const lines = [];
+  for (let i = 0; i <= idx && i < steps.length; i++) {
+    if (steps[i].term) lines.push(...steps[i].term);
+  }
+  return lines;
+}
+
+// ============================================================================
+//  RENDER
+// ============================================================================
+function renderTerminal(lines, typewriterLast = false) {
+  const term = $('terminal');
+  // Build all lines except possibly the last for typewriter
+  const renderUpTo = typewriterLast ? lines.length - 1 : lines.length;
+  let html = '';
+  for (let i = 0; i < renderUpTo; i++) {
+    const l = lines[i];
+    if (l.k === 'cmd') {
+      html += `<div class="term-line"><span class="prompt">$</span> <span class="cmd">${escape(l.t)}</span></div>`;
+    } else {
+      html += `<div class="term-line ${l.k}">${escape(l.t)}</div>`;
+    }
+  }
+  term.innerHTML = html;
+  if (typewriterLast && lines.length > 0) {
+    typeLine(lines[lines.length - 1]);
+  } else {
+    term.scrollTop = term.scrollHeight;
+  }
+}
+
+async function typeLine(line) {
+  const term = $('terminal');
+  const el = document.createElement('div');
+  el.className = 'term-line ' + (line.k || '');
+  if (line.k === 'cmd') {
+    el.innerHTML = '<span class="prompt">$</span> <span class="cmd"></span><span class="cursor">▌</span>';
+  } else {
+    el.innerHTML = '<span class="typed"></span><span class="cursor">▌</span>';
+  }
+  term.appendChild(el);
+  term.scrollTop = term.scrollHeight;
+  const target = el.querySelector(line.k === 'cmd' ? '.cmd' : '.typed');
+  const cur = el.querySelector('.cursor');
+  for (const c of line.t) {
+    target.textContent += c;
+    term.scrollTop = term.scrollHeight;
+    await sleep(18);
+  }
+  cur.remove();
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function escape(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function renderCluster(state, prevState) {
+  const cluster = $('cluster');
+
+  if (!state.namespace) {
+    cluster.innerHTML = `<div style="color:var(--text); padding:40px 24px; text-align:center;">
+      <div style="font-size:2.4em; margin-bottom:8px;">🎬</div>
+      <h3 style="margin:0 0 6px; font-size:1.15em; color:var(--text);">Welcome to Lab 1</h3>
+      <p style="font-size:0.9em; color:var(--muted); margin:0 0 24px; line-height:1.55;">
+        38 animated steps — from empty cluster to rolling update, with narration.
+      </p>
+      <div style="background:rgba(56,189,248,0.05); border:1px solid rgba(56,189,248,0.18); border-radius:10px; padding:18px; max-width:420px; margin:0 auto; text-align:left;">
+        <div style="font-size:0.72em; color:var(--accent); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; margin-bottom:12px;">
+          ⌨ Navigate with your keyboard
+        </div>
+        <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 14px; font-size:0.9em;">
+          <div><span class="kbd">→</span></div><div>next step</div>
+          <div><span class="kbd">←</span></div><div>previous step</div>
+          <div><span class="kbd">Space</span></div><div>play / pause auto-advance</div>
+          <div><span class="kbd">Home</span></div><div>jump to start</div>
+          <div><span class="kbd">End</span></div><div>jump to finish</div>
+          <div><span class="kbd">M</span></div><div>mute / unmute narration</div>
+        </div>
+        <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(56,189,248,0.15); font-size:0.78em; color:var(--muted); line-height:1.5;">
+          Voice settings live in the slim rail's footer (🎙 icon). Click any colored box during the lab to learn what it is.
+        </div>
+      </div>
+      <p style="margin-top:24px; font-size:0.95em; color:var(--accent); font-weight:600;">
+        Press <span class="kbd">→</span> to begin
+      </p>
+    </div>`;
+    return;
+  }
+
+  // figure out what's new since previous state for "just-added" highlight
+  const prevPodIds = new Set((prevState?.pods || []).map(p => p.id));
+  const prevRSIds = new Set((prevState?.replicasets || []).map(r => r.id));
+  const prevHadDeploy = !!prevState?.deployment;
+  const prevHadSvc = !!prevState?.service;
+  const prevHadNs = !!prevState?.namespace;
+
+  const hl = state.highlight || {};
+
+  let html = `<div class="box b-ns ${prevHadNs ? '' : 'just-added'}">
+    <div class="tag">NAMESPACE</div>
+    <div class="name">${state.namespace}</div>`;
+
+  if (state.service) {
+    const readyPods = state.pods.filter(p => p.ready);
+    const eps = readyPods.length === 0
+      ? '<span style="color:var(--bad)">&lt;none&gt;</span>'
+      : readyPods.map(p => `<span class="ep">${p.id.slice(-7)}</span>`).join(' ');
+    const svcCls = prevHadSvc ? (hl.kind === 'service' ? 'changed' : '') : 'just-added';
+    html += `<div class="label-h">Service</div>
+      <div class="box b-service ${svcCls}">
+        <div class="tag">SERVICE · ${state.service.type}</div>
+        <div class="name">${state.service.name}</div>
+        <div class="meta">selector: app=${state.service.selector} · port ${state.service.port}</div>
+        <div class="endpoints">📡 endpoints: ${eps}</div>
+      </div>`;
+  }
+
+  if (state.deployment) {
+    const depCls = prevHadDeploy ? (hl.kind === 'deployment' ? 'changed' : '') : 'just-added';
+    html += `<div class="label-h">Deployment</div>
+      <div class="box b-deployment ${depCls}">
+        <div class="tag">DEPLOYMENT</div>
+        <div class="name">${state.deployment.name}</div>
+        <div class="meta">desired: ${state.deployment.replicas} replicas · current image: v${state.deployment.version}</div>`;
+
+    const rsCount = state.replicasets.length;
+    html += `<div class="rs-grid${rsCount >= 2 ? ' rs-cols-2' : ''}">`;
+    state.replicasets.forEach(rs => {
+      const rsCls = prevRSIds.has(rs.id) ? (hl.kind === 'replicaset' && hl.id === rs.id ? 'changed' : '') : 'just-added';
+      const rsPods = state.pods.filter(p => p.rsId === rs.id);
+      const isOld = rs.desired === 0 && rsPods.length === 0;
+      html += `<div class="${isOld ? 'rs-wrap-drained' : ''}">
+        <div class="box b-replicaset ${rsCls}" style="width:100%;">
+          <div class="tag">REPLICASET · v${rs.version}${isOld ? ' (drained)' : ''}</div>
+          <div class="name">${rs.id}</div>
+          <div class="meta">desired: ${rs.desired} · current: ${rsPods.length}</div>`;
+
+      if (rsPods.length > 0) {
+        html += `<div class="row" style="margin-top:8px;">`;
+        rsPods.forEach(p => {
+          const isNew = !prevPodIds.has(p.id);
+          const classes = ['box', 'b-pod'];
+          if (p.version === 2) classes.push('v2');
+          if (p.ready) classes.push('ready');
+          else if (p.notready) classes.push('notready');
+          if (p.dying) classes.push('dying');
+          if (p.killing) classes.push('killed');
+          if (isNew) classes.push('just-added');
+          else if (hl.kind === 'pod' && hl.id === p.id) classes.push('changed');
+          html += `<div class="${classes.join(' ')}" id="pod-${p.id}">
+            <div class="tag">POD${p.ready ? ' · READY' : (p.notready ? ' · NOT READY' : ' · ' + p.phase)}</div>
+            <div class="name">${p.id.slice(-14)}</div>
+            <div class="meta">restarts: ${p.restarts}</div>
+            <div class="box b-container" style="margin-top:6px;">
+              <div class="tag">CTR</div>
+              <div class="name" style="font-size:0.75em;">proddetail v${p.version}</div>
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    });
+    html += `</div>`;   // close .rs-grid
+    html += `</div>`;   // close .b-deployment
+  }
+
+  html += `</div>`;     // close .b-ns
+  cluster.innerHTML = html;
+}
+
+function updateStats(state) {
+  $('s-deps').textContent = state.deployment ? 1 : 0;
+  $('s-rs').textContent = state.replicasets.length;
+  $('s-pods').textContent = state.pods.filter(p => p.ready).length;
+  $('s-svcs').textContent = state.service ? 1 : 0;
+  $('s-restarts').textContent = state.pods.reduce((sum, p) => sum + (p.restarts || 0), 0);
+}
+
+function updateNavbar(idx) {
+  const step = idx >= 0 && idx < steps.length ? steps[idx] : null;
+  $('step-title').textContent = step ? step.title : 'Ready to start';
+  $('step-counter').textContent = `${idx + 1} / ${steps.length}`;
+  $('progress-fill').style.width = `${((idx + 1) / steps.length) * 100}%`;
+  if (step) {
+    $('explain-label').textContent = `STEP ${idx + 1} OF ${steps.length}`;
+    $('explain-title').innerHTML = step.explain.h;
+    $('explain-text').innerHTML = step.explain.p;
+  } else {
+    $('explain-label').textContent = 'READY';
+    $('explain-title').textContent = 'Welcome';
+    $('explain-text').innerHTML = 'Press <span class="kbd">→</span> or click <strong>▶</strong> to begin.';
+  }
+  $('btn-prev').disabled = idx <= -1;
+  $('btn-next').disabled = idx >= steps.length - 1;
+}
+
+// ============================================================================
+//  PACKET FLY
+// ============================================================================
+async function flyPacketAt(state) {
+  if (!state.sendPacket || state.sendPacket.toPodIndex === undefined) return;
+  const podIdx = state.sendPacket.toPodIndex;
+  const pod = state.pods.filter(p => p.ready)[podIdx];
+  if (!pod) return;
+  const svc = document.querySelector('.b-service');
+  const target = $(`pod-${pod.id}`);
+  if (!svc || !target) return;
+
+  const fromR = svc.getBoundingClientRect();
+  const toR = target.getBoundingClientRect();
+  const parentR = $('cluster').getBoundingClientRect();
+
+  const p = document.createElement('div');
+  p.className = 'packet';
+  p.style.left = (fromR.left + fromR.width / 2 - parentR.left + $('cluster').scrollLeft) + 'px';
+  p.style.top = (fromR.top + fromR.height / 2 - parentR.top + $('cluster').scrollTop) + 'px';
+  $('cluster').appendChild(p);
+  p.animate([
+    { left: p.style.left, top: p.style.top, opacity: 1 },
+    { left: (toR.left + toR.width / 2 - parentR.left + $('cluster').scrollLeft) + 'px',
+      top: (toR.top + toR.height / 2 - parentR.top + $('cluster').scrollTop) + 'px',
+      opacity: 1 },
+  ], { duration: 1200, easing: 'ease-out', fill: 'forwards' });
+  await sleep(1200);
+  p.remove();
+}
+
+// ============================================================================
+//  NAVIGATION
+// ============================================================================
+function goToStep(newIdx, direction = 'forward') {
+  newIdx = Math.max(-1, Math.min(steps.length - 1, newIdx));
+  const prevState = cursor >= 0 ? computeStateAt(cursor) : initialState();
+  cursor = newIdx;
+  const state = newIdx >= 0 ? computeStateAt(newIdx) : initialState();
+  renderCluster(state, prevState);
+  updateStats(state);
+  updateNavbar(newIdx);
+
+  const lines = newIdx >= 0 ? computeTermAt(newIdx) : [];
+  const usingTypewriter = direction === 'forward' && lines.length > 0;
+  renderTerminal(lines, usingTypewriter);
+
+  if (direction === 'forward' && state.sendPacket) {
+    setTimeout(() => flyPacketAt(state), 400);
+  }
+}
+
+function next() { if (cursor < steps.length - 1) goToStep(cursor + 1, 'forward'); else pause(); }
+function prev() { if (cursor > -1) goToStep(cursor - 1, 'backward'); }
+
+function play() {
+  if (playing) return pause();
+  playing = true;
+  $('btn-play').textContent = '⏸';
+  const delay = parseInt($('speed-select').value, 10);
+  const tick = () => {
+    if (!playing) return;
+    if (cursor >= steps.length - 1) { pause(); return; }
+    next();
+    playTimer = setTimeout(tick, delay);
+  };
+  tick();
+}
+
+function pause() {
+  playing = false;
+  $('btn-play').textContent = '⏯';
+  if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+}
+
+// ============================================================================
+//  WIRING
+// ============================================================================
+$('btn-next').onclick = next;
+$('btn-prev').onclick = prev;
+$('btn-play').onclick = play;
+$('btn-reset').onclick = () => { pause(); goToStep(-1, 'backward'); };
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+  else if (e.key === ' ') { e.preventDefault(); play(); }
+  else if (e.key === 'Home') { e.preventDefault(); pause(); goToStep(-1, 'backward'); }
+  else if (e.key === 'End') { e.preventDefault(); pause(); goToStep(steps.length - 1, 'forward'); }
+});
+
+// ============================================================================
+//  TERM DETAIL PANEL — click a box, learn what it is
+// ============================================================================
+const TERMS = {
+  namespace: {
+    name: 'Namespace',
+    icon: '📁',
+    oneliner: 'A logical folder inside the cluster that isolates groups of resources.',
+    analogy: 'Like folders on your laptop. Two files called <code>report.pdf</code> can live in different folders without conflict. Same with K8s — <code>workshop/proddetail</code> and <code>team-b/proddetail</code> are completely independent.',
+    bullets: [
+      'Almost every resource (Pods, Deployments, Services) lives inside one',
+      'Some resources are <em>cluster-scoped</em> (Nodes, PersistentVolumes, ClusterRoles) — they exist outside any namespace',
+      'Deleting a namespace cascades — every object inside dies with it. This is the cleanest way to tear down an experiment.',
+      'The default namespace is literally called <code>default</code>',
+      '<code>kubectl</code> commands need <code>-n &lt;name&gt;</code> to target a non-default namespace',
+    ],
+    visual:
+`   ╔══════ workshop ══════════════╗
+   ║                              ║
+   ║   [Deployment proddetail]    ║
+   ║   [Service proddetail]       ║
+   ║   [Pod] [Pod] [Pod]          ║
+   ║                              ║
+   ║   ── isolated from ──        ║
+   ║                              ║
+   ║   ╔══ team-b ═════════════╗  ║
+   ║   ║  same names allowed   ║  ║
+   ║   ║  here, no conflict    ║  ║
+   ║   ╚═══════════════════════╝  ║
+   ╚══════════════════════════════╝`,
+    seeAlso: ['deployment', 'service', 'pod'],
+  },
+
+  deployment: {
+    name: 'Deployment',
+    icon: '📋',
+    oneliner: 'A declarative manager for stateless apps. Owns a ReplicaSet and orchestrates rolling updates.',
+    analogy: 'A recipe with a chef. You hand over the recipe (pod template + replica count); the chef ensures the dish stays cooked and can swap recipes mid-service without anyone going hungry — that\'s a rolling update.',
+    bullets: [
+      'You almost always write a Deployment, never a Pod directly',
+      'Stores the pod template — image, labels, probes, resources, etc.',
+      'On image change, creates a <em>new</em> ReplicaSet and rolls pods over gradually',
+      'Keeps old ReplicaSets around for rollback (<code>kubectl rollout undo</code>)',
+      'Strategies: <code>RollingUpdate</code> (default, zero-downtime) or <code>Recreate</code> (kill all, then start all — downtime)',
+    ],
+    visual:
+`   ┌── Deployment: proddetail ────────┐
+   │   desired: 3 · image: python     │
+   │                                  │
+   │   manages ▼                      │
+   │                                  │
+   │   ┌── ReplicaSet (current) ──┐   │
+   │   │   ● ● ●  (3 pods Ready)  │   │
+   │   └──────────────────────────┘   │
+   │                                  │
+   │   ┌── ReplicaSet (old) ──────┐   │
+   │   │   (empty · kept for      │   │
+   │   │    rollback history)     │   │
+   │   └──────────────────────────┘   │
+   └──────────────────────────────────┘`,
+    seeAlso: ['replicaset', 'pod', 'service'],
+  },
+
+  replicaset: {
+    name: 'ReplicaSet',
+    icon: '🔁',
+    oneliner: 'Maintains a stable set of replica pods running at any given time.',
+    analogy: 'A thermostat. You set <em>"I want 3 degrees of warmth"</em>. If it gets colder (a pod dies), it turns on the heat (spawns a new pod). If it gets warmer (you scale down), it cools off. It never stops watching.',
+    bullets: [
+      'One job only: keep <em>current count = desired count</em> for pods matching its selector',
+      'Always created by a Deployment, never written by hand in practice',
+      'Each Deployment revision = a new ReplicaSet (old ones kept at desired=0)',
+      'When a pod dies, the ReplicaSet immediately spawns a replacement',
+      'Pod names look like <code>&lt;deploy&gt;-&lt;rs-hash&gt;-&lt;random&gt;</code> — the middle part is the RS\'s identity',
+    ],
+    visual:
+`   desired = 3
+        │
+        ▼ controller loop
+   ┌──── ReplicaSet ────────┐
+   │   selector:            │
+   │     app=proddetail     │
+   │                        │
+   │   current: ● ● ●       │
+   │                        │
+   │   If pod dies →        │
+   │   immediately creates  │
+   │   a replacement.       │
+   └────────────────────────┘`,
+    seeAlso: ['deployment', 'pod', 'labels'],
+  },
+
+  pod: {
+    name: 'Pod',
+    icon: '🫛',
+    oneliner: 'The smallest deployable unit — one or more containers sharing a network and storage.',
+    analogy: 'A whale carrying shipping containers. The whale (pod) has one address (IP); the containers inside share that address — they can call each other over <code>localhost</code>.',
+    bullets: [
+      'Gets its own cluster-internal IP (e.g. <code>10.244.0.14</code>)',
+      '<strong>Mortal</strong> — when it dies, the next pod gets a different IP. Never trust pod IPs in code.',
+      '99% of pods have exactly 1 container; the rest have sidecars (log shipper, proxy)',
+      'All containers in a pod are scheduled together to the same node',
+      'Phase progression: <code>Pending → Scheduled → Running → Succeeded/Failed</code>',
+    ],
+    visual:
+`   ┌──── Pod ──────────────────────┐
+   │   IP: 10.244.0.14             │
+   │   node: minikube              │
+   │                               │
+   │   shared:                     │
+   │     · network namespace       │
+   │     · /tmp (if volume mount)  │
+   │                               │
+   │   ┌──── Container ────────┐   │
+   │   │  python3 :3000        │   │
+   │   └───────────────────────┘   │
+   └───────────────────────────────┘`,
+    seeAlso: ['container', 'replicaset', 'labels'],
+  },
+
+  container: {
+    name: 'Container',
+    icon: '📦',
+    oneliner: 'An isolated process running an app, packaged with its dependencies into an image.',
+    analogy: 'A shipping container. Standardized box, fits on any truck/ship/train. Whatever\'s inside (your app + libs) is sealed; the outside (host) provides power (CPU/RAM/network) through a few well-defined ports.',
+    bullets: [
+      'Shares the host kernel — way lighter than a VM (~50MB vs ~2GB)',
+      'Image = filesystem snapshot + run config (entrypoint, env vars, exposed ports)',
+      'When the main process (PID 1) exits, the container exits',
+      'Has its own filesystem, network interface, process tree — all illusions provided by the kernel',
+      'Powered by Linux namespaces (isolation) + cgroups (resource limits) + overlayfs (image layers)',
+    ],
+    visual:
+`   App + libs only (e.g. 50MB)
+        │
+        ▼ packaged as
+   ┌──── Image (python:3.12-alpine) ────┐
+   │   /usr/bin/python3                 │
+   │   /usr/lib/python3.12/...          │
+   │   tmp/healthy  tmp/ready           │
+   └────────────────────────────────────┘
+        │ runtime starts it
+        ▼
+   ┌──── Container ────┐
+   │  PID 1: python3   │
+   │  listening :3000  │
+   └───────────────────┘
+        │ all share
+        ▼
+   Host Linux kernel`,
+    seeAlso: ['pod', 'deployment'],
+  },
+
+  service: {
+    name: 'Service',
+    icon: '🔌',
+    oneliner: 'A stable virtual IP and DNS name that load-balances to a dynamic set of pods.',
+    analogy: 'An office phone extension. You dial 5000; whoever\'s at their desk picks up. The receptionist (Service) knows the live roster and connects you to the next available person (pod).',
+    bullets: [
+      'Three types: <code>ClusterIP</code> (internal only), <code>NodePort</code> (each node\'s IP+port), <code>LoadBalancer</code> (cloud LB)',
+      'Pods come and go; the Service\'s IP and DNS name stay the same forever',
+      'Routes traffic via <code>selector</code> → pods with matching labels',
+      'Default load balancing is round-robin across Ready endpoints',
+      'Implemented by <code>kube-proxy</code> as iptables or IPVS rules on every node',
+    ],
+    visual:
+`   Service: proddetail
+   ────────────────────
+   ClusterIP: 10.109.233.228
+   port:      :3000
+   DNS:       proddetail.workshop.svc.cluster.local
+   selector:  app=proddetail
+        │
+        │ route to any matching pod
+        ▼
+   ┌─────┬─────┬─────┐
+   │ Pod │ Pod │ Pod │
+   └─────┴─────┴─────┘
+   (all labelled app=proddetail)`,
+    seeAlso: ['endpoints', 'labels', 'pod'],
+  },
+
+  endpoints: {
+    name: 'Endpoints',
+    icon: '📡',
+    oneliner: 'The live list of pod IPs currently backing a Service.',
+    analogy: 'The receptionist\'s clipboard. Names get added when people arrive at work (pod becomes Ready) and erased when they leave (pod terminates or fails its readiness probe).',
+    bullets: [
+      'Auto-maintained by the <em>endpoints controller</em> — you never edit this directly',
+      'Only contains <strong>Ready</strong> pods — that\'s what readiness probes gate',
+      'Empty endpoints = no traffic flows = "connection refused" — silent breakage',
+      'Inspect with <code>kubectl get endpoints &lt;service&gt;</code>',
+      'Newer API: <code>EndpointSlices</code> (same idea, scales to thousands of pods)',
+    ],
+    visual:
+`   Service: proddetail
+        │
+        │ asks: "which pods are Ready?"
+        ▼
+   📋 Endpoints clipboard
+   ┌──────────────────────────────┐
+   │  ✓ 10.244.0.14:3000  Ready   │
+   │  ✓ 10.244.0.15:3000  Ready   │
+   │  ✗ 10.244.0.16:3000  excluded│
+   │                              │
+   │  Updated automatically when  │
+   │  pods become Ready / die.    │
+   └──────────────────────────────┘`,
+    seeAlso: ['service', 'pod'],
+  },
+
+  labels: {
+    name: 'Labels & Selectors',
+    icon: '🏷️',
+    oneliner: 'Key-value tags on resources, plus the queries (selectors) that match against them.',
+    analogy: 'Hashtags. You tag photos with <code>#vacation</code> and <code>#2026</code>; later you search "photos with <code>#vacation</code>". That\'s a selector matching labels.',
+    bullets: [
+      'Used by Service→Pod, ReplicaSet→Pod, NetworkPolicy→Pod, and more',
+      'Common pattern: <code>app=proddetail · version=v2 · environment=prod</code>',
+      'Mismatched labels = <strong>silent breakage</strong> (Service has zero endpoints)',
+      'Annotations are similar but NOT selectable — pure metadata for humans/tools',
+      'Charset is restricted: alphanumeric + dots + hyphens + underscores',
+    ],
+    visual:
+`   Pod metadata:           Service spec:
+   ┌────────────────┐      ┌──────────────────┐
+   │ labels:        │      │ selector:        │
+   │   app: detail  │ ◄──► │   app: detail    │
+   │   version: v2  │match │                  │
+   └────────────────┘      └──────────────────┘
+            wired automatically by K8s
+
+   Change Service to selector: app=foo
+   → no Pod matches → Endpoints empty → broken.`,
+    seeAlso: ['service', 'pod', 'replicaset'],
+  },
+};
+
+function buildTermHTML(key) {
+  const t = TERMS[key];
+  if (!t) return '';
+  return `
+    <div class="term-header h-${key}">
+      <div class="icon-circle">${t.icon}</div>
+      <div>
+        <div class="label">Kubernetes object</div>
+        <div class="name">${t.name}</div>
+      </div>
+    </div>
+    <div class="term-section">
+      <div class="term-oneliner">${t.oneliner}</div>
+    </div>
+    <div class="term-section">
+      <h4>💡 Analogy</h4>
+      <div class="term-analogy">${t.analogy}</div>
+    </div>
+    <div class="term-section">
+      <h4>Key facts</h4>
+      <ul>${t.bullets.map(b => `<li>${b}</li>`).join('')}</ul>
+    </div>
+    <div class="term-section">
+      <h4>What it looks like</h4>
+      <div class="term-visual">${escape(t.visual)}</div>
+    </div>
+    ${t.seeAlso ? `<div class="term-section">
+      <h4>See also</h4>
+      <div class="see-also">${t.seeAlso.map(k => `<span class="chip" data-term="${k}">${TERMS[k].icon} ${TERMS[k].name}</span>`).join('')}</div>
+    </div>` : ''}
+  `;
+}
+
+function openTerm(key) {
+  if (!TERMS[key]) return;
+  $('detail-content').innerHTML = buildTermHTML(key);
+  $('detail-content').scrollTop = 0;
+  $('detail-panel').classList.add('open');
+  $('detail-backdrop').classList.add('open');
+  pause();
+}
+
+function closeTerm() {
+  $('detail-panel').classList.remove('open');
+  $('detail-backdrop').classList.remove('open');
+}
+
+// Click delegation on cluster diagram
+$('cluster').addEventListener('click', (e) => {
+  // endpoints text inside Service is clickable separately
+  if (e.target.closest('.endpoints')) {
+    e.stopPropagation();
+    openTerm('endpoints');
+    return;
+  }
+  const box = e.target.closest('.box');
+  if (!box) return;
+  // innermost box first (container before pod, pod before replicaset, etc.)
+  if (box.classList.contains('b-container')) openTerm('container');
+  else if (box.classList.contains('b-pod')) openTerm('pod');
+  else if (box.classList.contains('b-replicaset')) openTerm('replicaset');
+  else if (box.classList.contains('b-deployment')) openTerm('deployment');
+  else if (box.classList.contains('b-service')) openTerm('service');
+  else if (box.classList.contains('b-ns')) openTerm('namespace');
+});
+
+// See-also chips inside the panel
+$('detail-content').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip[data-term]');
+  if (chip) openTerm(chip.dataset.term);
+});
+
+$('detail-close').onclick = closeTerm;
+$('detail-backdrop').onclick = closeTerm;
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('detail-panel').classList.contains('open')) {
+    e.preventDefault();
+    closeTerm();
+  }
+});
+
+// ============================================================================
+//  NARRATION SCRIPTS (one per step, story-boarded)
+// ============================================================================
+//  Each narration is short — 10-25 words — designed to read in 3-6 seconds
+//  at a natural speaking rate, matching the animation pacing on screen.
+// ============================================================================
+const NARRATIONS = [
+  // Act 1 — Build the basic app
+  "Welcome to our Kubernetes story. We're starting with a completely empty cluster. Let's build something from scratch.",
+  "First, a namespace called workshop. Think of it as a folder. Everything we build next lives inside it.",
+  "Here's our deployment YAML. Three key fields to notice: replicas, selector, and template — the pod blueprint.",
+  "We hit apply. The API server stores our desired state in etcd. No pods exist yet — just the intent.",
+  "The deployment controller wakes up. It creates a ReplicaSet, whose only job is to keep exactly one pod alive.",
+  "The ReplicaSet creates a pod object. Status: Pending. No node has been chosen yet.",
+  "The scheduler picks a node. In our local cluster, that's the minikube node.",
+  "The kubelet on that node pulls the container image — usually a few seconds.",
+  "Container starts. The Python HTTP server begins listening on port 3000.",
+  "Readiness probe passes. The pod is now Ready. See the green glow.",
+  // Act 2 — Networking
+  "Now we add a Service. It's a permanent address for whichever pods match its selector.",
+  "The Service's selector matches the pod's labels. The pod's IP joins the endpoints list automatically.",
+  // Act 3 — Scale
+  "Let's scale up. From one replica to three. Same command, big effect.",
+  "ReplicaSet sees the new target and creates pod number two.",
+  "Pod two is Ready. Two endpoints serving traffic.",
+  "Pod three spawning.",
+  "All three pods Ready. Full capacity.",
+  // Act 4 — Traffic
+  "We send a request. The Service routes it to pod number one.",
+  "Second request. Different pod. Round-robin in action.",
+  "Third request, third pod. The Service load-balances across all ready endpoints.",
+  // Act 5 — Rolling update (the centerpiece)
+  "Now the interesting part. We apply version two. The deployment creates a NEW ReplicaSet — the old one stays.",
+  "First version two pod spawning. We briefly have four pods total — that's the maxSurge of one in action.",
+  "Version two pod ready. Four pods serving traffic, briefly.",
+  "Time to drain. One old version one pod is signaled to terminate.",
+  "Old pod gone. Three Ready pods again — but one of them is now version two.",
+  "Second version two pod spawning. Same dance: surge, ready, drain.",
+  "Second version two pod Ready. Two version one, two version two.",
+  "Another version one starts terminating.",
+  "Third version two pod spawning.",
+  "Version two pod three Ready. Last version one starts terminating.",
+  "Rollout complete. All version two. The old ReplicaSet stays at zero — kept for rollback. Zero downtime throughout.",
+  // Act 6 — Resilience (probes)
+  "Let's test resilience. First we break a readiness probe.",
+  "After three failures, the pod is marked Not Ready. The Service removes it from endpoints. The pod itself is not killed.",
+  "We recover the probe. The pod rejoins endpoints. Notice — zero restarts.",
+  "Now we break a liveness probe. The harsher one.",
+  "After three failures, kubelet kills the container. Same pod, but the container inside is destroyed.",
+  "Container restarted in place. Same pod name. Restart counter is now one. This is self-healing.",
+  // Closing
+  "Demo complete. You've seen every core primitive. Use the left arrow to rewatch any step you want.",
+];
+
+// ============================================================================
+//  SPEECH SYNTHESIS (Web Speech API — uses your OS's system voices)
+// ============================================================================
+let muted = localStorage.getItem('k8s-lab-muted') === '1';
+let selectedVoice = null;
+let speechRate = 0.95;  // slightly slower = more natural prosody
+const synth = window.speechSynthesis;
+
+// Best to worst, by typical quality
+const PREMIUM_PATTERNS = [/\(Premium\)/i, /\(Enhanced\)/i, /Siri/i, /Neural/i];
+const PREFERRED_BASE_NAMES = ['Ava', 'Zoe', 'Allison', 'Samantha', 'Karen', 'Evan', 'Tom', 'Daniel', 'Serena'];
+
+// Score a voice: higher = better
+function voiceScore(v) {
+  let s = 0;
+  if (/Premium/i.test(v.name)) s += 100;
+  else if (/Enhanced/i.test(v.name)) s += 60;
+  else if (/Siri/i.test(v.name)) s += 80;
+  else if (/Neural/i.test(v.name)) s += 70;
+  const base = v.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  const baseIdx = PREFERRED_BASE_NAMES.indexOf(base);
+  if (baseIdx !== -1) s += (20 - baseIdx);
+  // de-prioritize the joke / novelty voices
+  if (/Bad News|Good News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Jester|Organ|Superstar|Trinoids|Pipe Organ|Whisper|Zarvox|Deranged|Hysterical|Albert|Fred|Ralph|Junior|Kathy|Bruce|Princess|Vicki|Victoria/i.test(v.name)) s -= 50;
+  if (v.lang === 'en-US') s += 5;
+  return s;
+}
+
+function isPremium(v) {
+  return PREMIUM_PATTERNS.some(re => re.test(v.name));
+}
+
+function populateVoices() {
+  const voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
+  const select = $('voice-select');
+  if (!select) return;
+  select.innerHTML = '';
+
+  // Sort by score descending
+  voices.sort((a, b) => voiceScore(b) - voiceScore(a));
+
+  let hasPremium = false;
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    const star = isPremium(v) ? '⭐ ' : '';
+    if (isPremium(v)) hasPremium = true;
+    opt.textContent = `${star}${v.name} · ${v.lang}`;
+    select.appendChild(opt);
+  });
+
+  // Restore or pick the best default
+  const savedName = localStorage.getItem('k8s-lab-voice');
+  selectedVoice = (savedName && voices.find(v => v.name === savedName)) || voices[0] || null;
+  if (selectedVoice) select.value = selectedVoice.name;
+
+  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  $('btn-mute').classList.toggle('muted', muted);
+  // Indicate narration on/off via the voice-trigger icon opacity
+  const trig = $('voice-trigger');
+  if (trig) trig.classList.toggle('narration-off', muted);
+}
+
+if (synth) {
+  synth.onvoiceschanged = populateVoices;
+  populateVoices();
+}
+
+function setVoiceStatus(state, text) {
+  // status indicator removed (was in old navbar); narration-quote glow handles this now
+}
+
+// Make narration sound more natural: split on sentence boundaries so the
+// engine inserts real pauses, and add tiny pitch variation between segments.
+function speak(text) {
+  if (!synth || muted || !text) { setVoiceStatus('idle', muted ? 'muted' : 'idle'); return; }
+  try { synth.cancel(); } catch (e) {}
+
+  // Split into sentence-like chunks (keeps natural prosody)
+  const chunks = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) || [text];
+
+  chunks.forEach((chunk, i) => {
+    const trimmed = chunk.trim();
+    if (!trimmed) return;
+    const u = new SpeechSynthesisUtterance(trimmed);
+    if (selectedVoice) u.voice = selectedVoice;
+    u.rate = speechRate;
+    // Slight pitch variation between sentences mimics natural delivery
+    u.pitch = 1.0 + (i % 2 === 0 ? 0 : -0.04);
+    u.volume = 1.0;
+    if (i === 0) u.onstart = () => setVoiceStatus('speaking', '🎙 speaking');
+    if (i === chunks.length - 1) {
+      u.onend = () => setVoiceStatus('idle', 'idle');
+      u.onerror = () => setVoiceStatus('idle', 'idle');
+    }
+    synth.speak(u);
+  });
+}
+
+function stopSpeak() {
+  if (synth) { try { synth.cancel(); } catch (e) {} }
+  setVoiceStatus('idle', 'idle');
+}
+
+// Wire voice controls
+$('btn-mute').onclick = () => {
+  muted = !muted;
+  localStorage.setItem('k8s-lab-muted', muted ? '1' : '0');
+  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  $('btn-mute').classList.toggle('muted', muted);
+  if (muted) stopSpeak();
+};
+$('voice-select').onchange = (e) => {
+  const v = synth.getVoices().find(x => x.name === e.target.value);
+  if (v) {
+    selectedVoice = v;
+    localStorage.setItem('k8s-lab-voice', v.name);
+    if (!muted) speak('Voice selected.');
+  }
+};
+$('rate-range').oninput = (e) => { speechRate = parseFloat(e.target.value); };
+
+// Voice popup toggle (anchored to rail footer)
+$('voice-trigger').onclick = (e) => {
+  e.stopPropagation();
+  $('voice-popup').classList.toggle('open');
+};
+$('voice-popup-close').onclick = () => $('voice-popup').classList.remove('open');
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#voice-popup') && !e.target.closest('#voice-trigger')) {
+    $('voice-popup').classList.remove('open');
+  }
+});
+
+// Keyboard shortcut: M to mute
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'm' || e.key === 'M') {
+    e.preventDefault();
+    $('btn-mute').click();
+  }
+});
+
+// Hook into navigation: update narration text + speak it
+// AND wrap the DOM mutation in View Transitions API for smooth cross-fade between steps
+const _origGoToStep = goToStep;
+goToStep = function(newIdx, direction) {
+  const doUpdate = () => {
+    _origGoToStep(newIdx, direction);
+    const text = (newIdx >= 0 && newIdx < NARRATIONS.length) ? NARRATIONS[newIdx]
+      : "Press the play button or arrow key to start. Each step has spoken commentary that explains what's happening on screen.";
+    const nt = $('narration-text');
+    if (nt) nt.textContent = text;
+  };
+  // Cross-fade the cluster/stats/commentary via the browser. Chrome/Safari/Edge support it; Firefox falls back to instant.
+  // Guard against overlapping transitions so the browser doesn't log "Transition was skipped".
+  if (document.startViewTransition && !window.__inFlightVT) {
+    window.__inFlightVT = true;
+    const t = document.startViewTransition(doUpdate);
+    const clear = () => { window.__inFlightVT = false; };
+    if (t && t.finished) { t.finished.then(clear, clear); }
+    else clear();
+  } else {
+    doUpdate();
+  }
+  // Narration is independent of the visual transition
+  if (direction === 'forward' && newIdx >= 0 && newIdx < NARRATIONS.length) {
+    speak(NARRATIONS[newIdx]);
+  } else {
+    stopSpeak();
+  }
+};
+
+// Mirror voice status to the inline indicator in the commentary panel
+function setNarrationStatusInline(state) {
+  const el = $('narration-status-inline');
+  const quote = $('narration-quote');
+  if (!el || !quote) return;
+  if (state === 'speaking') {
+    el.textContent = '🎙 speaking';
+    el.classList.add('speaking');
+    quote.classList.add('active');
+  } else {
+    el.textContent = 'idle';
+    el.classList.remove('speaking');
+    quote.classList.remove('active');
+  }
+}
+
+// Hook existing setVoiceStatus to also update the inline indicator
+const _origSetVoiceStatus = setVoiceStatus;
+setVoiceStatus = function(state, text) {
+  _origSetVoiceStatus(state, text);
+  setNarrationStatusInline(state);
+};
+
+// Stop narration when panel closes (closeTerm already pauses; also stop voice)
+const _origCloseTerm = closeTerm;
+closeTerm = function() {
+  _origCloseTerm();
+};
+const _origOpenTerm = openTerm;
+openTerm = function(key) {
+  stopSpeak();
+  _origOpenTerm(key);
+};
+
+// init
+goToStep(-1, 'backward');
+</script>
+</body>
+</html>

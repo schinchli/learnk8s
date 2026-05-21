@@ -1,0 +1,485 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Lab 1: Deploying Kubernetes Pods"
+
+Parameters:
+  LabUserRoleName:
+    Type: String
+
+  ClusterName:
+    Type: String
+    Default: "dev-cluster"
+    AllowedPattern: "^[0-9A-Za-z][A-Za-z0-9-]{0,100}$"
+
+  # Latest EKS versions: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html
+  KubernetesVersion:
+    Description: "Kubernetes minor version for EKS cluster (e.g., 1.35)"
+    Type: String
+    Default: "1.35"
+    AllowedPattern: "^[0-9]+\\.[0-9]+$"
+
+  # Latest kubectl URLs: https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
+  KubectlVersion:
+    Description: "Full kubectl version path for S3 download URL (e.g., 1.35.2/2026-02-27)"
+    Type: String
+    Default: "1.35.2/2026-02-27"
+    AllowedPattern: "^[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+
+  ProductCatalogRepo:
+    Type: String
+    Default: "eks-workshop-demo/product_catalog"
+
+  FrontendNodeRepo:
+    Type: String
+    Default: "eks-workshop-demo/frontend_node"
+
+  CatalogDetailRepo:
+    Type: String
+    Default: "eks-workshop-demo/catalog_detail"
+
+Conditions:
+  IsLabUserRoleNameSet: !Not [!Equals [!Ref LabUserRoleName, ""]]
+
+Resources:
+  # ECR Repositories
+  ProductCatalogRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ProductCatalogRepo
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  FrontendNodeRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref FrontendNodeRepo
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  CatalogDetailRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref CatalogDetailRepo
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  # S3 Bucket for Helm Repo
+  HelmS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub my-helm-chart-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # EKS IAM Permission Boundary
+  # This boundary caps the maximum permissions for any IAM role created by eksctl.
+  # It prevents privilege escalation - even if a role's identity policy grants broad access,
+  # the boundary limits what's effective.
+  EksRoleBoundaryPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: EksRoleBoundaryPolicy
+      Description: "Permission boundary for roles created by eksctl. Limits to EKS, EC2, ECR, and networking actions only."
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Allow EKS cluster and node operations
+          - Sid: EKSActions
+            Effect: Allow
+            Action:
+              - eks:Describe*
+              - eks:List*
+              - eks:AccessKubernetesApi
+            Resource: "*"
+          # Allow EC2 actions needed by nodes and networking
+          - Sid: EC2Actions
+            Effect: Allow
+            Action:
+              - ec2:Describe*
+              - ec2:List*
+              - ec2:Get*
+              - ec2:CreateNetworkInterface
+              - ec2:DeleteNetworkInterface
+              - ec2:AttachNetworkInterface
+              - ec2:DetachNetworkInterface
+              - ec2:ModifyNetworkInterfaceAttribute
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+              - ec2:CreateTags
+            Resource: "*"
+          # Allow ECR read (nodes pull images)
+          - Sid: ECRRead
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Resource: "*"
+          # Allow SSM for managed nodes
+          - Sid: SSMActions
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssmmessages:*
+              - ec2messages:*
+            Resource: "*"
+          # Allow CloudWatch logging
+          - Sid: CloudWatchLogs
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+            Resource: "*"
+          # Allow STS for OIDC federation
+          - Sid: STSActions
+            Effect: Allow
+            Action:
+              - sts:AssumeRole
+              - sts:AssumeRoleWithWebIdentity
+              - sts:GetCallerIdentity
+            Resource: "*"
+          # Allow autoscaling for managed node groups
+          - Sid: AutoScaling
+            Effect: Allow
+            Action:
+              - autoscaling:Describe*
+            Resource: "*"
+          # Block all IAM mutations - roles under this boundary cannot create/modify other roles
+          - Sid: DenyIAMMutations
+            Effect: Deny
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:CreateUser
+              - iam:CreateGroup
+              - iam:CreatePolicy
+              - iam:DeleteRolePermissionsBoundary
+            Resource: "*"
+
+  # IAM Managed Policies for Code Editor instance
+  CustomPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: CustomPolicy
+      Description: "EKS cluster provisioning and management permissions"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EKSPermissions
+            Effect: Allow
+            Action:
+              - eks:CreateCluster
+              - eks:CreateNodegroup
+              - eks:CreateAddon
+              - eks:UpdateAddon
+              - eks:TagResource
+              - eks:UpdateClusterConfig
+              - eks:UpdateNodegroupConfig
+              - eks:CreateAccessEntry
+              - eks:UpdateAccessEntry
+              - eks:DeleteAccessEntry
+              - eks:AssociateAccessPolicy
+              - eks:DisassociateAccessPolicy
+            Resource:
+              - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}
+              - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:nodegroup/${ClusterName}/*/*
+              - !Sub arn:aws:eks:${AWS::Region}:${AWS::AccountId}:addon/${ClusterName}/*/*
+          - Sid: IAMCreateRoleForEKS
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/eksctl-${ClusterName}-*
+          - Sid: IAMTagRoleForEKS
+            Effect: Allow
+            Action:
+              - iam:TagRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/eksctl-${ClusterName}-*
+          - Sid: OIDCProviderManagement
+            Effect: Allow
+            Action:
+              - iam:CreateOpenIDConnectProvider
+              - iam:TagOpenIDConnectProvider
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com*
+            Condition:
+              StringEquals:
+                "aws:RequestTag/alpha.eksctl.io/cluster-name":
+                  - !Ref ClusterName
+          - Sid: IAMAttachRolePolicy
+            Effect: Allow
+            Action:
+              - iam:AttachRolePolicy
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/eksctl-${ClusterName}-*
+            Condition:
+              ArnEquals:
+                iam:PolicyARN:
+                  - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+                  - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController
+                  - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+                  - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+                  - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+                  - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+                  - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+                  - !Ref EksRoleBoundaryPolicy
+          - Sid: EC2Create
+            Effect: Allow
+            Action:
+              - ec2:CreateSecurityGroup
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:AuthorizeSecurityGroupEgress
+              - ec2:CreateTags
+            Resource:
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
+          - Sid: EC2RunInstances
+            Effect: Allow
+            Action: ec2:RunInstances
+            Resource: "*"
+            Condition:
+              NumericLessThanEqualsIfExists:
+                ec2:VolumeSize: "100"
+              StringLikeIfExists:
+                ec2:InstanceType:
+                  - t2.medium
+                  - t3.medium
+                ec2:Tenancy: "default"
+              StringNotEqualsIfExists:
+                ec2:PlacementGroupStrategy: "cluster"
+              StringNotLikeIfExists:
+                ec2:VolumeType:
+                  - "io*"
+                  - "st*"
+          - Sid: EC2TagLaunchedResources
+            Effect: Allow
+            Action: ec2:CreateTags
+            Resource:
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:volume/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*
+          - Sid: EC2Template
+            Effect: Allow
+            Action:
+              - ec2:CreateLaunchTemplate
+            Resource:
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:launch-template/*
+          - Sid: IAMInstanceProfile
+            Effect: Allow
+            Action:
+              - iam:CreateInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:TagInstanceProfile
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/eksctl-${ClusterName}-*
+          - Sid: IAMPassRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/eksctl-${ClusterName}-*
+            Condition:
+              StringLike:
+                iam:PassedToService:
+                  - eks.amazonaws.com
+                  - ec2.amazonaws.com
+                  - autoscaling.amazonaws.com
+          - Sid: AutoScalingPermissions
+            Effect: Allow
+            Action:
+              - autoscaling:CreateAutoScalingGroup
+              - autoscaling:UpdateAutoScalingGroup
+              - autoscaling:CreateOrUpdateTags
+            Resource: !Sub arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/eks-*
+          - Sid: CloudFormationPermissions
+            Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:UpdateTerminationProtection
+            Resource:
+              - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/eksctl-${ClusterName}-*
+          - Sid: LoggingPermissions
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/eks/*
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/eks/*:*
+
+  CustomPolicy2:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: CustomPolicy2
+      Description: "ECR, S3, STS, and service-linked role permissions for EKS lab"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ECRWritePermissions
+            Effect: Allow
+            Action:
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+            Resource:
+              - !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/eks-workshop-demo/*
+          - Sid: S3HelmRepo
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:PutObjectAcl
+            Resource:
+              - !Sub arn:aws:s3:::my-helm-chart-${AWS::AccountId}
+              - !Sub arn:aws:s3:::my-helm-chart-${AWS::AccountId}/*
+          - Sid: ServiceLinkedRoles
+            Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling
+            Condition:
+              StringEquals:
+                iam:AWSServiceName:
+                  - eks.amazonaws.com
+                  - eks-nodegroup.amazonaws.com
+                  - autoscaling.amazonaws.com
+
+          - Sid: STSAssumeRole
+            Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/eksctl-${ClusterName}-*
+              - !If
+                - IsLabUserRoleNameSet
+                - !Sub arn:aws:iam::${AWS::AccountId}:role/${LabUserRoleName}
+                - !Ref AWS::NoValue
+          - Sid: STSDecodeMessage
+            Effect: Allow
+            Action:
+              - sts:DecodeAuthorizationMessage
+            Resource: "*"
+          - Sid: KMSCreateGrant
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+            Resource:
+              - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+          - Sid: LimitInstanceSize
+            Effect: Deny
+            Action: ec2:RunInstances
+            Resource: arn:aws:ec2:*:*:instance/*
+            Condition:
+              ForAnyValue:StringNotLike:
+                ec2:InstanceType:
+                  - "t2.medium"
+                  - "t3.medium"
+          - Sid: LimitVolumeSize
+            Effect: Deny
+            Action: ec2:CreateVolume
+            Resource: arn:aws:ec2:*:*:volume/*
+            Condition:
+              NumericGreaterThan:
+                ec2:VolumeSize: "100"
+          - Sid: DenyRemoveBoundary
+            Effect: Deny
+            Action:
+              - iam:DeleteRolePermissionsBoundary
+              - iam:PutRolePermissionsBoundary
+            Resource: "*"
+
+  # SSM Parameter for admin role name
+  AdminRoleNameParam:
+    Condition: IsLabUserRoleNameSet
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /eks/lab/admin-role-name
+      Type: String
+      Value: !Ref LabUserRoleName
+
+  # Pre-create Service Linked Roles
+  CreateSLRs:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${AWS::Region}-tcprod.s3.amazonaws.com/courses/AWS-TC-LabFusion/templates/create-slr-with-role-arn/yml/v2/create-slr-with-role-arn.yml
+      Parameters:
+        ServiceLinkRoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS,arn:aws:iam::${AWS::AccountId}:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup,arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+
+  # Code Editor v5 IDE (creates VPC with Firewall + Multi-AZ)
+  CodeEditor:
+    DependsOn:
+      - CustomPolicy
+      - CustomPolicy2
+      - EksRoleBoundaryPolicy
+      - ProductCatalogRepository
+      - FrontendNodeRepository
+      - CatalogDetailRepository
+      - HelmS3Bucket
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: !Sub https://${AWS::Region}-tcprod.s3.${AWS::Region}.amazonaws.com/courses/AWS-TC-LabFusion/templates/code-editor-ide/yml/v5/code-editor-amzn.yml
+      Parameters:
+        LabUserRoleName: !Ref LabUserRoleName
+        Firewall: "TRUE"
+        EnableMultiAZ: "TRUE"
+        AdditionalPolicyARNs: !Sub "arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess,arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/CustomPolicy,arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/CustomPolicy2"
+        AdditionalDnfPackages: "docker"
+        ResourceCreationTimeoutMinutes: "60"
+        EnvVariables: !Sub "AWS_REGION='${AWS::Region}' CLUSTER_NAME='${ClusterName}' ACCOUNT_ID='${AWS::AccountId}' K8S_VERSION='${KubernetesVersion}' KUBECTL_VERSION='${KubectlVersion}' PRODUCT_CATALOG_REPO='${ProductCatalogRepo}' FRONTEND_NODE_REPO='${FrontendNodeRepo}' CATALOG_DETAIL_REPO='${CatalogDetailRepo}' EKS_BOUNDARY_ARN='${EksRoleBoundaryPolicy}'"
+        AdditionalScriptsPath: !Sub https://${AWS::Region}-tcprod.s3.amazonaws.com/courses/ILT-TF-200-COREKS/v2.2.3.prod-f9f99536/lab-1-pods/scripts/lab-bootstrap.zip
+
+  # Security group in Code Editor VPC for EKS control plane
+  ControlPlaneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: EKS control plane access
+      GroupDescription: Cluster communication with worker nodes
+      VpcId: !GetAtt CodeEditor.Outputs.IdeVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !GetAtt CodeEditor.Outputs.IdeSecurityGroupId
+          Description: Allow HTTPS connections from Code Editor instance
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !GetAtt CodeEditor.Outputs.ProtectedSubnet1Cidr
+          Description: Allow HTTPS connections from Protected Subnet 1
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !GetAtt CodeEditor.Outputs.ProtectedSubnet2Cidr
+          Description: Allow HTTPS connections from Protected Subnet 2
+      SecurityGroupEgress:
+        - Description: Allow outbound to VPC only
+          IpProtocol: -1
+          CidrIp: 10.10.0.0/16
+
+Outputs:
+  LabIdeUrl:
+    Description: Code Editor IDE URL
+    Value: !GetAtt CodeEditor.Outputs.IdeUrl
+
+  AWSRegion:
+    Description: The AWS Region that the lab is running in
+    Value: !Ref AWS::Region

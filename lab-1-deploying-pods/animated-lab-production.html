@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Five real Kubernetes production failure scenarios SRE teams fight: node failure with pod rescheduling, HPA auto-scaling, CrashLoopBackOff debugging, OOMKilled, and drain blocked by PodDisruptionBudget. Animated and narrated.">
+<meta name="theme-color" content="#06080d">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Production Scenarios — SRE Failure Modes Animated">
+<meta property="og:description" content="Node failure, HPA scale-out, CrashLoopBackOff, OOMKilled, PDB-blocked drain. The real incidents on-call SREs handle.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<title>Production Scenarios — Kubernetes Labs</title>
+<style>
+  :root {
+    --container: #FF8C42;
+    --pod: #4A90E2;
+    --replicaset: #50C878;
+    --deployment: #9B59B6;
+    --service: #1ABC9C;
+    --node: #64748b;
+    --node-ok: #34D399;
+    --node-bad: #EF4444;
+    --node-cordon: #FBBF24;
+    --bad: #E74C3C;
+    --good: #27AE60;
+    --warning: #F39C12;
+    --bg: #06080d;
+    --panel: #11151c;
+    --panel-light: #1f2738;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --term-bg: #03050a;
+    --term-fg: #c5e478;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(ellipse at top, rgba(56, 189, 248, 0.05), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(155, 89, 182, 0.04), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 28px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.85), rgba(155, 89, 182, 0.85)), var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  header h1 { margin: 0; font-size: 1.4em; }
+  header p { margin: 4px 0 0; opacity: 0.85; font-size: 0.92em; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 0.7fr 1.8fr;
+    gap: 12px;
+    padding: 12px;
+    max-width: 1700px;
+    margin: 0 auto;
+  }
+
+  .navbar {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .scenario-picker {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .scenario-picker label {
+    font-size: 0.72em; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); font-weight: 700;
+  }
+  .scenario-picker select {
+    background: var(--panel-light); color: var(--text);
+    border: 1px solid #475569; border-radius: 6px;
+    padding: 8px 12px; font-size: 0.9em; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .nav-buttons { display: flex; gap: 8px; }
+  .nav-buttons button {
+    min-width: 42px; padding: 8px 12px;
+    font-size: 1em;
+  }
+  .step-info {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .step-info .title {
+    font-weight: 700; font-size: 1.05em; color: var(--accent);
+  }
+  .step-info .progress-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .step-counter {
+    font-family: ui-monospace, monospace; font-size: 0.85em;
+    color: var(--muted); min-width: 110px;
+  }
+  .progress-bar {
+    flex: 1; height: 6px; background: #1e293b;
+    border-radius: 3px; overflow: hidden; border: 1px solid #334155;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .kbd {
+    background: #334155; color: var(--text);
+    border: 1px solid #475569; border-bottom-width: 2px;
+    border-radius: 4px; padding: 2px 8px;
+    font-family: ui-monospace, monospace; font-size: 0.8em;
+    margin: 0 3px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid var(--panel-light);
+  }
+  .panel h2 {
+    margin: 0 0 8px 0;
+    font-size: 0.78em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    padding: 2px 4px;
+  }
+
+  .terminal {
+    background: var(--term-bg);
+    border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    padding: 10px 12px;
+    height: 560px;
+    overflow-y: auto;
+    line-height: 1.55;
+    border: 1px solid #1f2937;
+  }
+  .term-line { color: var(--term-fg); white-space: pre-wrap; word-break: break-all; }
+  .term-line .prompt { color: #38bdf8; font-weight: 700; }
+  .term-line .cmd { color: #fde68a; }
+  .term-line.out  { color: #94a3b8; }
+  .term-line.good { color: #4ade80; }
+  .term-line.bad  { color: #f87171; }
+  .term-line.warn { color: #fbbf24; }
+  .term-line.title { color: #a78bfa; font-weight: 700; padding-top: 6px; }
+  .term-line.note  { color: #818cf8; font-style: italic; }
+
+  .cluster {
+    height: 560px;
+    background: #03050a;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    grid-column: 1 / -1;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    transition: background 0.3s;
+  }
+  .stat .v {
+    font-size: 1.5em; font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .stat .l { font-size: 0.65em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .stat .v.good { color: var(--good); }
+  .stat .v.warn { color: var(--warning); }
+  .stat .v.bad  { color: var(--bad); }
+
+  /* Boxes — nodes, pods, etc */
+  .ns-box {
+    border: 2px dashed #f59e0b;
+    border-radius: 12px;
+    padding: 14px;
+    background: rgba(245, 158, 11, 0.04);
+  }
+  .ns-box .tag {
+    font-size: 0.65em; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: #f59e0b;
+    margin-bottom: 6px;
+  }
+
+  .nodes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .node {
+    border: 2px solid var(--node);
+    border-radius: 10px;
+    padding: 12px;
+    background: rgba(100, 116, 139, 0.05);
+    transition: all 0.6s;
+    position: relative;
+  }
+  .node.ready { border-color: var(--node-ok); background: rgba(52, 211, 153, 0.06); }
+  .node.notready {
+    border-color: var(--node-bad);
+    background: rgba(239, 68, 68, 0.1);
+    animation: pulse-bad 1.2s ease-out 3;
+  }
+  .node.cordoned {
+    border-color: var(--node-cordon); background: rgba(251, 191, 36, 0.08);
+    border-style: dashed;
+  }
+  .node .node-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .node .node-name {
+    font-family: ui-monospace, monospace;
+    font-weight: 700; font-size: 0.95em;
+  }
+  .node .node-status {
+    font-size: 0.7em; padding: 2px 8px; border-radius: 4px;
+    font-weight: 700; text-transform: uppercase;
+  }
+  .node.ready .node-status { background: var(--node-ok); color: #052e1c; }
+  .node.notready .node-status { background: var(--node-bad); color: white; }
+  .node.cordoned .node-status { background: var(--node-cordon); color: #422006; }
+  .node .node-metrics {
+    display: flex; gap: 8px; font-size: 0.7em; color: var(--muted);
+    margin-top: 4px;
+  }
+  .node .node-pods {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+    min-height: 40px;
+  }
+  .node.notready .node-pods { opacity: 0.4; }
+
+  @keyframes pulse-bad {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    50%      { box-shadow: 0 0 24px 4px rgba(239,68,68,0.6); }
+  }
+
+  .pod {
+    border: 2px solid var(--pod);
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: rgba(74, 144, 226, 0.1);
+    font-family: ui-monospace, monospace;
+    font-size: 0.78em;
+    min-width: 100px;
+    transition: all 0.5s;
+    cursor: default;
+  }
+  .pod.ready { box-shadow: 0 0 10px rgba(80, 200, 120, 0.45); }
+  .pod.notready { border-color: var(--warning); }
+  .pod.terminating { animation: terminating 1.4s ease-out forwards; }
+  .pod.crashloop {
+    border-color: var(--bad); color: var(--bad);
+    background: rgba(231, 76, 60, 0.15);
+    animation: crash 0.8s infinite;
+  }
+  .pod.oomkilled { border-color: var(--bad); }
+  .pod.evicting { animation: evicting 1.2s ease-out forwards; }
+  .pod.new { animation: spawn-pod 1s ease-out; }
+  @keyframes spawn-pod {
+    0% { opacity: 0; transform: scale(0.4); }
+    60% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes terminating {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85) rotate(-2deg); }
+    100% { opacity: 0; transform: scale(0.6); }
+  }
+  @keyframes evicting {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(80px); opacity: 0; }
+  }
+  @keyframes crash {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-2deg); }
+    75% { transform: rotate(2deg); }
+  }
+  .pod .pod-name { font-weight: 700; }
+  .pod .pod-meta { font-size: 0.85em; color: var(--muted); margin-top: 2px; }
+  .pod-restarts { color: var(--warning); font-weight: 700; }
+
+  /* Metric meters (HPA, CPU, mem) */
+  .meter {
+    display: flex; align-items: center; gap: 8px;
+    margin: 6px 0;
+  }
+  .meter .label {
+    font-size: 0.75em; color: var(--muted); min-width: 60px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .meter .bar {
+    flex: 1; height: 10px; background: #1e293b;
+    border-radius: 5px; overflow: hidden;
+    border: 1px solid #334155;
+    position: relative;
+  }
+  .meter .fill {
+    height: 100%;
+    transition: width 0.8s ease, background 0.4s;
+    background: linear-gradient(90deg, #4ade80, #fde047);
+  }
+  .meter .fill.warn { background: linear-gradient(90deg, #fde047, #fb923c); }
+  .meter .fill.bad  { background: linear-gradient(90deg, #fb923c, #ef4444); }
+  .meter .value {
+    font-family: ui-monospace, monospace;
+    font-size: 0.85em; font-weight: 700;
+    min-width: 60px; text-align: right;
+  }
+  .threshold-line {
+    position: absolute; top: -2px; bottom: -2px;
+    width: 2px; background: var(--accent);
+    box-shadow: 0 0 4px var(--accent);
+  }
+
+  .hpa-info {
+    background: rgba(56, 189, 248, 0.06);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 0.85em;
+  }
+  .hpa-info strong { color: var(--accent); }
+
+  /* PDB badge */
+  .pdb-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(155, 89, 182, 0.15);
+    border: 1px solid rgba(155, 89, 182, 0.4);
+    color: #c084fc;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 0.75em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .pdb-badge.blocked {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+  }
+
+  /* Commentary panel */
+  .explain {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #0d1320, #131a2a);
+    border-radius: 14px;
+    padding: 22px 26px;
+    border: 1px solid var(--panel-light);
+    border-left: 4px solid var(--accent);
+  }
+  .explain-grid {
+    display: grid; grid-template-columns: 1fr; gap: 16px;
+  }
+  .explain-grid > div:has(.narration-quote) { display: none; }
+  .explain .step-label {
+    font-size: 0.72em; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .explain h3 { margin: 0 0 10px; font-size: 1.2em; }
+  .explain p  { margin: 0; color: var(--muted); font-size: 0.95em; line-height: 1.65; }
+  .explain p code { background: #050810; padding: 2px 6px; border-radius: 4px; color: #fde68a; font-size: 0.92em; }
+  .narration-label {
+    font-size: 0.72em; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .narration-quote {
+    background: linear-gradient(135deg, #050810, #0b1020);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 1.05em;
+    line-height: 1.65;
+    color: var(--text);
+    font-style: italic;
+  }
+
+  button {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  button:hover:not(:disabled) { background: #475569; border-color: #64748b; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0a0e1a; }
+  button.mute-btn { padding: 6px 10px; }
+  button.mute-btn.muted { background: rgba(231, 76, 60, 0.2); border-color: var(--bad); }
+
+  .voice-controls {
+    display: flex; gap: 6px; align-items: center;
+    font-size: 0.78em; color: var(--muted);
+  }
+  .voice-controls select {
+    background: var(--panel-light); color: var(--text);
+    border: 1px solid #475569; border-radius: 4px;
+    padding: 4px 6px; font-size: 0.85em;
+    max-width: 160px;
+  }
+
+  /* ====== Shared slim left rail (cross-lab nav) ====== */
+  body { padding-left: 60px; }
+  .rail {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 60px; z-index: 200;
+    background: #0c1018; border-right: 1px solid #1f2738;
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .rail-brand {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: white; font-size: 0.9em;
+    text-decoration: none; margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+  .rail-link {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; color: white;
+    text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .rail-link:hover { background: rgba(255,255,255,0.08); }
+  .rail-link.active { background: rgba(56, 189, 248, 0.18); }
+  .rail-link.active::before {
+    content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px;
+    width: 3px; background: #38bdf8;
+    border-radius: 0 2px 2px 0;
+  }
+  .rail-link:hover::after {
+    content: attr(title);
+    position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+    background: #1f2738; color: #f1f5f9;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid #475569;
+    z-index: 300; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  html, body { overflow-x: hidden; }
+
+  /* ====== View Transitions API — smooth cross-fades between steps ====== */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.32s;
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation: none; }
+    .pod, .node, .ec2-node, .pod-mini { animation: none !important; transition: none !important; }
+  }
+  /* Smooth reflow of pod/node boxes during step transitions */
+  .pod, .node, .pod-mini, .ec2-node {
+    transition: opacity 0.3s ease, transform 0.3s ease,
+                border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  /* ====== Rail footer (voice trigger) + voice popup ====== */
+  .rail-spacer { flex: 1; min-height: 12px; }
+  .rail-link.voice-trigger {
+    background: transparent; border: none; cursor: pointer; font-family: inherit;
+  }
+  .rail-link.voice-trigger.narration-off { opacity: 0.4; }
+  .voice-popup {
+    position: fixed; bottom: 16px; left: 68px;
+    width: 280px; max-width: calc(100vw - 80px);
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 10px; padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 250; opacity: 0; pointer-events: none;
+    transform: translateX(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .voice-popup.open { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .voice-popup-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 0.85em; font-weight: 700; color: var(--text);
+  }
+  .voice-popup-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 1em; cursor: pointer; padding: 0;
+    width: 22px; height: 22px;
+  }
+  .voice-popup-close:hover { color: var(--text); }
+  .voice-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin: 10px 0; font-size: 0.85em;
+  }
+  .voice-row .lbl { color: var(--muted); }
+  .voice-row select, .voice-row input[type="range"] {
+    background: #0a0e1a; color: var(--text);
+    border: 1px solid #475569; border-radius: 4px;
+    padding: 4px 8px; font-size: 0.85em; max-width: 160px;
+    font-family: inherit;
+  }
+
+  /* ====== Nav actions (top-right playback) ====== */
+  .nav-actions { display: flex; gap: 10px; align-items: center; }
+  .nav-actions select {
+    background: var(--panel-light); color: var(--text);
+    border: 1px solid #475569; border-radius: 6px;
+    padding: 6px 10px; font-size: 0.85em; font-family: inherit;
+  }
+  .nav-actions button.about-btn {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: var(--accent);
+  }
+  .nav-actions button.about-btn:hover { background: rgba(56, 189, 248, 0.2); }
+
+  /* ====== Deep-dive side panel ====== */
+  .deepdive-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    z-index: 999;
+  }
+  .deepdive-backdrop.open { opacity: 1; pointer-events: auto; }
+  .deepdive-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 520px; max-width: 92vw;
+    background: linear-gradient(180deg, #1e293b, #0f172a);
+    border-left: 1px solid var(--panel-light);
+    box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000; overflow-y: auto;
+    padding: 28px;
+  }
+  .deepdive-panel.open { transform: translateX(0); }
+  .deepdive-close {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--panel-light); border: 1px solid #475569;
+    color: var(--text); width: 36px; height: 36px; border-radius: 50%;
+    cursor: pointer; font-size: 1.1em;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .deepdive-close:hover { background: var(--bad); border-color: var(--bad); }
+  .deepdive-panel h2 {
+    margin: 0 0 8px; font-size: 1.4em; font-weight: 800;
+  }
+  .deepdive-panel .formal-name {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.12); color: var(--accent);
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 0.75em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 18px;
+  }
+  .deepdive-panel h3 {
+    font-size: 0.78em; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 2px;
+    margin: 20px 0 8px;
+  }
+  .deepdive-panel p { line-height: 1.65; color: var(--text); font-size: 0.95em; }
+  .deepdive-panel ul { padding-left: 20px; margin: 10px 0; }
+  .deepdive-panel li { line-height: 1.65; color: var(--text); font-size: 0.92em; margin: 6px 0; }
+  .deepdive-panel code {
+    background: #050810; padding: 2px 6px;
+    border-radius: 4px; color: #fde68a; font-size: 0.88em;
+  }
+  .deepdive-panel .keyword {
+    background: rgba(244, 114, 182, 0.12); color: #f472b6;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 0.85em; font-weight: 600;
+    margin: 2px 4px 2px 0; display: inline-block;
+  }
+  .deepdive-panel .takeaway {
+    background: rgba(80, 200, 120, 0.08);
+    border-left: 3px solid var(--good);
+    padding: 12px 14px; border-radius: 6px;
+    margin: 14px 0; font-size: 0.92em;
+  }
+
+  /* ====== Responsive breakpoints ====== */
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .explain-grid { grid-template-columns: 1fr; gap: 16px; }
+    .terminal, .cluster { height: 420px; }
+    .navbar { grid-template-columns: 1fr 1fr; row-gap: 10px; }
+    .scenario-picker, .step-info { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    body { padding-left: 50px; }
+    .rail { width: 50px; }
+    .rail-brand { width: 36px; height: 36px; }
+    .rail-link { width: 38px; height: 38px; font-size: 1.1em; }
+    header { padding: 14px 18px; }
+    header h1 { font-size: 1.05em; }
+    header p { font-size: 0.78em; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .layout { padding: 10px; gap: 10px; }
+    .terminal { font-size: 11px; height: 320px; }
+    .cluster { height: 360px; }
+    .navbar { grid-template-columns: 1fr; }
+    .scenario-picker select { max-width: 100%; }
+    .voice-controls { flex-wrap: wrap; }
+    .voice-controls select { max-width: 130px; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="animated-lab-production.html" class="rail-link active" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="learn-visually.html" class="rail-link" title="Visual Reference">📘</a>
+  <div class="rail-spacer"></div>
+  <button class="rail-link voice-trigger" id="voice-trigger" title="Voice settings">🎙</button>
+</aside>
+
+<div class="voice-popup" id="voice-popup">
+  <div class="voice-popup-header">
+    <span>🎙 Narration</span>
+    <button class="voice-popup-close" id="voice-popup-close" aria-label="Close">✕</button>
+  </div>
+  <div class="voice-row">
+    <span class="lbl">On / off</span>
+    <button id="btn-mute" class="mute-btn">🔊</button>
+  </div>
+  <div class="voice-row">
+    <span class="lbl">Voice</span>
+    <select id="voice-select"></select>
+  </div>
+</div>
+
+<!-- ===== Deep-dive about this scenario ===== -->
+<div class="deepdive-backdrop" id="deepdive-backdrop"></div>
+<aside class="deepdive-panel" id="deepdive-panel">
+  <button class="deepdive-close" id="deepdive-close">✕</button>
+  <div id="deepdive-content"></div>
+</aside>
+
+<header>
+  <h1>🚨 Production scenarios — what SRE / DevOps teams actually fight</h1>
+</header>
+
+<div class="layout">
+
+  <div class="navbar">
+    <div class="scenario-picker">
+      <label>Scenario:</label>
+      <select id="scenario-select">
+        <option value="node-failure">🖥️ Node failure → pod rescheduling</option>
+        <option value="hpa">📈 HPA auto-scaling under load</option>
+        <option value="crashloop">💥 CrashLoopBackOff debugging</option>
+        <option value="oom">🧠 OOMKilled (memory limit hit)</option>
+        <option value="drain-pdb">🛡️ Node drain blocked by PodDisruptionBudget</option>
+      </select>
+    </div>
+    <div class="step-info">
+      <div class="title" id="step-title">Pick a scenario to begin</div>
+      <div class="progress-row">
+        <div class="step-counter" id="step-counter">0 / 0</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button id="btn-about" class="about-btn" title="About this scenario">📖 About</button>
+      <div class="nav-buttons">
+        <button id="btn-prev">◀</button>
+        <button id="btn-next" class="primary">▶</button>
+        <button id="btn-play">⏯</button>
+        <button id="btn-reset">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="s-nodes">0</div><div class="l">Nodes Ready</div></div>
+    <div class="stat"><div class="v good" id="s-pods-ready">0</div><div class="l">Pods Ready</div></div>
+    <div class="stat"><div class="v warn" id="s-pods-bad">0</div><div class="l">Pods Bad State</div></div>
+    <div class="stat"><div class="v" id="s-restarts">0</div><div class="l">Total Restarts</div></div>
+    <div class="stat"><div class="v" id="s-cpu">0%</div><div class="l">Cluster CPU</div></div>
+    <div class="stat"><div class="v" id="s-replicas">0</div><div class="l">Replicas (desired)</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>💻 Terminal</h2>
+    <div id="terminal" class="terminal"></div>
+  </div>
+
+  <div class="panel">
+    <h2>🌐 Live cluster state</h2>
+    <div id="cluster" class="cluster"></div>
+  </div>
+
+  <div class="explain">
+    <div class="explain-grid">
+      <div>
+        <div class="step-label" id="explain-label">SCENARIO</div>
+        <h3 id="explain-title">Pick a scenario above to begin</h3>
+        <p id="explain-text">Each scenario simulates a real production incident SRE teams handle. Step through to see how Kubernetes responds — or fails to.</p>
+      </div>
+      <div>
+        <div class="narration-label">🎙 Narration</div>
+        <div class="narration-quote"><span id="narration-text">Choose a failure scenario from the dropdown to begin.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+//  STATE MODEL
+// ============================================================================
+function initialState() {
+  return {
+    nodes: [],           // [{ id, name, status: 'Ready'|'NotReady'|'Cordoned', cpu, mem }]
+    pods: [],            // [{ id, nodeId, ready, phase, restarts, ...flags }]
+    replicas: 0,         // deployment.spec.replicas
+    hpa: null,           // { min, max, target, current }
+    pdb: null,           // { minAvailable, currentHealthy, blocked }
+    metrics: { cpu: 0 }, // cluster-level cpu %
+    podCounter: 0,
+  };
+}
+
+// ============================================================================
+//  SCENARIO 1: NODE FAILURE
+// ============================================================================
+const NODE_FAILURE_STEPS = [
+  {
+    title: "Starting state — 2 nodes, 3 pods spread across them",
+    explain: { h: "Healthy multi-node cluster", p: "Two worker nodes are Ready. The deployment has 3 replicas, with the scheduler spreading pods across nodes for resilience." },
+    narration: "Welcome. We're starting with a healthy two node cluster. Three pods spread across them. Everything looks fine. Then disaster strikes.",
+    term: [
+      { k: 'cmd', t: 'kubectl get nodes' },
+      { k: 'out', t: 'NAME      STATUS   AGE   VERSION' },
+      { k: 'good', t: 'node-a    Ready    2d    v1.35.0' },
+      { k: 'good', t: 'node-b    Ready    2d    v1.35.0' },
+      { k: 'cmd', t: 'kubectl get pods -o wide' },
+      { k: 'out', t: 'NAME            READY  STATUS    NODE' },
+      { k: 'good', t: 'web-7f4-aaa     1/1    Running   node-a' },
+      { k: 'good', t: 'web-7f4-bbb     1/1    Running   node-a' },
+      { k: 'good', t: 'web-7f4-ccc     1/1    Running   node-b' },
+    ],
+    apply: (s) => {
+      s.nodes = [
+        { id: 'node-a', name: 'node-a', status: 'Ready', cpu: 35, mem: 40 },
+        { id: 'node-b', name: 'node-b', status: 'Ready', cpu: 25, mem: 30 },
+      ];
+      s.pods = [
+        { id: 'web-aaa', nodeId: 'node-a', ready: true, restarts: 0 },
+        { id: 'web-bbb', nodeId: 'node-a', ready: true, restarts: 0 },
+        { id: 'web-ccc', nodeId: 'node-b', ready: true, restarts: 0 },
+      ];
+      s.replicas = 3;
+      return s;
+    },
+  },
+  {
+    title: "node-a stops sending heartbeats",
+    explain: { h: "Heartbeat lost", p: "The kubelet on node-a hasn't sent its status update for 40 seconds. The control plane will wait the full grace period (node-monitor-grace-period, default 40s) before marking it NotReady." },
+    narration: "Node A goes silent. The kubelet's heartbeat to the API server has stopped. Could be hardware failure, network partition, or kernel panic. We don't know yet.",
+    term: [
+      { k: 'title', t: '═══ node-a hardware failure! ═══' },
+      { k: 'warn', t: 'node-monitor: no heartbeat from node-a for 40s' },
+    ],
+    apply: (s) => { return s; },
+  },
+  {
+    title: "node-a marked NotReady",
+    explain: { h: "NotReady = no new pods scheduled", p: "Control plane flips node-a's status to NotReady. The scheduler stops placing new pods there. But existing pods are NOT immediately rescheduled — Kubernetes waits the pod-eviction-timeout (default 5 minutes) to be certain it's not a transient blip." },
+    narration: "Control plane marks node A as Not Ready. No new pods will be scheduled here. But the existing pods stay for now — the system is hopeful node A might recover.",
+    term: [
+      { k: 'cmd', t: 'kubectl get nodes' },
+      { k: 'good', t: 'node-b    Ready      2d    v1.35.0' },
+      { k: 'bad',  t: 'node-a    NotReady   2d    v1.35.0  ← was Ready' },
+    ],
+    apply: (s) => {
+      s.nodes.find(n => n.id === 'node-a').status = 'NotReady';
+      return s;
+    },
+  },
+  {
+    title: "Eviction timeout reached — pods marked Terminating",
+    explain: { h: "pod-eviction-timeout = 5 minutes", p: "After 5 minutes with no recovery, the node controller adds a NoExecute taint. Pods without matching tolerations are marked for deletion. Their replacement won't start until the controller knows it's safe." },
+    narration: "Five minutes pass. No recovery. The node controller adds a No Execute taint. Pods on node A are marked for termination.",
+    term: [
+      { k: 'warn', t: 'pod-eviction-timeout 5m reached for node-a' },
+      { k: 'warn', t: 'pod/web-7f4-aaa: Terminating' },
+      { k: 'warn', t: 'pod/web-7f4-bbb: Terminating' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => { if (p.nodeId === 'node-a') p.terminating = true; });
+      return s;
+    },
+  },
+  {
+    title: "ReplicaSet notices: current=1, desired=3 — creates replacements",
+    explain: { h: "The reconcile loop saves you", p: "ReplicaSet controller sees Ready pods dropped from 3 to 1. It creates 2 new pod objects immediately. The scheduler will place them — but only on Ready nodes." },
+    narration: "Replica Set sees the gap. It wants three pods, only one is healthy. It creates two new pod objects right away.",
+    term: [
+      { k: 'out', t: '[replicaset-controller] current=1, desired=3 → creating 2 pods' },
+      { k: 'out', t: 'pod/web-7f4-ddd created (Pending)' },
+      { k: 'out', t: 'pod/web-7f4-eee created (Pending)' },
+    ],
+    apply: (s) => {
+      // remove terminating pods on dead node
+      s.pods = s.pods.filter(p => !p.terminating);
+      // add 2 new pending pods
+      s.pods.push({ id: 'web-ddd', nodeId: null, ready: false, phase: 'Pending', restarts: 0, isNew: true });
+      s.pods.push({ id: 'web-eee', nodeId: null, ready: false, phase: 'Pending', restarts: 0, isNew: true });
+      return s;
+    },
+  },
+  {
+    title: "Scheduler places new pods on the only Ready node (node-b)",
+    explain: { h: "Bin-packing onto survivors", p: "Scheduler sees only node-b is Ready. Both new pods land there. Production note: now node-b has 3 pods doing the work of 2 nodes — watch its CPU climb." },
+    narration: "Scheduler places both new pods on node B. The survivor now carries the full load.",
+    term: [
+      { k: 'out', t: '[scheduler] pod/web-7f4-ddd → node-b' },
+      { k: 'out', t: '[scheduler] pod/web-7f4-eee → node-b' },
+    ],
+    apply: (s) => {
+      s.pods.filter(p => p.nodeId === null).forEach(p => { p.nodeId = 'node-b'; p.phase = 'Scheduled'; });
+      s.nodes.find(n => n.id === 'node-b').cpu = 75;
+      s.nodes.find(n => n.id === 'node-b').mem = 70;
+      return s;
+    },
+  },
+  {
+    title: "Pods Ready — service has 3 endpoints again",
+    explain: { h: "Recovery complete (with caveats)", p: "All 3 pods Ready again. But notice: they're all on one node. If node-b fails now, we lose everything. Production lesson: use podAntiAffinity or topologySpreadConstraints to require pods spread across nodes." },
+    narration: "All three pods ready. Recovery complete. But here's the catch — everything is on one node now. If node B fails, we're down. This is why you set anti-affinity rules.",
+    term: [
+      { k: 'good', t: 'pod/web-7f4-ddd Ready ✓' },
+      { k: 'good', t: 'pod/web-7f4-eee Ready ✓' },
+      { k: 'note', t: '⚠ All 3 pods now on node-b. SPOF.' },
+    ],
+    apply: (s) => {
+      s.pods.filter(p => p.nodeId === 'node-b' && !p.ready).forEach(p => { p.ready = true; p.phase = 'Running'; p.isNew = false; });
+      return s;
+    },
+  },
+  {
+    title: "node-a comes back online",
+    explain: { h: "Node recovers, but pods don't rebalance", p: "node-a heartbeats again — marked Ready. But Kubernetes does NOT automatically rebalance pods back. You'd need a tool like Descheduler, or trigger a rollout, to spread pods again." },
+    narration: "Node A comes back online. Marked Ready. But notice — Kubernetes does not automatically move pods back. You'd run the descheduler, or trigger a rolling restart, to rebalance.",
+    term: [
+      { k: 'good', t: 'node-a status: Ready (recovered)' },
+      { k: 'note', t: 'Pods will NOT rebalance automatically. See: descheduler' },
+    ],
+    apply: (s) => {
+      const a = s.nodes.find(n => n.id === 'node-a');
+      a.status = 'Ready'; a.cpu = 5; a.mem = 10;
+      return s;
+    },
+  },
+  {
+    title: "Lessons for SRE",
+    explain: { h: "What this scenario teaches", p: "1) Default eviction timeout is 5 min — long for some apps, short for others. 2) Always run pods across nodes (anti-affinity or topology spread). 3) Recovery doesn't rebalance. 4) Cluster autoscaler can add a replacement node if you set it up." },
+    narration: "Recap. Five minute default eviction. Spread pods across nodes with anti affinity. Recovery doesn't rebalance. And cluster autoscaler can save you if you've enabled it.",
+    term: [
+      { k: 'title', t: '═══ Production takeaways ═══' },
+      { k: 'note', t: '1. tune pod-eviction-timeout per-deployment via tolerations' },
+      { k: 'note', t: '2. spread pods: topologySpreadConstraints maxSkew: 1' },
+      { k: 'note', t: '3. cluster-autoscaler adds replacement nodes' },
+      { k: 'note', t: '4. descheduler periodically rebalances' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  SCENARIO 2: HPA SCALE-OUT
+// ============================================================================
+const HPA_STEPS = [
+  {
+    title: "Steady state — 3 pods at low CPU",
+    explain: { h: "HPA configured: 3-10 replicas, target 70% CPU", p: "Horizontal Pod Autoscaler watches CPU usage and adjusts the deployment's replica count. Min 3, max 10, target 70% CPU per pod." },
+    narration: "Three pods serving traffic. CPU is low at thirty percent. HPA is configured to keep CPU at seventy percent, scaling between three and ten replicas.",
+    term: [
+      { k: 'cmd', t: 'kubectl get hpa' },
+      { k: 'out', t: 'NAME   REFERENCE  TARGETS         MIN  MAX  REPLICAS' },
+      { k: 'good', t: 'web    Deploy/web 30%/70%        3    10   3' },
+    ],
+    apply: (s) => {
+      s.nodes = [{ id: 'n1', name: 'node-1', status: 'Ready', cpu: 30, mem: 40 }];
+      s.pods = [
+        { id: 'web-001', nodeId: 'n1', ready: true, restarts: 0, cpu: 30 },
+        { id: 'web-002', nodeId: 'n1', ready: true, restarts: 0, cpu: 30 },
+        { id: 'web-003', nodeId: 'n1', ready: true, restarts: 0, cpu: 30 },
+      ];
+      s.hpa = { min: 3, max: 10, target: 70, current: 30 };
+      s.replicas = 3;
+      s.metrics.cpu = 30;
+      return s;
+    },
+  },
+  {
+    title: "Traffic spike — CPU climbs to 90%",
+    explain: { h: "Black Friday hits", p: "Real traffic surge. Each pod is now burning 90% CPU. The metrics-server reports this to HPA every 15 seconds." },
+    narration: "Traffic spike. Black Friday. Every pod is now at ninety percent CPU. Metrics server reports this to HPA every fifteen seconds.",
+    term: [
+      { k: 'title', t: '═══ Traffic spike incoming! ═══' },
+      { k: 'warn', t: 'metrics-server: avg CPU per pod = 90%' },
+      { k: 'warn', t: 'HPA target threshold = 70%' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => p.cpu = 90);
+      s.hpa.current = 90;
+      s.metrics.cpu = 90;
+      return s;
+    },
+  },
+  {
+    title: "HPA decides: scale to 4 replicas",
+    explain: { h: "The math", p: "desiredReplicas = ceil(currentReplicas * currentMetric / target) = ceil(3 * 90 / 70) = ceil(3.86) = 4. HPA patches the Deployment to replicas=4." },
+    narration: "HPA does the math. Three pods times ninety over seventy equals about three point nine. Round up to four. Scale to four replicas.",
+    term: [
+      { k: 'out', t: '[hpa-controller] desired = ceil(3 * 90/70) = 4' },
+      { k: 'good', t: 'deployment/web scaled: 3 → 4' },
+    ],
+    apply: (s) => {
+      s.replicas = 4;
+      s.pods.push({ id: 'web-004', nodeId: 'n1', ready: false, restarts: 0, cpu: 0, isNew: true });
+      return s;
+    },
+  },
+  {
+    title: "New pod Ready — CPU drops to 67%",
+    explain: { h: "Load spread across 4 pods", p: "Same traffic divided over 4 pods instead of 3. CPU per pod drops from 90% to 67% (just under target)." },
+    narration: "New pod is ready. Same total traffic spread across four pods now. CPU drops to sixty seven percent. Just under target. HPA holds.",
+    term: [
+      { k: 'good', t: 'pod/web-004 Ready ✓' },
+      { k: 'good', t: 'avg CPU: 67% (under target)' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => { p.cpu = 67; if (p.isNew) { p.ready = true; p.isNew = false; }});
+      s.hpa.current = 67;
+      s.metrics.cpu = 67;
+      return s;
+    },
+  },
+  {
+    title: "Traffic doubles — CPU at 95%",
+    explain: { h: "Bigger spike", p: "Marketing campaign hits Twitter. Traffic doubles. CPU back to 95%." },
+    narration: "Marketing post goes viral. Traffic doubles. CPU back up to ninety five percent. Worse than before.",
+    term: [
+      { k: 'warn', t: 'metrics-server: avg CPU = 95% (4 pods)' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => p.cpu = 95);
+      s.hpa.current = 95;
+      s.metrics.cpu = 95;
+      return s;
+    },
+  },
+  {
+    title: "HPA scales aggressively: 4 → 6 replicas",
+    explain: { h: "Bigger gap, bigger jump", p: "desiredReplicas = ceil(4 * 95 / 70) = ceil(5.43) = 6. HPA spawns 2 pods at once." },
+    narration: "HPA scales aggressively. Four times ninety five over seventy is about five point four. Round up to six. Two new pods coming.",
+    term: [
+      { k: 'out', t: '[hpa] desired = ceil(4 * 95/70) = 6' },
+      { k: 'good', t: 'deployment/web scaled: 4 → 6' },
+      { k: 'out', t: 'pod/web-005 created' },
+      { k: 'out', t: 'pod/web-006 created' },
+    ],
+    apply: (s) => {
+      s.replicas = 6;
+      s.pods.push({ id: 'web-005', nodeId: 'n1', ready: false, restarts: 0, cpu: 0, isNew: true });
+      s.pods.push({ id: 'web-006', nodeId: 'n1', ready: false, restarts: 0, cpu: 0, isNew: true });
+      return s;
+    },
+  },
+  {
+    title: "All 6 pods Ready — CPU at 63%",
+    explain: { h: "Settled", p: "CPU averaged across 6 pods drops to 63% — well under target. HPA stabilizes. Note: HPA waits for 'stabilization window' (5 min default) before scaling DOWN to avoid flapping." },
+    narration: "Six pods ready. CPU averages sixty three percent. Well under target. HPA stabilizes. Now here's the interesting part — it won't scale down for at least five minutes. Anti-flapping.",
+    term: [
+      { k: 'good', t: 'all 6 pods Ready' },
+      { k: 'good', t: 'avg CPU: 63% — stable' },
+      { k: 'note', t: 'scale-down stabilization window: 300s' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => { p.cpu = 63; if (p.isNew) { p.ready = true; p.isNew = false; }});
+      s.hpa.current = 63;
+      s.metrics.cpu = 63;
+      return s;
+    },
+  },
+  {
+    title: "Traffic drops — CPU at 20%",
+    explain: { h: "Spike over", p: "Viral moment passes. CPU drops to 20%. HPA could scale down, but the stabilization window prevents immediate action." },
+    narration: "Traffic drops to normal. CPU at twenty percent. HPA could scale down, but it waits five minutes to make sure the dip is real.",
+    term: [
+      { k: 'good', t: 'avg CPU: 20%' },
+      { k: 'note', t: 'waiting 5min stabilization before scale-down' },
+    ],
+    apply: (s) => {
+      s.pods.forEach(p => p.cpu = 20);
+      s.hpa.current = 20;
+      s.metrics.cpu = 20;
+      return s;
+    },
+  },
+  {
+    title: "HPA scales down: 6 → 3",
+    explain: { h: "Back to min", p: "After 5 minutes of stable low CPU, HPA scales down to 3 (the minReplicas). Terminations are graceful." },
+    narration: "Five minutes pass. CPU still low. HPA scales down to three. Graceful termination. We're back to steady state.",
+    term: [
+      { k: 'out', t: '[hpa] desired = ceil(6 * 20/70) = 2, clamped to min=3' },
+      { k: 'good', t: 'deployment/web scaled: 6 → 3' },
+      { k: 'warn', t: '3 pods terminating gracefully' },
+    ],
+    apply: (s) => {
+      s.replicas = 3;
+      s.pods = s.pods.slice(0, 3);
+      return s;
+    },
+  },
+  {
+    title: "Lessons for SRE",
+    explain: { h: "What HPA teaches", p: "1) Set requests/limits or HPA can't compute CPU%. 2) Pair HPA with cluster-autoscaler so new pods can find a node. 3) Tune stabilization windows for your traffic pattern. 4) Use custom metrics (req/s, queue depth) when CPU is a lagging indicator." },
+    narration: "Recap. Always set requests on pods. Pair HPA with cluster autoscaler. Tune the windows. And for spike-prone services, scale on request rate not just CPU.",
+    term: [
+      { k: 'title', t: '═══ HPA production takeaways ═══' },
+      { k: 'note', t: '1. resources.requests REQUIRED for HPA CPU calc' },
+      { k: 'note', t: '2. cluster-autoscaler adds nodes when pods pending' },
+      { k: 'note', t: '3. behavior.scaleDown.stabilizationWindowSeconds' },
+      { k: 'note', t: '4. custom metrics via Prometheus Adapter for req/s' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  SCENARIO 3: CRASHLOOPBACKOFF
+// ============================================================================
+const CRASHLOOP_STEPS = [
+  {
+    title: "Deploy a broken app — typo in command",
+    explain: { h: "The crime", p: "Someone pushed a deployment with `command: ['/app/strat']` instead of `start`. Kubernetes happily accepts it — the API server doesn't validate that the binary exists." },
+    narration: "Deployment applied. Someone misspelled the binary name. Strat instead of start. The API server happily accepts it.",
+    term: [
+      { k: 'cmd', t: 'kubectl apply -f web.yaml' },
+      { k: 'good', t: 'deployment.apps/web configured' },
+      { k: 'note', t: 'command: ["/app/strat"]  ← typo' },
+    ],
+    apply: (s) => {
+      s.nodes = [{ id: 'n1', name: 'node-1', status: 'Ready', cpu: 30, mem: 30 }];
+      s.pods = [{ id: 'web-aaa', nodeId: 'n1', ready: false, restarts: 0, phase: 'Pending', isNew: true }];
+      s.replicas = 1;
+      return s;
+    },
+  },
+  {
+    title: "Container starts, exits immediately",
+    explain: { h: "Exit code 127 = command not found", p: "kubelet starts the container. The binary doesn't exist; shell returns exit code 127. Container terminates after 0.1s." },
+    narration: "Container starts. The binary doesn't exist. Exit code one twenty seven. Command not found. Container dies in a hundred milliseconds.",
+    term: [
+      { k: 'out', t: '[kubelet] Created container web' },
+      { k: 'out', t: '[kubelet] Started container web' },
+      { k: 'bad', t: 'Container terminated: ExitCode=127 (command not found)' },
+    ],
+    apply: (s) => {
+      s.pods[0].phase = 'Error';
+      s.pods[0].isNew = false;
+      return s;
+    },
+  },
+  {
+    title: "Restart #1 — backoff 10s",
+    explain: { h: "Exponential backoff begins", p: "kubelet restarts the container, but with delay. First retry: 10s. Each subsequent failure doubles the delay, capped at 5 minutes." },
+    narration: "Kubelet restarts the container after a ten second delay. The exponential backoff has begun.",
+    term: [
+      { k: 'warn', t: 'Restarting in 10s (backoff)' },
+      { k: 'warn', t: 'Container restarted. ExitCode=127' },
+      { k: 'warn', t: 'pod/web-aaa  STATUS: CrashLoopBackOff  RESTARTS: 1' },
+    ],
+    apply: (s) => { s.pods[0].restarts = 1; s.pods[0].crashloop = true; return s; },
+  },
+  {
+    title: "Restart #2 — backoff 20s",
+    explain: { h: "Doubling backoff", p: "Second restart, 20s delay. CrashLoopBackOff is now official — it appears in `kubectl get pods` status." },
+    narration: "Twenty second delay. Restart number two. The status crash loop back off is now the official pod state.",
+    term: [
+      { k: 'warn', t: 'RESTARTS: 2 · backoff: 20s' },
+    ],
+    apply: (s) => { s.pods[0].restarts = 2; return s; },
+  },
+  {
+    title: "Restart #5 — backoff capped at 5 minutes",
+    explain: { h: "Maximum backoff", p: "After enough failures, the delay caps at 5 minutes. kubelet keeps trying forever — there's no 'give up'. This is by design: maybe the next attempt will succeed (e.g., config map reloaded, dependency back)." },
+    narration: "After several failures, the delay caps at five minutes. Kubelet keeps trying. There's no give up signal. By design — maybe the next attempt works.",
+    term: [
+      { k: 'warn', t: 'RESTARTS: 5 · backoff: 5m (cap)' },
+      { k: 'note', t: 'kubelet will retry forever' },
+    ],
+    apply: (s) => { s.pods[0].restarts = 5; return s; },
+  },
+  {
+    title: "Debugging step 1 — describe the pod",
+    explain: { h: "What you'd actually do", p: "`kubectl describe pod` shows the Events section at the bottom with the failure reason. `kubectl logs --previous` shows the stdout/stderr of the last attempt." },
+    narration: "How do you debug this? First, describe the pod. Look at the Events at the bottom. They tell you what's wrong.",
+    term: [
+      { k: 'cmd', t: 'kubectl describe pod web-aaa' },
+      { k: 'out', t: 'Events:' },
+      { k: 'bad', t: '  Warning  BackOff  4m   kubelet  Back-off restarting failed container' },
+      { k: 'bad', t: '  Warning  Failed   5m   kubelet  Error: ExitCode 127' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Debugging step 2 — kubectl logs --previous",
+    explain: { h: "The killer flag", p: "Since the container is no longer running, `kubectl logs <pod>` returns nothing useful. Use `--previous` (or `-p`) to get logs from the last failed container." },
+    narration: "Kubectl logs previous. This shows the output from the dead container. The error message is right there.",
+    term: [
+      { k: 'cmd', t: 'kubectl logs web-aaa --previous' },
+      { k: 'bad', t: '/bin/sh: 1: /app/strat: not found' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Fix and redeploy",
+    explain: { h: "Fix the typo, push again", p: "Edit the deployment to use the right binary name. Apply. New ReplicaSet rolls in, new pod replaces the crashing one." },
+    narration: "Fix the typo. Apply. New pod replaces the crashing one. CrashLoopBackOff resolves.",
+    term: [
+      { k: 'cmd', t: 'kubectl set image deploy/web web=app:start-fixed' },
+      { k: 'good', t: 'pod/web-bbb Ready ✓' },
+    ],
+    apply: (s) => {
+      s.pods = [{ id: 'web-bbb', nodeId: 'n1', ready: true, restarts: 0 }];
+      return s;
+    },
+  },
+  {
+    title: "Lessons for SRE",
+    explain: { h: "What CrashLoop teaches", p: "1) `kubectl logs --previous` is the most-forgotten debugging command. 2) Set a startupProbe with high failureThreshold for slow-starting apps. 3) CrashLoop never resolves itself if the bug is real — always check after a deploy. 4) Use init containers for prerequisites that must exist before main starts." },
+    narration: "Recap. Always remember dash dash previous. Use startup probes for slow apps. Crash loops never self-heal if the bug is real. And init containers can validate prerequisites.",
+    term: [
+      { k: 'title', t: '═══ CrashLoop takeaways ═══' },
+      { k: 'note', t: '1. kubectl logs --previous (your best friend)' },
+      { k: 'note', t: '2. startupProbe.failureThreshold = 30 for slow apps' },
+      { k: 'note', t: '3. monitor pod restart rate in Prometheus' },
+      { k: 'note', t: '4. init containers for prerequisites' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  SCENARIO 4: OOMKILLED
+// ============================================================================
+const OOM_STEPS = [
+  {
+    title: "Pod with memory limit 100Mi",
+    explain: { h: "Strict limit", p: "Deployment specifies `resources.limits.memory: 100Mi`. The container runtime sets a cgroup memory limit. If the container exceeds it, the Linux OOM killer terminates the process — fast and brutal." },
+    narration: "Pod deployed with a memory limit of one hundred megabytes. The kernel enforces this with cgroups. Cross the line and the OOM killer fires.",
+    term: [
+      { k: 'cmd', t: 'kubectl get pod web-aaa -o yaml | grep -A3 limits' },
+      { k: 'out', t: 'limits:' },
+      { k: 'out', t: '  memory: 100Mi' },
+    ],
+    apply: (s) => {
+      s.nodes = [{ id: 'n1', name: 'node-1', status: 'Ready', cpu: 30, mem: 30 }];
+      s.pods = [{ id: 'web-aaa', nodeId: 'n1', ready: true, restarts: 0, memUsed: 50, memLimit: 100 }];
+      s.replicas = 1;
+      return s;
+    },
+  },
+  {
+    title: "Memory usage climbs: 80Mi",
+    explain: { h: "Memory leak in action", p: "Container has a memory leak. Usage is at 80Mi (80% of limit). Still under the line, but trending up." },
+    narration: "Memory usage climbs to eighty megabytes. Eighty percent of the limit. Still safe but trending wrong.",
+    term: [{ k: 'warn', t: 'pod memory: 80Mi / 100Mi' }],
+    apply: (s) => { s.pods[0].memUsed = 80; return s; },
+  },
+  {
+    title: "Memory at 95Mi — danger zone",
+    explain: { h: "About to hit limit", p: "95Mi. The kernel is starting to apply pressure: page cache eviction, swap (if enabled), then... OOM kill." },
+    narration: "Ninety five megabytes. Kernel starts applying memory pressure. Page cache evicted first. Then it's game over.",
+    term: [{ k: 'bad', t: 'pod memory: 95Mi / 100Mi  DANGER' }],
+    apply: (s) => { s.pods[0].memUsed = 95; return s; },
+  },
+  {
+    title: "OOMKilled — container terminated",
+    explain: { h: "Exit code 137 = 128 + SIGKILL(9)", p: "Container exceeds limit. Kernel OOM killer sends SIGKILL. Container exits with code 137. The container's reason in `kubectl describe` shows: OOMKilled." },
+    narration: "Boom. OOM killer fires. Sig kill nine. Container exits with code one thirty seven. Reason: O O M Killed.",
+    term: [
+      { k: 'bad', t: 'Container web killed by SIGKILL (OOM)' },
+      { k: 'bad', t: 'ExitCode: 137 · Reason: OOMKilled' },
+    ],
+    apply: (s) => { s.pods[0].oomkilled = true; s.pods[0].ready = false; return s; },
+  },
+  {
+    title: "kubelet restarts the container",
+    explain: { h: "Container reborn", p: "kubelet sees the failure, restarts the container. RESTARTS counter increments. But the memory leak is still there in the code — this will happen again." },
+    narration: "Kubelet restarts the container. Counter goes up to one. But the leak is still in the code. This will happen again. And again.",
+    term: [
+      { k: 'warn', t: 'restarting container web' },
+      { k: 'good', t: 'pod/web-aaa Ready ✓  RESTARTS: 1' },
+    ],
+    apply: (s) => {
+      s.pods[0].oomkilled = false;
+      s.pods[0].ready = true;
+      s.pods[0].restarts = 1;
+      s.pods[0].memUsed = 30;
+      return s;
+    },
+  },
+  {
+    title: "Cycle repeats — RESTARTS climbs",
+    explain: { h: "OOM crash loop", p: "Same leak, same OOMKill cycle. After a few restarts, the pod's status reads CrashLoopBackOff. Now you have BOTH a memory issue AND a restarting pod." },
+    narration: "Same cycle. Memory climbs, OOM kills it, kubelet restarts. After enough restarts the pod enters crash loop backoff. Now you have two problems.",
+    term: [
+      { k: 'bad', t: 'RESTARTS: 4 — status: CrashLoopBackOff' },
+      { k: 'bad', t: 'reason: OOMKilled' },
+    ],
+    apply: (s) => { s.pods[0].restarts = 4; s.pods[0].crashloop = true; return s; },
+  },
+  {
+    title: "Debugging: kubectl top pods",
+    explain: { h: "Spot it before it kills", p: "`kubectl top pod` shows current memory. Better: Prometheus + Grafana with container_memory_working_set_bytes. Set up an alert when memory > 80% of limit." },
+    narration: "How to catch it earlier? Kubectl top pod shows current memory. Better — set up Prometheus alerts when memory hits eighty percent of limit.",
+    term: [
+      { k: 'cmd', t: 'kubectl top pod web-aaa' },
+      { k: 'out', t: 'NAME      CPU    MEMORY' },
+      { k: 'warn', t: 'web-aaa   5m     98Mi' },
+    ],
+    apply: (s) => s,
+  },
+  {
+    title: "Fix: raise limit + fix the leak",
+    explain: { h: "Two-step fix", p: "Short-term: bump the limit to 256Mi to stop the bleeding. Long-term: fix the memory leak. NEVER just keep raising limits indefinitely — that's how nodes get evicted." },
+    narration: "Two step fix. Short term — raise the limit to two fifty six. Long term — fix the leak in the code. Never just keep raising limits forever.",
+    term: [
+      { k: 'cmd', t: 'kubectl set resources deploy/web --limits=memory=256Mi' },
+      { k: 'good', t: 'deployment.apps/web resource limits updated' },
+    ],
+    apply: (s) => {
+      s.pods[0].memLimit = 256; s.pods[0].memUsed = 40;
+      s.pods[0].crashloop = false;
+      return s;
+    },
+  },
+  {
+    title: "Lessons for SRE",
+    explain: { h: "OOM takeaways", p: "1) Always set both requests AND limits. 2) Alert at 80% of limit, not at OOM. 3) OOM events appear in Node events, not just pod events. 4) Java/Node need JVM/heap tuning matched to limit — they don't auto-detect cgroups well." },
+    narration: "Recap. Always set requests and limits. Alert at eighty percent. Check node events too. And JVM apps need explicit heap size matched to the container limit.",
+    term: [
+      { k: 'title', t: '═══ OOM takeaways ═══' },
+      { k: 'note', t: '1. limits ALWAYS set (otherwise unbounded)' },
+      { k: 'note', t: '2. alert on container_memory_working_set / limit > 0.8' },
+      { k: 'note', t: '3. kubectl get events -A | grep OOM' },
+      { k: 'note', t: '4. JVM: -XX:MaxRAMPercentage=75' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  SCENARIO 5: DRAIN BLOCKED BY PDB
+// ============================================================================
+const DRAIN_PDB_STEPS = [
+  {
+    title: "3 pods + PodDisruptionBudget minAvailable=2",
+    explain: { h: "Availability guarantee", p: "PDB declares: 'no matter what, at least 2 of these pods must be Ready'. This blocks voluntary disruptions (drain, eviction) if respecting them would violate the minimum." },
+    narration: "Three pods across two nodes. A pod disruption budget says at least two pods must always be ready. This is the SRE's safety rail.",
+    term: [
+      { k: 'cmd', t: 'kubectl get pdb' },
+      { k: 'out', t: 'NAME     MIN AVAILABLE  ALLOWED DISRUPTIONS  AGE' },
+      { k: 'good', t: 'web-pdb  2              1                    1d' },
+    ],
+    apply: (s) => {
+      s.nodes = [
+        { id: 'n1', name: 'node-a', status: 'Ready', cpu: 30, mem: 30 },
+        { id: 'n2', name: 'node-b', status: 'Ready', cpu: 30, mem: 30 },
+      ];
+      s.pods = [
+        { id: 'web-aaa', nodeId: 'n1', ready: true, restarts: 0 },
+        { id: 'web-bbb', nodeId: 'n1', ready: true, restarts: 0 },
+        { id: 'web-ccc', nodeId: 'n2', ready: true, restarts: 0 },
+      ];
+      s.pdb = { minAvailable: 2, currentHealthy: 3, blocked: false };
+      s.replicas = 3;
+      return s;
+    },
+  },
+  {
+    title: "Operator wants to patch node-a — cordon first",
+    explain: { h: "Step 1: cordon", p: "`kubectl cordon` marks node as unschedulable. No NEW pods will land here. Existing pods keep running." },
+    narration: "Operator needs to patch node A. First step — cordon. No new pods scheduled here. Existing pods unaffected.",
+    term: [
+      { k: 'cmd', t: 'kubectl cordon node-a' },
+      { k: 'good', t: 'node/node-a cordoned' },
+    ],
+    apply: (s) => { s.nodes[0].status = 'Cordoned'; return s; },
+  },
+  {
+    title: "Now drain — evict the pods",
+    explain: { h: "Step 2: drain", p: "`kubectl drain` evicts pods one at a time. Each eviction goes through the API; PDB is checked. If allowed, pod terminates and replacement is scheduled elsewhere." },
+    narration: "Now drain. Pods evicted one at a time. Each eviction is checked against the disruption budget.",
+    term: [
+      { k: 'cmd', t: 'kubectl drain node-a --ignore-daemonsets' },
+      { k: 'out', t: 'evicting pod web-aaa' },
+    ],
+    apply: (s) => { s.pods[0].evicting = true; s.pods[0].ready = false; s.pdb.currentHealthy = 2; return s; },
+  },
+  {
+    title: "First eviction allowed — pdb still satisfied",
+    explain: { h: "2 healthy >= minAvailable 2", p: "After evicting web-aaa, 2 pods remain Ready (web-bbb, web-ccc). PDB satisfied (2 >= 2). ReplicaSet schedules a replacement on node-b." },
+    narration: "First eviction allowed. Two pods still ready. Budget satisfied. Replica set creates a replacement scheduled on node B.",
+    term: [
+      { k: 'good', t: 'pod/web-aaa evicted' },
+      { k: 'out', t: 'replicaset spawned pod/web-ddd → node-b' },
+    ],
+    apply: (s) => {
+      s.pods = s.pods.filter(p => p.id !== 'web-aaa');
+      s.pods.push({ id: 'web-ddd', nodeId: 'n2', ready: false, restarts: 0, isNew: true });
+      return s;
+    },
+  },
+  {
+    title: "Try to evict web-bbb — PDB BLOCKS",
+    explain: { h: "Would drop below minimum", p: "Drain tries web-bbb next. Evicting now means: web-bbb dying + web-ccc Ready + web-ddd still starting = only 1 Ready. That violates PDB (minAvailable=2). API returns 429 Too Many Requests." },
+    narration: "Drain tries the next pod. But web D D D isn't ready yet. Evicting now would drop us to one ready pod. Below the minimum. API returns four twenty nine. Drain blocked.",
+    term: [
+      { k: 'cmd', t: 'evicting pod web-bbb' },
+      { k: 'bad', t: 'Cannot evict pod: would violate PodDisruptionBudget' },
+      { k: 'warn', t: 'web-pdb: 1 healthy < 2 minAvailable' },
+      { k: 'warn', t: 'drain retrying...' },
+    ],
+    apply: (s) => { s.pdb.blocked = true; s.pdb.currentHealthy = 1; return s; },
+  },
+  {
+    title: "Replacement pod becomes Ready — PDB allows",
+    explain: { h: "Drain unblocks", p: "web-ddd passes readiness probe. 2 pods Ready again. Drain retries — eviction now allowed." },
+    narration: "Web D D D becomes ready. Two pods healthy again. Drain retries, eviction now allowed.",
+    term: [
+      { k: 'good', t: 'pod/web-ddd Ready ✓' },
+      { k: 'good', t: 'pod/web-bbb eviction allowed' },
+    ],
+    apply: (s) => {
+      const newPod = s.pods.find(p => p.id === 'web-ddd');
+      if (newPod) { newPod.ready = true; newPod.isNew = false; }
+      s.pdb.blocked = false; s.pdb.currentHealthy = 2;
+      const bbb = s.pods.find(p => p.id === 'web-bbb');
+      if (bbb) { bbb.evicting = true; bbb.ready = false; }
+      return s;
+    },
+  },
+  {
+    title: "Drain complete — node-a empty",
+    explain: { h: "Safe to patch", p: "All pods off node-a. Operator can now patch / restart / replace the node. Throughout the process, availability was guaranteed by PDB." },
+    narration: "Drain complete. Node A is empty. Operator can patch the node. Throughout the entire process, availability stayed at minimum two pods. PDB did its job.",
+    term: [
+      { k: 'good', t: 'node-a drained' },
+      { k: 'good', t: 'node/node-a is now safe to maintain' },
+    ],
+    apply: (s) => {
+      s.pods = s.pods.filter(p => p.nodeId !== 'n1');
+      // Add replacement for web-bbb on n2
+      s.pods.push({ id: 'web-eee', nodeId: 'n2', ready: true, restarts: 0 });
+      return s;
+    },
+  },
+  {
+    title: "Lessons for SRE",
+    explain: { h: "PDB takeaways", p: "1) Set PDB for every stateful or critical workload. 2) minAvailable can be absolute or %. 3) PDB only protects against VOLUNTARY disruptions — not node crashes. 4) Watch out: PDB with minAvailable=N where replicas=N blocks ALL drains. Always replicas > minAvailable." },
+    narration: "Recap. Set P D Bs for everything critical. P D B doesn't protect against crashes — only voluntary disruptions. And make sure replicas is greater than min available, or drain hangs forever.",
+    term: [
+      { k: 'title', t: '═══ PDB takeaways ═══' },
+      { k: 'note', t: '1. apiVersion: policy/v1 kind: PodDisruptionBudget' },
+      { k: 'note', t: '2. minAvailable: 2  or  maxUnavailable: 25%' },
+      { k: 'note', t: '3. ONLY voluntary disruptions (drain, eviction)' },
+      { k: 'note', t: '4. replicas MUST be > minAvailable' },
+    ],
+    apply: (s) => s,
+  },
+];
+
+// ============================================================================
+//  SCENARIOS REGISTRY
+// ============================================================================
+const SCENARIOS = {
+  'node-failure': { title: 'Node failure → pod rescheduling', steps: NODE_FAILURE_STEPS },
+  'hpa':          { title: 'HPA auto-scaling under load',     steps: HPA_STEPS },
+  'crashloop':    { title: 'CrashLoopBackOff debugging',      steps: CRASHLOOP_STEPS },
+  'oom':          { title: 'OOMKilled (memory limit)',        steps: OOM_STEPS },
+  'drain-pdb':    { title: 'Drain blocked by PDB',            steps: DRAIN_PDB_STEPS },
+};
+
+let currentScenario = 'node-failure';
+let cursor = -1;
+let playing = false;
+let playTimer = null;
+
+// ============================================================================
+//  RENDER
+// ============================================================================
+const $ = (id) => document.getElementById(id);
+
+function computeStateAt(scenarioKey, idx) {
+  let s = initialState();
+  const steps = SCENARIOS[scenarioKey].steps;
+  for (let i = 0; i <= idx && i < steps.length; i++) {
+    s = steps[i].apply(s);
+  }
+  return s;
+}
+
+function computeTermAt(scenarioKey, idx) {
+  const lines = [];
+  const steps = SCENARIOS[scenarioKey].steps;
+  for (let i = 0; i <= idx && i < steps.length; i++) {
+    if (steps[i].term) lines.push(...steps[i].term);
+  }
+  return lines;
+}
+
+function renderTerminal(lines) {
+  const term = $('terminal');
+  let html = '';
+  for (const l of lines) {
+    if (l.k === 'cmd') {
+      html += `<div class="term-line"><span class="prompt">$</span> <span class="cmd">${escape(l.t)}</span></div>`;
+    } else {
+      html += `<div class="term-line ${l.k}">${escape(l.t)}</div>`;
+    }
+  }
+  term.innerHTML = html;
+  term.scrollTop = term.scrollHeight;
+}
+
+function escape(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function renderCluster(state) {
+  const c = $('cluster');
+  if (state.nodes.length === 0) {
+    c.innerHTML = `<div style="color:var(--text); padding:40px 24px; text-align:center;">
+      <div style="font-size:2.4em; margin-bottom:8px;">🚨</div>
+      <h3 style="margin:0 0 6px; font-size:1.15em;">Production failure scenarios</h3>
+      <p style="font-size:0.9em; color:var(--muted); margin:0 0 24px; line-height:1.55;">
+        5 real incidents SRE teams handle. Pick one from the dropdown above ↑
+      </p>
+      <div style="background:rgba(56,189,248,0.05); border:1px solid rgba(56,189,248,0.18); border-radius:10px; padding:18px; max-width:420px; margin:0 auto; text-align:left;">
+        <div style="font-size:0.72em; color:var(--accent); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; margin-bottom:12px;">
+          ⌨ Navigate with your keyboard
+        </div>
+        <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 14px; font-size:0.9em;">
+          <div><span class="kbd">→</span></div><div>next step</div>
+          <div><span class="kbd">←</span></div><div>previous step</div>
+          <div><span class="kbd">Space</span></div><div>play / pause auto-advance</div>
+          <div><span class="kbd">Home</span></div><div>jump to start</div>
+          <div><span class="kbd">End</span></div><div>jump to finish</div>
+          <div><span class="kbd">A</span></div><div>open the "About this scenario" deep-dive</div>
+          <div><span class="kbd">M</span></div><div>mute / unmute narration</div>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+  let html = `<div class="ns-box"><div class="tag">NAMESPACE: production</div>`;
+
+  // HPA info bar
+  if (state.hpa) {
+    const cpuClass = state.hpa.current > state.hpa.target ? 'bad' : (state.hpa.current > state.hpa.target * 0.7 ? 'warn' : '');
+    html += `<div class="hpa-info">
+      <strong>HPA:</strong> min=${state.hpa.min} max=${state.hpa.max} target=${state.hpa.target}% CPU · current=<strong>${state.hpa.current}%</strong> · replicas=${state.replicas}
+      <div class="meter" style="margin-top:6px;">
+        <div class="bar">
+          <div class="fill ${cpuClass}" style="width:${Math.min(100, state.hpa.current)}%"></div>
+          <div class="threshold-line" style="left:${state.hpa.target}%"></div>
+        </div>
+        <div class="value">${state.hpa.current}%</div>
+      </div>
+    </div>`;
+  }
+
+  // PDB badge
+  if (state.pdb) {
+    const cls = state.pdb.blocked ? 'blocked' : '';
+    html += `<span class="pdb-badge ${cls}">🛡 PDB: ${state.pdb.currentHealthy}/${state.pdb.minAvailable} healthy ${state.pdb.blocked ? '· EVICTION BLOCKED' : '· OK'}</span>`;
+  }
+
+  html += `<div class="nodes-grid">`;
+  state.nodes.forEach(node => {
+    const cls = node.status.toLowerCase();
+    html += `<div class="node ${cls}">
+      <div class="node-header">
+        <div class="node-name">🖥️ ${node.name}</div>
+        <div class="node-status">${node.status}</div>
+      </div>
+      <div class="node-metrics">
+        <span>CPU ${node.cpu}%</span> · <span>MEM ${node.mem}%</span>
+      </div>
+      <div class="node-pods">`;
+    const podsOnNode = state.pods.filter(p => p.nodeId === node.id);
+    podsOnNode.forEach(p => {
+      const podClasses = ['pod'];
+      if (p.ready) podClasses.push('ready');
+      if (p.notready) podClasses.push('notready');
+      if (p.terminating) podClasses.push('terminating');
+      if (p.evicting) podClasses.push('evicting');
+      if (p.crashloop) podClasses.push('crashloop');
+      if (p.oomkilled) podClasses.push('oomkilled');
+      if (p.isNew) podClasses.push('new');
+      let statusBadge = '';
+      if (p.crashloop) statusBadge = `🔥 CrashLoop`;
+      else if (p.oomkilled) statusBadge = `💀 OOMKilled`;
+      else if (p.terminating) statusBadge = `⏳ Terminating`;
+      else if (p.evicting) statusBadge = `↪ Evicting`;
+      else if (p.ready) statusBadge = `✓ Ready`;
+      else statusBadge = p.phase || 'Pending';
+      const memInfo = (p.memUsed !== undefined && p.memLimit !== undefined) ? ` · ${p.memUsed}/${p.memLimit}Mi` : '';
+      const cpuInfo = (p.cpu !== undefined) ? ` · ${p.cpu}% CPU` : '';
+      html += `<div class="${podClasses.join(' ')}">
+        <div class="pod-name">${p.id}</div>
+        <div class="pod-meta">${statusBadge}${p.restarts > 0 ? ` · <span class="pod-restarts">↻${p.restarts}</span>` : ''}${memInfo}${cpuInfo}</div>
+      </div>`;
+    });
+    if (podsOnNode.length === 0) {
+      html += `<div style="font-size:0.8em;color:var(--muted);font-style:italic;">no pods</div>`;
+    }
+    html += `</div></div>`;
+  });
+  html += `</div></div>`;
+  c.innerHTML = html;
+}
+
+function updateStats(state) {
+  $('s-nodes').textContent = state.nodes.filter(n => n.status === 'Ready').length;
+  $('s-pods-ready').textContent = state.pods.filter(p => p.ready).length;
+  $('s-pods-bad').textContent = state.pods.filter(p => p.crashloop || p.oomkilled || p.terminating).length;
+  $('s-restarts').textContent = state.pods.reduce((sum, p) => sum + (p.restarts || 0), 0);
+  $('s-cpu').textContent = state.metrics.cpu ? `${state.metrics.cpu}%` : '—';
+  $('s-replicas').textContent = state.replicas || 0;
+}
+
+function updateNavbar(idx) {
+  const steps = SCENARIOS[currentScenario].steps;
+  const step = idx >= 0 && idx < steps.length ? steps[idx] : null;
+  $('step-title').textContent = step ? step.title : SCENARIOS[currentScenario].title;
+  $('step-counter').textContent = `${idx + 1} / ${steps.length}`;
+  $('progress-fill').style.width = `${((idx + 1) / steps.length) * 100}%`;
+  if (step) {
+    $('explain-label').textContent = `STEP ${idx + 1} OF ${steps.length}`;
+    $('explain-title').innerHTML = step.explain.h;
+    $('explain-text').innerHTML = step.explain.p;
+    $('narration-text').textContent = step.narration || '';
+  } else {
+    $('explain-label').textContent = 'SCENARIO';
+    $('explain-title').innerHTML = SCENARIOS[currentScenario].title;
+    $('explain-text').innerHTML = 'Press → to begin walking through this scenario.';
+    $('narration-text').textContent = '';
+  }
+  $('btn-prev').disabled = idx <= -1;
+  $('btn-next').disabled = idx >= steps.length - 1;
+}
+
+// ============================================================================
+//  VOICE
+// ============================================================================
+let muted = localStorage.getItem('k8s-prod-muted') === '1';
+let selectedVoice = null;
+const synth = window.speechSynthesis;
+const PREMIUM_PATTERNS = [/Premium/i, /Enhanced/i, /Siri/i];
+const PREFERRED = ['Ava', 'Zoe', 'Allison', 'Samantha', 'Karen', 'Daniel'];
+
+function voiceScore(v) {
+  let s = 0;
+  if (/Premium/i.test(v.name)) s += 100;
+  else if (/Enhanced/i.test(v.name)) s += 60;
+  else if (/Siri/i.test(v.name)) s += 80;
+  const base = v.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  const i = PREFERRED.indexOf(base);
+  if (i !== -1) s += (20 - i);
+  if (/Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Jester|Organ|Trinoids|Whisper|Zarvox|Albert|Fred/i.test(v.name)) s -= 50;
+  if (v.lang === 'en-US') s += 5;
+  return s;
+}
+
+function populateVoices() {
+  if (!synth) return;
+  const voices = synth.getVoices().filter(v => v.lang.startsWith('en')).sort((a,b) => voiceScore(b) - voiceScore(a));
+  const sel = $('voice-select');
+  sel.innerHTML = '';
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = (PREMIUM_PATTERNS.some(re => re.test(v.name)) ? '⭐ ' : '') + v.name;
+    sel.appendChild(opt);
+  });
+  const saved = localStorage.getItem('k8s-prod-voice');
+  selectedVoice = (saved && voices.find(v => v.name === saved)) || voices[0];
+  if (selectedVoice) sel.value = selectedVoice.name;
+  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  $('btn-mute').classList.toggle('muted', muted);
+}
+if (synth) { synth.onvoiceschanged = populateVoices; populateVoices(); }
+
+function speak(text) {
+  if (!synth || muted || !text) return;
+  try { synth.cancel(); } catch (e) {}
+  const chunks = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) || [text];
+  chunks.forEach((chunk, i) => {
+    const trimmed = chunk.trim();
+    if (!trimmed) return;
+    const u = new SpeechSynthesisUtterance(trimmed);
+    if (selectedVoice) u.voice = selectedVoice;
+    u.rate = 0.95;
+    u.pitch = 1.0 + (i % 2 === 0 ? 0 : -0.03);
+    synth.speak(u);
+  });
+}
+function stopSpeak() { if (synth) try { synth.cancel(); } catch (e) {} }
+
+// ============================================================================
+//  NAVIGATION
+// ============================================================================
+function goToStep(newIdx, direction = 'forward') {
+  const steps = SCENARIOS[currentScenario].steps;
+  newIdx = Math.max(-1, Math.min(steps.length - 1, newIdx));
+  cursor = newIdx;
+  const state = newIdx >= 0 ? computeStateAt(currentScenario, newIdx) : initialState();
+  const doUpdate = () => {
+    renderCluster(state);
+    updateStats(state);
+    updateNavbar(newIdx);
+    renderTerminal(newIdx >= 0 ? computeTermAt(currentScenario, newIdx) : []);
+  };
+  // Guard: if a previous transition is still in-flight, skip the API entirely.
+  // The browser would log "Transition was skipped" otherwise; this avoids the warning.
+  if (document.startViewTransition && !window.__inFlightVT) {
+    window.__inFlightVT = true;
+    const t = document.startViewTransition(doUpdate);
+    const clear = () => { window.__inFlightVT = false; };
+    if (t && t.finished) { t.finished.then(clear, clear); }
+    else clear();
+  } else {
+    doUpdate();
+  }
+  if (direction === 'forward' && newIdx >= 0 && steps[newIdx].narration) {
+    speak(steps[newIdx].narration);
+  } else {
+    stopSpeak();
+  }
+}
+
+function next() { if (cursor < SCENARIOS[currentScenario].steps.length - 1) goToStep(cursor + 1, 'forward'); else pause(); }
+function prev() { if (cursor > -1) goToStep(cursor - 1, 'backward'); }
+function play() { if (playing) return pause(); playing = true; $('btn-play').textContent = '⏸'; const tick = () => { if (!playing) return; if (cursor >= SCENARIOS[currentScenario].steps.length - 1) { pause(); return; } next(); playTimer = setTimeout(tick, 5000); }; tick(); }
+function pause() { playing = false; $('btn-play').textContent = '⏯'; if (playTimer) { clearTimeout(playTimer); playTimer = null; } }
+function switchScenario(key) { pause(); currentScenario = key; cursor = -1; goToStep(-1, 'backward'); }
+
+$('scenario-select').onchange = (e) => switchScenario(e.target.value);
+$('btn-next').onclick = next;
+$('btn-prev').onclick = prev;
+$('btn-play').onclick = play;
+$('btn-reset').onclick = () => { pause(); goToStep(-1, 'backward'); };
+$('btn-mute').onclick = () => {
+  muted = !muted;
+  localStorage.setItem('k8s-prod-muted', muted ? '1' : '0');
+  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  $('btn-mute').classList.toggle('muted', muted);
+  if (muted) stopSpeak();
+};
+$('voice-select').onchange = (e) => {
+  const v = synth.getVoices().find(x => x.name === e.target.value);
+  if (v) { selectedVoice = v; localStorage.setItem('k8s-prod-voice', v.name); }
+};
+
+// ============================================================================
+//  Voice popup toggle (rail footer)
+// ============================================================================
+$('voice-trigger').onclick = (e) => {
+  e.stopPropagation();
+  $('voice-popup').classList.toggle('open');
+};
+$('voice-popup-close').onclick = () => $('voice-popup').classList.remove('open');
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#voice-popup') && !e.target.closest('#voice-trigger')) {
+    $('voice-popup').classList.remove('open');
+  }
+});
+
+// ============================================================================
+//  DEEP-DIVE PANEL — per-scenario teaching content
+// ============================================================================
+const DEEPDIVE = {
+  'node-failure': {
+    title: '🖥️ Node Failure → Pod Rescheduling',
+    formal: 'NodeLifecycleController · Taint-Based Eviction',
+    summary: 'A worker node stops sending heartbeats. After a grace period the control plane evicts its pods, and the ReplicaSet reschedules them to surviving nodes.',
+    math: [
+      '<code>node-monitor-grace-period</code> (default <strong>40s</strong>) — time without kubelet heartbeat before NotReady.',
+      '<code>default-unreachable-toleration-seconds</code> (default <strong>300s</strong>) — pods tolerate the NoExecute taint this long before eviction.',
+      'Total time from failure to eviction: ~<strong>5m 40s</strong>.',
+    ],
+    story: 'AZ outages, hardware failures, kernel panics, network partitions. The classic incident is a whole AZ going dark — the controller marks every node in that AZ NotReady, then mass-evicts pods. If replicas are unbalanced, surviving AZs get crushed by 2-3× normal load.',
+    takeaways: [
+      'Always use <code>topologySpreadConstraints</code> with <code>maxSkew: 1, topologyKey: kubernetes.io/hostname</code> — otherwise the scheduler bin-packs.',
+      'Cluster Autoscaler does NOT replace failed nodes. Use ASG <code>--desired=N --min=N</code> for self-healing capacity.',
+      'Recovery does NOT rebalance. After node-a comes back, pods stay on node-b. Use <strong>Descheduler</strong> to periodically rebalance.',
+      'For stateless apps, lower eviction timeout via pod-level <code>tolerationSeconds: 30</code>.',
+    ],
+    terms: ['NodeLifecycleController', 'NoExecute taint', 'pod-eviction-timeout', 'topologySpreadConstraints', 'Descheduler', 'blast radius', 'AZ resilience'],
+  },
+  'hpa': {
+    title: '📈 Horizontal Pod Autoscaler (HPA)',
+    formal: 'autoscaling/v2 · HorizontalPodAutoscaler',
+    summary: 'A controller that watches resource metrics and patches Deployment.spec.replicas to keep utilization at a target percentage.',
+    math: [
+      '<code>desiredReplicas = ⌈ currentReplicas × currentMetric / targetMetric ⌉</code>',
+      'Example: 3 pods × 90% CPU / 70% target = 3.86 → round up to 4 replicas.',
+      '<code>scaleDown.stabilizationWindowSeconds</code> (default <strong>300s</strong>) prevents flapping.',
+      '<strong>metrics-server</strong> is required for CPU/memory HPA. Without it, HPA reports <code>&lt;unknown&gt;</code>.',
+    ],
+    story: 'Marketing posts a link, traffic jumps 10×. HPA scales reactively but Cluster Autoscaler hasn\'t added nodes — new pods sit Pending for 2-3 minutes (EC2 launch + bootstrap). Meanwhile existing pods OOM. The mitigation pattern is <strong>pre-warming</strong>: scale to baseline + 20% before campaigns, or use KEDA to scale on request rate (a leading indicator) rather than CPU (lagging).',
+    takeaways: [
+      'Always set <code>resources.requests</code> — HPA math literally requires it as the denominator.',
+      'Pair HPA with Cluster Autoscaler so Pending pods get nodes.',
+      'CPU is a <strong>lagging</strong> indicator. For bursty workloads scale on req/s, p99 latency, or queue depth via Prometheus Adapter or KEDA.',
+      'Multi-metric HPA: list cpu + memory + custom; HPA picks the largest proposal.',
+    ],
+    terms: ['metrics-server', 'autoscaling/v2', 'KEDA', 'Prometheus Adapter', 'scaleUp / scaleDown behavior', 'stabilization window', 'leading vs lagging metrics'],
+  },
+  'crashloop': {
+    title: '💥 CrashLoopBackOff',
+    formal: 'kubelet · Exponential Backoff Restart Policy',
+    summary: 'A pod whose container keeps exiting non-zero. kubelet restarts it with exponentially-increasing delays until you fix it.',
+    math: [
+      'Backoff: <code>10s → 20s → 40s → 80s → 160s → 300s (capped)</code>.',
+      'kubelet retries <em>forever</em> — there\'s no give-up signal. By design: maybe the next attempt succeeds.',
+      'Exit codes: <code>0</code>=success, <code>1</code>=app error, <code>127</code>=command not found, <code>137</code>=SIGKILL/OOM, <code>139</code>=segfault, <code>143</code>=SIGTERM.',
+    ],
+    story: 'The classic pattern: someone changes a ConfigMap on startup. ConfigMap is valid YAML but contains a typo\'d database hostname. Container starts, can\'t resolve DNS, exits. The deploy looks "complete" because old ReplicaSet\'s pods still run, but new ReplicaSet\'s pods all crash. Often detected only when scaling up.',
+    takeaways: [
+      '<code>kubectl logs &lt;pod&gt; --previous</code> — <strong>always your first command</strong>. Without <code>--previous</code> you see logs from the empty restarted container.',
+      'Use <code>initContainers</code> for prerequisites — fail loudly before main starts.',
+      '<code>startupProbe</code> for slow-starting apps (JVM, Rails) — gives them runway before liveness kicks in.',
+      'Monitor <code>kube_pod_container_status_restarts_total</code> in Prometheus.',
+      '<code>kubectl describe pod</code> → read the Events section at the bottom.',
+    ],
+    terms: ['exponential backoff', 'restart policy', 'initContainers', 'startupProbe', 'exit code 137', 'previous container logs', 'kubelet eviction'],
+  },
+  'oom': {
+    title: '🧠 OOMKilled (Out-of-Memory Kill)',
+    formal: 'Linux cgroups · memory.limit_in_bytes · OOM killer',
+    summary: 'Container exceeds its cgroup memory limit. Kernel sends SIGKILL — no grace period, no clean shutdown. Container exits with code 137.',
+    math: [
+      'Exit code <code>137 = 128 + SIGKILL(9)</code>.',
+      'QoS classes: <code>Guaranteed</code> (requests==limits), <code>Burstable</code> (requests&lt;limits), <code>BestEffort</code> (no limits). Lower QoS = killed first under node pressure.',
+      'JVM gotcha: needs <code>-XX:MaxRAMPercentage=75</code> to respect cgroup limits — otherwise sees the host\'s RAM.',
+    ],
+    story: 'A Java/Node service has a slow memory leak — 5 MB/day. Runs fine for weeks, then crashes at 4 AM. Restarts cleanly. Crashes again 5 days later. CrashLoopBackOff is the symptom; the leak is the disease. The JVM gotcha trips up everyone: without explicit cgroup awareness it sets a giant heap and gets killed at the limit.',
+    takeaways: [
+      'Always set <code>limits.memory</code> — without it, a runaway pod evicts everything else on the node.',
+      'Alert at <strong>80%</strong> of limit, not at OOM. <code>container_memory_working_set_bytes / spec_memory_limit_bytes &gt; 0.8</code>.',
+      'Don\'t just raise limits. Each raise pushes the explosion bigger. Profile and fix the leak.',
+      'JVM/Node need explicit heap sizing matched to the container limit.',
+      '<code>kubectl get events -A | grep -i oom</code> — node-level and pod-level OOM events differ.',
+    ],
+    terms: ['cgroups', 'OOM killer', 'QoS class', 'working set bytes', 'eviction-soft / eviction-hard', 'memory leak', 'JVM heap sizing under cgroups'],
+  },
+  'drain-pdb': {
+    title: '🛡️ PodDisruptionBudget Blocks Drain',
+    formal: 'policy/v1 · PodDisruptionBudget · Eviction API',
+    summary: 'A budget that says "at least N pods of this selector must stay Ready during voluntary disruptions." Eviction API checks PDB before allowing kubectl drain to proceed.',
+    math: [
+      'Voluntary disruption: kubectl drain, eviction API, cluster upgrade, autoscaler consolidation — <strong>PDB applies</strong>.',
+      'Involuntary disruption: hardware failure, OOM, kernel panic — <strong>PDB does NOT apply</strong>.',
+      'Eviction returns HTTP <code>429 Too Many Requests</code> when PDB would be violated. drain retries until allowed or times out.',
+      '<code>maxUnavailable: 25%</code> auto-scales with replica count; <code>minAvailable: 2</code> is absolute.',
+    ],
+    story: 'Ops team starts a 2 AM cluster upgrade. Drains node-1, works fine. Drains node-2, hangs. The stateful workload had <code>replicas: 3, PDB minAvailable: 2</code>, and node-2\'s pod was being evicted before its replacement on node-1 was Ready (slow startup). Drain blocks indefinitely. Maintenance window blown.',
+    takeaways: [
+      '<strong>replicas must be &gt; minAvailable</strong> — otherwise drain deadlocks forever.',
+      'Prefer <code>maxUnavailable: 25%</code> (percentage) so PDB auto-scales with replicas.',
+      'PDB doesn\'t help on hardware failure — combine with anti-affinity for full coverage.',
+      '<code>kubectl drain --grace-period=N --timeout=Nm</code> — set a timeout so drain doesn\'t hang.',
+      'Karpenter and Cluster Autoscaler respect PDB when consolidating nodes.',
+    ],
+    terms: ['eviction API', 'voluntary vs involuntary disruption', 'PDB selector', 'drain semantics', 'maxSurge vs maxUnavailable', 'Karpenter consolidation'],
+  },
+};
+
+function renderDeepDive(key) {
+  const d = DEEPDIVE[key];
+  if (!d) return '';
+  return `
+    <h2>${d.title}</h2>
+    <span class="formal-name">${d.formal}</span>
+    <p>${d.summary}</p>
+
+    <h3>The mechanism</h3>
+    <ul>${d.math.map(m => `<li>${m}</li>`).join('')}</ul>
+
+    <h3>Real-world story</h3>
+    <p>${d.story}</p>
+
+    <h3>Production-grade takeaways</h3>
+    ${d.takeaways.map(t => `<div class="takeaway">${t}</div>`).join('')}
+
+    <h3>Interview / industry terms</h3>
+    <div>${d.terms.map(t => `<span class="keyword">${t}</span>`).join('')}</div>
+  `;
+}
+
+function openDeepDive() {
+  const content = renderDeepDive(currentScenario);
+  if (!content) return;
+  $('deepdive-content').innerHTML = content;
+  $('deepdive-content').scrollTop = 0;
+  $('deepdive-panel').classList.add('open');
+  $('deepdive-backdrop').classList.add('open');
+}
+function closeDeepDive() {
+  $('deepdive-panel').classList.remove('open');
+  $('deepdive-backdrop').classList.remove('open');
+}
+$('btn-about').onclick = openDeepDive;
+$('deepdive-close').onclick = closeDeepDive;
+$('deepdive-backdrop').onclick = closeDeepDive;
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  else if (e.key === ' ') { e.preventDefault(); play(); }
+  else if (e.key === 'Home') { e.preventDefault(); pause(); goToStep(-1, 'backward'); }
+  else if (e.key === 'End') { e.preventDefault(); pause(); goToStep(SCENARIOS[currentScenario].steps.length - 1, 'forward'); }
+  else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); $('btn-mute').click(); }
+  else if (e.key === 'Escape' && $('deepdive-panel').classList.contains('open')) { closeDeepDive(); }
+  else if (e.key === 'a' || e.key === 'A') { e.preventDefault(); openDeepDive(); }
+});
+
+// init
+goToStep(-1, 'backward');
+</script>
+</body>
+</html>
