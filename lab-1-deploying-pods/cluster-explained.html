@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cluster Visual — Every Component Explained</title>
+<style>
+:root {
+  --bg:#06080d; --panel:#11151c; --panel2:#1f2738;
+  --text:#f1f5f9; --muted:#94a3b8; --accent:#38bdf8;
+  --good:#27AE60; --bad:#E74C3C; --warn:#F39C12;
+  --pod:#4A90E2; --svc:#1ABC9C; --deploy:#9B59B6;
+  --node:#E67E22; --ns:#F39C12; --secret:#E74C3C;
+  --cm:#38bdf8; --cp:#4A90E2; --sys:#38bdf8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:radial-gradient(ellipse at top,rgba(74,144,226,.06),transparent 55%),var(--bg);
+  color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh;
+}
+body{padding-left:56px;}
+
+/* ── rail ── */
+.rail{position:fixed;top:0;left:0;bottom:0;width:56px;background:#0c1018;border-right:1px solid #1f2738;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:3px;z-index:200;}
+.rail-brand{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#4A90E2,#9B59B6);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:.88em;text-decoration:none;margin-bottom:7px;}
+.rl{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.15em;color:#fff;text-decoration:none;transition:background .12s;position:relative;}
+.rl:hover{background:rgba(255,255,255,.08);}
+.rl.active{background:rgba(56,189,248,.18);}
+.rl:hover::after{content:attr(title);position:absolute;left:50px;top:50%;transform:translateY(-50%);background:#1f2738;color:#f1f5f9;padding:5px 11px;border-radius:6px;font-size:.8em;white-space:nowrap;border:1px solid #475569;z-index:300;pointer-events:none;}
+
+/* ── hero ── */
+.hero{padding:28px 40px 18px;background:linear-gradient(135deg,rgba(74,144,226,.85),rgba(155,89,182,.85)),var(--bg);border-bottom:1px solid rgba(255,255,255,.06);}
+.hero h1{font-size:1.6em;margin-bottom:4px;}
+.hero p{opacity:.85;font-size:.92em;color:var(--muted);}
+
+main{max-width:1300px;margin:0 auto;padding:32px 28px 80px;}
+
+/* ── cluster replica ── */
+.cluster-replica{
+  background:#03050a;border:1px solid #1f2738;border-radius:14px;
+  padding:18px;margin-bottom:36px;
+}
+.cluster-title{font-size:.78em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.cluster-title::before{content:'🔵';font-size:.9em;}
+
+.cp-bar{background:linear-gradient(135deg,rgba(74,144,226,.1),rgba(155,89,182,.1));border:2px solid var(--cp);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;cursor:pointer;transition:border-color .2s;}
+.cp-bar:hover{border-color:#7dd3fc;}
+.cp-label{font-size:.68em;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.cp-chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+.cp-chip{padding:3px 10px;border-radius:5px;font-size:.72em;font-family:ui-monospace,monospace;background:rgba(255,255,255,.04);border:1px solid #334155;color:var(--muted);}
+.cp-chip.lit{color:var(--accent);border-color:var(--accent);background:rgba(56,189,248,.1);}
+
+.ns-box{border:2px dashed rgba(243,156,18,.4);border-radius:10px;padding:12px 14px;margin-bottom:12px;position:relative;cursor:pointer;transition:border-color .2s;}
+.ns-box:hover{border-color:var(--ns);}
+.ns-box.sys{border-color:rgba(56,189,248,.35);}
+.ns-box.sys:hover{border-color:var(--sys);}
+.ns-label{position:absolute;top:-10px;left:12px;background:#03050a;padding:2px 8px;font-size:.68em;color:var(--ns);font-weight:700;letter-spacing:1px;border-radius:4px;}
+.ns-box.sys .ns-label{color:var(--sys);}
+.res-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;}
+.badge{padding:3px 10px;border-radius:5px;font-size:.73em;font-family:ui-monospace,monospace;font-weight:700;border:1.5px solid;cursor:pointer;transition:all .15s;}
+.badge:hover{opacity:.8;transform:scale(1.03);}
+.b-deploy{border-color:var(--deploy);color:var(--deploy);background:rgba(155,89,182,.08);}
+.b-sts   {border-color:#818cf8;color:#818cf8;background:rgba(129,140,248,.08);}
+.b-svc-ci{border-color:var(--svc);color:var(--svc);background:rgba(26,188,156,.08);}
+.b-svc-lb{border-color:var(--deploy);color:var(--deploy);background:rgba(155,89,182,.08);}
+.b-cm    {border-color:var(--cm);color:var(--cm);background:rgba(56,189,248,.06);}
+.b-secret{border-color:var(--secret);color:var(--secret);background:rgba(231,76,60,.06);}
+.b-ds    {border-color:var(--sys);color:var(--sys);background:rgba(56,189,248,.05);}
+
+.node-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.w-node{border:2px solid var(--node);border-radius:8px;padding:10px 12px;background:rgba(230,126,34,.04);cursor:pointer;transition:border-color .2s;}
+.w-node:hover{border-color:#fdba74;}
+.node-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.node-name{font-family:ui-monospace,monospace;font-weight:700;font-size:.84em;color:var(--node);}
+.node-ver{font-size:.68em;color:var(--muted);padding:2px 7px;background:rgba(255,255,255,.05);border-radius:4px;}
+.pods{display:flex;flex-wrap:wrap;gap:5px;}
+.pod{border:1.5px solid var(--pod);border-radius:5px;padding:3px 8px;background:rgba(74,144,226,.08);font-family:ui-monospace,monospace;font-size:.7em;color:var(--pod);cursor:pointer;transition:all .15s;}
+.pod:hover{background:rgba(74,144,226,.2);}
+.pod.ready{border-color:var(--good);color:var(--good);background:rgba(39,174,96,.07);box-shadow:0 0 6px rgba(39,174,96,.3);}
+.pod.new{border-color:var(--accent);color:var(--accent);}
+.pod.sts{border-color:#818cf8;color:#818cf8;background:rgba(129,140,248,.08);}
+
+/* ── explanation cards ── */
+.section{margin-bottom:48px;}
+.section-tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.72em;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;}
+.section h2{font-size:1.4em;margin-bottom:8px;}
+.section .lead{color:var(--muted);font-size:.95em;line-height:1.65;margin-bottom:20px;}
+
+.card{background:var(--panel);border:1px solid var(--panel2);border-radius:14px;padding:22px 24px;margin-bottom:16px;}
+.card-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.card-icon{font-size:1.6em;}
+.card-title{font-size:1.05em;font-weight:700;}
+.card-sub{font-size:.82em;color:var(--muted);margin-top:2px;}
+
+.why-box{background:rgba(39,174,96,.06);border:1px solid rgba(39,174,96,.25);border-left:3px solid var(--good);border-radius:8px;padding:12px 16px;margin-bottom:12px;}
+.why-box h4{font-size:.8em;color:var(--good);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px;}
+.why-box p{font-size:.9em;color:var(--text);line-height:1.6;}
+
+.without-box{background:rgba(231,76,60,.06);border:1px solid rgba(231,76,60,.2);border-left:3px solid var(--bad);border-radius:8px;padding:12px 16px;margin-bottom:12px;}
+.without-box h4{font-size:.8em;color:var(--bad);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px;}
+.without-box p{font-size:.9em;color:var(--text);line-height:1.6;}
+
+.cmd-block{background:#03050a;border:1px solid #1f2737;border-radius:8px;padding:12px 16px;margin:10px 0;font-family:ui-monospace,"SF Mono",monospace;font-size:.84em;line-height:1.7;overflow-x:auto;}
+.cmd-block .$ {color:#38bdf8;font-weight:700;}
+.cmd-block .cmd{color:#fde68a;}
+.cmd-block .ok {color:#4ade80;}
+.cmd-block .info{color:#94a3b8;}
+.cmd-block .warn{color:#fbbf24;}
+.cmd-block .note{color:#818cf8;font-style:italic;}
+
+/* ── diagram SVGs ── */
+.diagram{background:#03050a;border:1px solid #1f2738;border-radius:10px;padding:16px;margin:14px 0;}
+.diagram-title{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:10px;}
+
+/* ── analogy ── */
+.analogy{background:linear-gradient(135deg,rgba(74,144,226,.06),rgba(155,89,182,.06));border:1px solid rgba(74,144,226,.2);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:.9em;line-height:1.65;}
+.analogy strong{color:var(--accent);}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+
+code{background:#0d1117;padding:2px 6px;border-radius:4px;color:#fde68a;font-family:ui-monospace,monospace;font-size:.88em;}
+
+.exam-warn{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-left:3px solid var(--bad);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.88em;}
+.exam-warn::before{content:'⚠ EXAM: ';font-weight:700;color:var(--bad);}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72em;font-weight:700;font-family:ui-monospace,monospace;}
+.tag-cp{background:rgba(74,144,226,.15);color:#4A90E2;border:1px solid rgba(74,144,226,.3);}
+.tag-dp{background:rgba(230,126,34,.15);color:#E67E22;border:1px solid rgba(230,126,34,.3);}
+.tag-ns{background:rgba(243,156,18,.12);color:#F39C12;border:1px solid rgba(243,156,18,.3);}
+
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}.node-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rail-brand">K8</a>
+  <a href="index.html" class="rl" title="Dashboard">🏠</a>
+  <a href="animated-lab-kubernetes-fundamentals.html" class="rl" title="K8s Fundamentals Lab">📦</a>
+  <a href="animated-lab-aws.html" class="rl" title="AWS EKS Lab">☁️</a>
+  <a href="../course-flashcards/index.html" class="rl" title="Flashcards">🃏</a>
+  <a href="cluster-explained.html" class="rl active" title="Cluster Explained">🗺</a>
+</aside>
+
+<header class="hero">
+  <h1>🗺 Live Cluster Visual — Every Component Explained</h1>
+  <p>What is each item in the cluster screenshot, why it exists, the command that creates it, and what breaks without it.</p>
+</header>
+
+<main>
+
+<!-- ── REPLICA OF THE SCREENSHOT ── -->
+<div class="cluster-replica">
+  <div class="cluster-title">Live Kubernetes Cluster — the screenshot you asked about</div>
+
+  <div class="cp-bar" onclick="scrollTo('cp')">
+    <div>
+      <div class="cp-label">Control Plane · K8S V1.29 (EKS-Managed)</div>
+    </div>
+    <div class="cp-chips">
+      <span class="cp-chip lit">api-server</span>
+      <span class="cp-chip">etcd</span>
+      <span class="cp-chip">scheduler</span>
+      <span class="cp-chip">controller-mgr</span>
+    </div>
+  </div>
+
+  <div class="ns-box" onclick="scrollTo('ns')">
+    <div class="ns-label">ns: prod</div>
+    <div class="res-row">
+      <span class="badge b-deploy" onclick="event.stopPropagation();scrollTo('deploy')">deploy/webapp 6/6</span>
+      <span class="badge b-sts"    onclick="event.stopPropagation();scrollTo('sts')">sts/mysql</span>
+      <span class="badge b-svc-ci" onclick="event.stopPropagation();scrollTo('svc')">svc/nginx-svc</span>
+      <span class="badge b-svc-lb" onclick="event.stopPropagation();scrollTo('svc')">🌐 svc/webapp-lb</span>
+      <span class="badge b-cm"     onclick="event.stopPropagation();scrollTo('cm')">cm/app-config</span>
+      <span class="badge b-secret" onclick="event.stopPropagation();scrollTo('secret')">🔐 secret/db-creds</span>
+    </div>
+    <div class="node-grid">
+      <div class="w-node" onclick="event.stopPropagation();scrollTo('nodes')">
+        <div class="node-hdr"><span class="node-name">⊙ node-01</span><span class="node-ver">v1.29.0</span></div>
+        <div class="pods">
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">nginx</span>
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-bbb</span>
+          <span class="pod new"   onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-zzz</span>
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-d2</span>
+          <span class="pod sts"   onclick="event.stopPropagation();scrollTo('sts')">mysql-0</span>
+        </div>
+      </div>
+      <div class="w-node" onclick="event.stopPropagation();scrollTo('nodes')">
+        <div class="node-hdr"><span class="node-name">⊙ node-02</span><span class="node-ver">v1.29.0</span></div>
+        <div class="pods">
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-ccc</span>
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-d1</span>
+          <span class="pod ready" onclick="event.stopPropagation();scrollTo('pods')">webapp-v2-d3</span>
+          <span class="pod sts"   onclick="event.stopPropagation();scrollTo('sts')">mysql-1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ns-box sys" onclick="scrollTo('daemonset')">
+    <div class="ns-label">ns: kube-system</div>
+    <div class="res-row">
+      <span class="badge b-ds">ds/fluent-bit (2 pods · 2 nodes)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 1. CONTROL PLANE -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="cp">
+  <span class="section-tag tag-cp">① Control Plane</span>
+  <h2>CONTROL PLANE · K8S V1.29 (EKS-MANAGED)</h2>
+  <p class="lead">The brain of Kubernetes. Four processes that make every scheduling, storage, and reconciliation decision. On EKS, AWS runs these — you never touch them directly.</p>
+
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card" style="border-left:3px solid #4A90E2">
+      <div class="card-header">
+        <span class="card-icon">🚪</span>
+        <div><div class="card-title">api-server</div><div class="card-sub">Glowing cyan — active right now</div></div>
+      </div>
+      <div class="why-box">
+        <h4>Why it exists</h4>
+        <p>Every <code>kubectl</code> command, every SDK call, every controller watch — all go through the API server. It is the single authoritative front door. Nothing changes in the cluster without going through it.</p>
+      </div>
+      <div class="without-box">
+        <h4>Without it</h4>
+        <p>Zero visibility. <code>kubectl get pods</code> fails immediately. No deployments, no scaling, nothing. The cluster is a black box.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl cluster-info</span><br>
+        <span class="ok">Kubernetes control plane is running at</span><br>
+        <span class="ok">  https://api.k8s.local:6443</span>
+      </div>
+      <div class="analogy"><strong>Analogy:</strong> The API server is the hotel front desk. Every guest request (kubectl) goes through it. The hotel still stands without the desk, but nobody can check in, check out, or know which rooms are occupied.</div>
+    </div>
+
+    <div class="card" style="border-left:3px solid #818cf8">
+      <div class="card-header">
+        <span class="card-icon">🧠</span>
+        <div><div class="card-title">etcd</div><div class="card-sub">The cluster's memory</div></div>
+      </div>
+      <div class="why-box">
+        <h4>Why it exists</h4>
+        <p>Distributed key-value store. Holds the complete desired state of every object — every Pod spec, every Service, every ConfigMap. The API server reads and writes here for every operation.</p>
+      </div>
+      <div class="without-box">
+        <h4>Without it</h4>
+        <p>The cluster loses all memory instantly. No record of what pods should exist, what namespaces were created, what deployments were applied. On EKS, AWS replicates etcd across 3 AZs so this never happens.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl get --raw /metrics | grep etcd</span><br>
+        <span class="ok">etcd_db_total_size_in_bytes 8.3MB</span><br>
+        <span class="note"># On EKS: you cannot access etcd directly — AWS manages it</span>
+      </div>
+      <div class="analogy"><strong>Analogy:</strong> etcd is the hotel's booking database. Without it, the front desk has no record of any reservation. On EKS: it's the cloud-backed database AWS runs in 3 data centres simultaneously.</div>
+    </div>
+
+    <div class="card" style="border-left:3px solid #F39C12">
+      <div class="card-header">
+        <span class="card-icon">📍</span>
+        <div><div class="card-title">scheduler</div><div class="card-sub">Pod placement engine</div></div>
+      </div>
+      <div class="why-box">
+        <h4>Why it exists</h4>
+        <p>When a Pod is created, it starts as <strong>Pending</strong>. The scheduler's job is to find the best node. It runs two passes: <strong>predicates</strong> (filter ineligible nodes) then <strong>priorities</strong> (score eligible ones). Picks the winner.</p>
+      </div>
+      <div class="without-box">
+        <h4>Without it</h4>
+        <p>Every pod stays Pending forever. No container ever starts. The cluster has workers but nothing to tell them what to run.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl describe pod webapp-v2-bbb -n prod</span><br>
+        <span class="ok">Events:</span><br>
+        <span class="ok">  Normal  Scheduled  0s  default-scheduler</span><br>
+        <span class="ok">  "Successfully assigned prod/webapp-v2-bbb to node-01"</span>
+      </div>
+      <div class="diagram">
+        <div class="diagram-title">Scheduler decision flow</div>
+        <svg viewBox="0 0 760 130" style="width:100%;max-height:130px">
+          <text x="30" y="30" fill="#818cf8" font-size="11" font-family="ui-monospace,monospace">Pending Pod</text>
+          <rect x="10" y="38" width="110" height="36" rx="6" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1.5"/>
+          <text x="65" y="60" text-anchor="middle" fill="#f1f5f9" font-size="10" font-family="ui-monospace,monospace">webapp-v2-zzz</text>
+          <text x="65" y="74" text-anchor="middle" fill="#94a3b8" font-size="8.5">cpu:250m req</text>
+          <line x1="122" y1="56" x2="158" y2="56" stroke="#F39C12" stroke-width="1.5" marker-end="url(#arr)"/>
+          <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#F39C12"/></marker>
+          <marker id="arr2" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#27AE60"/></marker></defs>
+          <text x="200" y="20" fill="#E74C3C" font-size="10">Predicates (filter)</text>
+          <rect x="160" y="28" width="100" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/>
+          <text x="210" y="46" text-anchor="middle" fill="#86efac" font-size="9.5">node-01 ✓</text>
+          <rect x="160" y="62" width="100" height="28" rx="5" fill="rgba(231,76,60,.1)" stroke="#E74C3C" stroke-width="1" stroke-dasharray="4"/>
+          <text x="210" y="80" text-anchor="middle" fill="#fca5a5" font-size="9.5">node-X ✗ no CPU</text>
+          <rect x="160" y="96" width="100" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/>
+          <text x="210" y="114" text-anchor="middle" fill="#86efac" font-size="9.5">node-02 ✓</text>
+          <line x1="262" y1="42" x2="298" y2="56" stroke="#F39C12" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="262" y1="110" x2="298" y2="70" stroke="#F39C12" stroke-width="1.5" marker-end="url(#arr)"/>
+          <text x="350" y="20" fill="#27AE60" font-size="10">Priorities (score)</text>
+          <rect x="300" y="38" width="100" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="350" y="56" text-anchor="middle" fill="#4ade80" font-size="9.5">node-01: 82 pts</text>
+          <rect x="300" y="75" width="100" height="28" rx="5" fill="rgba(56,189,248,.08)" stroke="#38bdf8" stroke-width="1"/>
+          <text x="350" y="93" text-anchor="middle" fill="#7dd3fc" font-size="9.5">node-02: 71 pts</text>
+          <line x1="402" y1="52" x2="440" y2="52" stroke="#27AE60" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="442" y="30" width="130" height="48" rx="8" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="2"/>
+          <text x="507" y="52" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="700">→ node-01 wins</text>
+          <text x="507" y="68" text-anchor="middle" fill="#94a3b8" font-size="8.5">Pod scheduled here</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="card" style="border-left:3px solid #27AE60">
+      <div class="card-header">
+        <span class="card-icon">🔄</span>
+        <div><div class="card-title">controller-manager</div><div class="card-sub">The reconciliation engine</div></div>
+      </div>
+      <div class="why-box">
+        <h4>Why it exists</h4>
+        <p>Runs control loops. Every second it checks: does <strong>actual state</strong> match <strong>desired state</strong>? If not, it acts. The ReplicaSet controller sees 2 pods when you wanted 3 → creates 1 more. This loop never stops.</p>
+      </div>
+      <div class="without-box">
+        <h4>Without it</h4>
+        <p>Pods that crash stay dead. Deployments can't roll out. StatefulSets can't order their pods. Self-healing stops entirely.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl delete pod webapp-v2-bbb -n prod  # simulate crash</span><br>
+        <span class="info">pod deleted</span><br>
+        <span class="warn">ReplicaSet: desired=3, actual=2 → creating replacement</span><br>
+        <span class="ok">webapp-v2-zzz  ContainerCreating  ← controller acted in &lt;1s</span>
+      </div>
+      <div class="analogy"><strong>Analogy:</strong> A hotel manager who walks the floors all night. If a room service tray is missing, they put one back. If a light bulb is out, they replace it. Desired state = hotel policy. Actual state = what the manager finds on the walk.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 2. NAMESPACE -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="ns">
+  <span class="section-tag tag-ns">② Namespace</span>
+  <h2>ns: prod — logical isolation</h2>
+  <p class="lead">A virtual cluster inside your physical cluster. Everything inside the dashed orange border lives in the <code>prod</code> namespace and is isolated from <code>default</code> and <code>kube-system</code>.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="why-box">
+        <h4>Why it exists</h4>
+        <p>Without namespaces, every team's pods, services, and configs live in the same flat space. Names collide. A junior dev's test pod deletes a production config. RBAC becomes impossible to scope. Namespaces enforce boundaries.</p>
+      </div>
+      <div class="without-box">
+        <h4>Without namespaces</h4>
+        <p>All 100 teams' resources mixed in <code>default</code>. No isolation. Network Policies can't scope to a team. Billing is impossible to attribute. Service names like <code>mysql</code> collide across teams.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl create namespace prod</span><br>
+        <span class="ok">namespace/prod created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl apply -f app.yaml -n prod</span><br>
+        <span class="note"># All resources created inside prod namespace</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get all -n prod</span><br>
+        <span class="info">NAME                     READY   STATUS</span><br>
+        <span class="ok">pod/nginx                1/1     Running</span><br>
+        <span class="ok">pod/webapp-v2-bbb        1/1     Running</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="diagram-title">Namespace isolation</div>
+      <div class="diagram">
+        <svg viewBox="0 0 680 260" style="width:100%">
+          <text x="340" y="20" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="700">One Cluster — Three Namespaces</text>
+          <rect x="10" y="30" width="660" height="220" rx="10" fill="rgba(255,255,255,.02)" stroke="#334155" stroke-width="1.5" stroke-dasharray="6"/>
+          <text x="340" y="50" text-anchor="middle" fill="#475569" font-size="10">Kubernetes Cluster</text>
+
+          <rect x="30" y="60" width="180" height="170" rx="8" fill="rgba(243,156,18,.05)" stroke="rgba(243,156,18,.4)" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="120" y="80" text-anchor="middle" fill="#F39C12" font-size="10" font-weight="700">ns: prod</text>
+          <rect x="45" y="90" width="150" height="26" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1"/>
+          <text x="120" y="108" text-anchor="middle" fill="#c4b5fd" font-size="9">deploy/webapp</text>
+          <rect x="45" y="122" width="150" height="26" rx="5" fill="rgba(26,188,156,.08)" stroke="#1ABC9C" stroke-width="1"/>
+          <text x="120" y="140" text-anchor="middle" fill="#5eead4" font-size="9">svc/nginx-svc</text>
+          <rect x="45" y="154" width="150" height="26" rx="5" fill="rgba(231,76,60,.08)" stroke="#E74C3C" stroke-width="1"/>
+          <text x="120" y="172" text-anchor="middle" fill="#fca5a5" font-size="9">🔐 secret/db-creds</text>
+
+          <rect x="250" y="60" width="180" height="170" rx="8" fill="rgba(243,156,18,.03)" stroke="rgba(243,156,18,.25)" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="340" y="80" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="700">ns: staging</text>
+          <rect x="265" y="90" width="150" height="26" rx="5" fill="rgba(155,89,182,.08)" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <text x="340" y="108" text-anchor="middle" fill="#a78bfa" font-size="9">deploy/webapp</text>
+          <text x="340" y="145" text-anchor="middle" fill="#475569" font-size="9">(same name — no clash)</text>
+
+          <rect x="470" y="60" width="180" height="170" rx="8" fill="rgba(56,189,248,.03)" stroke="rgba(56,189,248,.3)" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="560" y="80" text-anchor="middle" fill="#38bdf8" font-size="10" font-weight="700">ns: kube-system</text>
+          <rect x="485" y="90" width="150" height="26" rx="5" fill="rgba(56,189,248,.08)" stroke="#38bdf8" stroke-width="1"/>
+          <text x="560" y="108" text-anchor="middle" fill="#7dd3fc" font-size="9">ds/fluent-bit</text>
+          <rect x="485" y="122" width="150" height="26" rx="5" fill="rgba(56,189,248,.06)" stroke="rgba(56,189,248,.5)" stroke-width="1"/>
+          <text x="560" y="140" text-anchor="middle" fill="#7dd3fc" font-size="9">svc/kube-dns</text>
+          <text x="560" y="165" text-anchor="middle" fill="#475569" font-size="9">K8s system pods</text>
+
+          <line x1="212" y1="190" x2="248" y2="190" stroke="#E74C3C" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="230" y="183" text-anchor="middle" fill="#E74C3C" font-size="8">cannot</text>
+          <text x="230" y="196" text-anchor="middle" fill="#E74C3C" font-size="8">see each</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 3. NODES -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="nodes">
+  <span class="section-tag tag-dp">③ Worker Nodes</span>
+  <h2>node-01 + node-02 — the compute machines</h2>
+  <p class="lead">EC2 instances (on EKS) that actually run your containers. The orange border means they're managed by you (data plane). Each runs kubelet, kube-proxy, and the container runtime.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="why-box">
+        <h4>Why you need TWO nodes</h4>
+        <p>Single node = single point of failure. If node-01 crashes, ALL pods on it die. With node-02, the scheduler spreads pods across both. A node failure takes down ~half your pods, not all. On EKS, the managed node group Auto Scaling Group automatically replaces a failed node.</p>
+      </div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl get nodes -o wide</span><br>
+        <span class="info">NAME      STATUS  VERSION   INTERNAL-IP</span><br>
+        <span class="ok">node-01   Ready   v1.29.0   10.0.0.10</span><br>
+        <span class="ok">node-02   Ready   v1.29.0   10.0.0.11</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl describe node node-01 | grep -A5 Allocatable</span><br>
+        <span class="ok">Allocatable:</span><br>
+        <span class="ok">  cpu:    1900m      ← 1.9 cores available for pods</span><br>
+        <span class="ok">  memory: 3532Mi     ← 3.5 GB available for pods</span><br>
+        <span class="note">  # (2000m total minus ~100m reserved for system)</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="diagram-title">What runs inside each node</div>
+      <div class="diagram">
+        <svg viewBox="0 0 640 220" style="width:100%">
+          <rect x="10" y="10" width="290" height="200" rx="10" fill="rgba(230,126,34,.05)" stroke="#E67E22" stroke-width="2"/>
+          <text x="155" y="32" text-anchor="middle" fill="#E67E22" font-size="11" font-weight="700">node-01 (EC2 t3.medium)</text>
+          <rect x="25" y="42" width="120" height="36" rx="6" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="85" y="58" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">kubelet</text>
+          <text x="85" y="71" text-anchor="middle" fill="#94a3b8" font-size="8">manages pod lifecycle</text>
+          <rect x="157" y="42" width="130" height="36" rx="6" fill="rgba(27,188,156,.1)" stroke="#1ABC9C" stroke-width="1"/>
+          <text x="222" y="58" text-anchor="middle" fill="#5eead4" font-size="9.5" font-weight="700">kube-proxy</text>
+          <text x="222" y="71" text-anchor="middle" fill="#94a3b8" font-size="8">iptables for services</text>
+          <rect x="25" y="88" width="260" height="28" rx="5" fill="rgba(255,255,255,.04)" stroke="#475569" stroke-width="1"/>
+          <text x="155" y="107" text-anchor="middle" fill="#94a3b8" font-size="9">containerd (container runtime)</text>
+          <rect x="25" y="125" width="70" height="72" rx="6" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1.5"/>
+          <text x="60" y="156" text-anchor="middle" fill="#7dd3fc" font-size="8.5">nginx</text>
+          <text x="60" y="170" text-anchor="middle" fill="#4ade80" font-size="8">✓ ready</text>
+          <rect x="103" y="125" width="86" height="72" rx="6" fill="rgba(74,144,226,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="146" y="156" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-bbb</text>
+          <text x="146" y="170" text-anchor="middle" fill="#4ade80" font-size="8">✓ ready</text>
+          <rect x="197" y="125" width="80" height="72" rx="6" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1.5"/>
+          <text x="237" y="156" text-anchor="middle" fill="#c4b5fd" font-size="8.5">mysql-0</text>
+          <text x="237" y="170" text-anchor="middle" fill="#c4b5fd" font-size="8">StatefulSet</text>
+
+          <rect x="340" y="10" width="290" height="200" rx="10" fill="rgba(230,126,34,.05)" stroke="#E67E22" stroke-width="2"/>
+          <text x="485" y="32" text-anchor="middle" fill="#E67E22" font-size="11" font-weight="700">node-02 (EC2 t3.medium)</text>
+          <rect x="355" y="42" width="120" height="36" rx="6" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="415" y="58" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">kubelet</text>
+          <text x="415" y="71" text-anchor="middle" fill="#94a3b8" font-size="8">manages pod lifecycle</text>
+          <rect x="487" y="42" width="130" height="36" rx="6" fill="rgba(27,188,156,.1)" stroke="#1ABC9C" stroke-width="1"/>
+          <text x="552" y="58" text-anchor="middle" fill="#5eead4" font-size="9.5" font-weight="700">kube-proxy</text>
+          <text x="552" y="71" text-anchor="middle" fill="#94a3b8" font-size="8">iptables for services</text>
+          <rect x="355" y="88" width="260" height="28" rx="5" fill="rgba(255,255,255,.04)" stroke="#475569" stroke-width="1"/>
+          <text x="485" y="107" text-anchor="middle" fill="#94a3b8" font-size="9">containerd (container runtime)</text>
+          <rect x="355" y="125" width="80" height="72" rx="6" fill="rgba(74,144,226,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="395" y="156" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-ccc</text>
+          <text x="395" y="170" text-anchor="middle" fill="#4ade80" font-size="8">✓ ready</text>
+          <rect x="443" y="125" width="80" height="72" rx="6" fill="rgba(74,144,226,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="483" y="156" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-d1</text>
+          <text x="483" y="170" text-anchor="middle" fill="#4ade80" font-size="8">✓ ready</text>
+          <rect x="531" y="125" width="80" height="72" rx="6" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1.5"/>
+          <text x="571" y="156" text-anchor="middle" fill="#c4b5fd" font-size="8.5">mysql-1</text>
+          <text x="571" y="170" text-anchor="middle" fill="#c4b5fd" font-size="8">StatefulSet</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 4. PODS -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="pods">
+  <span class="section-tag" style="background:rgba(74,144,226,.15);color:#4A90E2;border:1px solid rgba(74,144,226,.3)">④ Pods</span>
+  <h2>nginx · webapp-v2-bbb · webapp-v2-zzz · webapp-v2-d2</h2>
+  <p class="lead">The actual running containers. Each chip = one pod = one or more containers sharing the same network namespace. Colour tells you the state instantly.</p>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="card-header"><span style="display:inline-block;padding:4px 10px;border-radius:5px;border:1.5px solid #27AE60;color:#27AE60;background:rgba(39,174,96,.07);font-family:ui-monospace,monospace;font-size:.8em;box-shadow:0 0 6px rgba(39,174,96,.3)">nginx</span><div style="margin-left:10px"><div class="card-title" style="color:#27AE60">Green glow = Ready ✓</div></div></div>
+      <p style="font-size:.88em;color:var(--muted);line-height:1.6">Container running + readiness probe passing. kube-proxy has registered this pod as a healthy backend for any matching Service.</p>
+      <div class="cmd-block"><span class="$">$</span> <span class="cmd">kubectl apply -f nginx-pod.yaml</span><br><span class="ok">pod/nginx created</span><br><span class="$">$</span> <span class="cmd">kubectl get pod nginx -n prod</span><br><span class="ok">nginx   1/1   Running   0   30s</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span style="display:inline-block;padding:4px 10px;border-radius:5px;border:1.5px solid #38bdf8;color:#38bdf8;background:rgba(56,189,248,.08);font-family:ui-monospace,monospace;font-size:.8em">webapp-v2-zzz</span><div style="margin-left:10px"><div class="card-title" style="color:#38bdf8">Blue = New / Starting</div></div></div>
+      <p style="font-size:.88em;color:var(--muted);line-height:1.6">Just created by the ReplicaSet controller after a pod crash. Image is pulling or container is starting. Not yet ready — Service won't send traffic here yet.</p>
+      <div class="cmd-block"><span class="$">$</span> <span class="cmd">kubectl get pod webapp-v2-zzz -n prod</span><br><span class="warn">webapp-v2-zzz   0/1   ContainerCreating   0   2s</span><br><span class="note"># kube-proxy skips this pod — not ready yet</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span style="display:inline-block;padding:4px 10px;border-radius:5px;border:1.5px solid #818cf8;color:#818cf8;background:rgba(129,140,248,.08);font-family:ui-monospace,monospace;font-size:.8em">mysql-0</span><div style="margin-left:10px"><div class="card-title" style="color:#818cf8">Purple = StatefulSet pod</div></div></div>
+      <p style="font-size:.88em;color:var(--muted);line-height:1.6">Stable ordered name — mysql-0 always on the same PVC. Won't be replaced by a random hash like Deployment pods. Its identity (name + storage) persists across restarts.</p>
+      <div class="cmd-block"><span class="$">$</span> <span class="cmd">kubectl get pods -n prod -l app=mysql</span><br><span class="ok">mysql-0   1/1   Running   0   node-01</span><br><span class="ok">mysql-1   1/1   Running   0   node-02</span></div>
+    </div>
+  </div>
+  <div class="exam-warn">Pod names from Deployments have random hashes (webapp-v2-<strong>bbb</strong>) — they change on every restart. StatefulSet pod names are ordered and stable (mysql-<strong>0</strong>, mysql-<strong>1</strong>). This is the key Deployment vs StatefulSet distinction.</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 5. DEPLOY + STS -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="deploy">
+  <span class="section-tag" style="background:rgba(155,89,182,.15);color:#9B59B6;border:1px solid rgba(155,89,182,.3)">⑤ Deployment</span>
+  <h2>deploy/webapp 6/6 — the workload controller</h2>
+  <p class="lead"><code>6/6</code> means: 6 pods desired, 6 pods ready. The Deployment manages a ReplicaSet which manages the pods. It enables rolling updates, rollbacks, and self-healing.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="why-box"><h4>Why it exists</h4><p>Without a Deployment, you'd manually create each pod. When one crashes, it stays dead. No rolling update exists. You'd have to delete all pods and recreate manually for every version change — guaranteed downtime.</p></div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl apply -f webapp-deploy.yaml</span><br>
+        <span class="note"># webapp-deploy.yaml:</span><br>
+        <span class="note"># kind: Deployment, spec.replicas: 6</span><br>
+        <span class="note"># spec.template.spec.containers: [{image: webapp:v2}]</span><br>
+        <span class="ok">deployment.apps/webapp created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl rollout status deploy/webapp -n prod</span><br>
+        <span class="ok">deployment "webapp" successfully rolled out</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl set image deploy/webapp webapp=webapp:v3 -n prod</span><br>
+        <span class="ok">deployment.apps/webapp image updated</span><br>
+        <span class="note"># Rolling: new RS scales up, old RS scales down — zero downtime</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl rollout undo deploy/webapp -n prod</span><br>
+        <span class="ok">deployment.apps/webapp rolled back  ← instant!</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="diagram-title">Deployment → ReplicaSet → Pods hierarchy</div>
+      <div class="diagram">
+        <svg viewBox="0 0 620 200" style="width:100%">
+          <rect x="220" y="8" width="180" height="40" rx="8" fill="rgba(155,89,182,.12)" stroke="#9B59B6" stroke-width="2"/>
+          <text x="310" y="24" text-anchor="middle" fill="#c4b5fd" font-size="10.5" font-weight="700">Deployment/webapp</text>
+          <text x="310" y="40" text-anchor="middle" fill="#94a3b8" font-size="8.5">replicas: 6, image: webapp:v2</text>
+          <line x1="310" y1="50" x2="310" y2="72" stroke="#9B59B6" stroke-width="1.5"/>
+          <rect x="200" y="74" width="220" height="36" rx="7" fill="rgba(155,89,182,.08)" stroke="rgba(155,89,182,.6)" stroke-width="1.5"/>
+          <text x="310" y="90" text-anchor="middle" fill="#a78bfa" font-size="10">ReplicaSet-v2 (6/6)</text>
+          <text x="310" y="103" text-anchor="middle" fill="#64748b" font-size="8">maintained by controller-manager</text>
+          <line x1="240" y1="112" x2="100" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <line x1="280" y1="112" x2="230" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <line x1="310" y1="112" x2="310" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <line x1="340" y1="112" x2="390" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <line x1="380" y1="112" x2="490" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <line x1="400" y1="112" x2="560" y2="140" stroke="rgba(155,89,182,.5)" stroke-width="1"/>
+          <rect x="42" y="140" width="82" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="83" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-bbb</text>
+          <rect x="178" y="140" width="82" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="219" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-ccc</text>
+          <rect x="272" y="140" width="78" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="311" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-zzz</text>
+          <rect x="356" y="140" width="78" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="395" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-d1</text>
+          <rect x="444" y="140" width="78" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="483" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-d2</text>
+          <rect x="524" y="140" width="78" height="32" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1.5"/>
+          <text x="563" y="160" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-d3</text>
+          <text x="310" y="192" text-anchor="middle" fill="#475569" font-size="8.5">6 pods across 2 nodes — if controller-manager detects any missing, it creates replacements</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="sts">
+  <span class="section-tag" style="background:rgba(129,140,248,.15);color:#818cf8;border:1px solid rgba(129,140,248,.3)">⑥ StatefulSet</span>
+  <h2>sts/mysql — stable identity workload</h2>
+  <p class="lead">mysql-0 always exists on node-01, mysql-1 on node-02. Each has its own PersistentVolumeClaim. Names survive restarts. Unlike Deployments where pods are interchangeable, here each pod is unique.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="why-box"><h4>Why it exists</h4><p>Databases need stable identity. mysql-0 is the primary. mysql-1 is the replica. If they had random names, the database replication config would break on every restart. StatefulSet preserves pod identity and its attached storage permanently.</p></div>
+      <div class="without-box"><h4>What breaks with a Deployment for MySQL</h4><p>After a restart, pod name changes from <code>mysql-abc</code> to <code>mysql-xyz</code>. The PVC binding is lost. The replica server can't find the primary by name. Data is gone if PVC wasn't bound. Total database corruption.</p></div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl apply -f mysql-sts.yaml</span><br>
+        <span class="ok">statefulset.apps/mysql created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get pods -n prod -l app=mysql</span><br>
+        <span class="ok">mysql-0   1/1  Running  0  node-01  ← primary, starts FIRST</span><br>
+        <span class="ok">mysql-1   1/1  Running  0  node-02  ← replica, starts AFTER</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get pvc -n prod</span><br>
+        <span class="ok">data-mysql-0  Bound  10Gi  RWO  ← mysql-0 owns this forever</span><br>
+        <span class="ok">data-mysql-1  Bound  10Gi  RWO  ← mysql-1 owns this forever</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="diagram-title">Deployment vs StatefulSet behaviour on pod restart</div>
+      <div class="diagram">
+        <svg viewBox="0 0 620 200" style="width:100%">
+          <text x="155" y="18" text-anchor="middle" fill="#9B59B6" font-size="10" font-weight="700">Deployment (stateless)</text>
+          <rect x="10" y="25" width="290" height="70" rx="8" fill="rgba(155,89,182,.05)" stroke="rgba(155,89,182,.3)" stroke-width="1"/>
+          <text x="155" y="42" text-anchor="middle" fill="#94a3b8" font-size="9">Before restart</text>
+          <rect x="25" y="48" width="80" height="22" rx="4" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/><text x="65" y="63" text-anchor="middle" fill="#4ade80" font-size="8">webapp-abc</text>
+          <rect x="115" y="48" width="80" height="22" rx="4" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/><text x="155" y="63" text-anchor="middle" fill="#4ade80" font-size="8">webapp-def</text>
+          <rect x="205" y="48" width="80" height="22" rx="4" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/><text x="245" y="63" text-anchor="middle" fill="#4ade80" font-size="8">webapp-ghi</text>
+          <text x="155" y="87" text-anchor="middle" fill="#94a3b8" font-size="9">After restart — NEW names, pods interchangeable ✓</text>
+          <rect x="25" y="76" width="80" height="22" rx="4" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1"/><text x="65" y="91" text-anchor="middle" fill="#7dd3fc" font-size="8">webapp-xyz</text>
+          <rect x="115" y="76" width="80" height="22" rx="4" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1"/><text x="155" y="91" text-anchor="middle" fill="#7dd3fc" font-size="8">webapp-pqr</text>
+          <rect x="205" y="76" width="80" height="22" rx="4" fill="rgba(74,144,226,.1)" stroke="#4A90E2" stroke-width="1"/><text x="245" y="91" text-anchor="middle" fill="#7dd3fc" font-size="8">webapp-mno</text>
+
+          <text x="465" y="18" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="700">StatefulSet (stateful)</text>
+          <rect x="320" y="25" width="290" height="70" rx="8" fill="rgba(129,140,248,.05)" stroke="rgba(129,140,248,.3)" stroke-width="1"/>
+          <text x="465" y="42" text-anchor="middle" fill="#94a3b8" font-size="9">Before restart</text>
+          <rect x="335" y="48" width="70" height="22" rx="4" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1"/><text x="370" y="63" text-anchor="middle" fill="#c4b5fd" font-size="8">mysql-0</text>
+          <rect x="440" y="48" width="70" height="22" rx="4" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1"/><text x="475" y="63" text-anchor="middle" fill="#c4b5fd" font-size="8">mysql-1</text>
+          <text x="465" y="87" text-anchor="middle" fill="#94a3b8" font-size="9">After restart — SAME names, same PVCs ✓</text>
+          <rect x="335" y="76" width="70" height="22" rx="4" fill="rgba(129,140,248,.15)" stroke="#818cf8" stroke-width="2"/><text x="370" y="91" text-anchor="middle" fill="#c4b5fd" font-size="8">mysql-0</text>
+          <rect x="440" y="76" width="70" height="22" rx="4" fill="rgba(129,140,248,.15)" stroke="#818cf8" stroke-width="2"/><text x="475" y="91" text-anchor="middle" fill="#c4b5fd" font-size="8">mysql-1</text>
+
+          <text x="310" y="130" text-anchor="middle" fill="#475569" font-size="9">↑ Deployment pods are interchangeable — StatefulSet pods are NOT</text>
+          <text x="310" y="148" text-anchor="middle" fill="#818cf8" font-size="9" font-weight="700">Use StatefulSet for: MySQL · Kafka · Elasticsearch · Redis Cluster · ZooKeeper</text>
+          <text x="310" y="165" text-anchor="middle" fill="#9B59B6" font-size="9" font-weight="700">Use Deployment for: web frontends · APIs · workers · anything stateless</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 6. SERVICES -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="svc">
+  <span class="section-tag" style="background:rgba(26,188,156,.12);color:#1ABC9C;border:1px solid rgba(26,188,156,.3)">⑦ Services</span>
+  <h2>svc/nginx-svc (ClusterIP) + 🌐 svc/webapp-lb (LoadBalancer)</h2>
+  <p class="lead">Pods die and restart with new IPs. Services give you a <strong>stable virtual IP + DNS name</strong> that never changes. kube-proxy routes traffic to healthy pods behind the scenes.</p>
+
+  <div class="grid2">
+    <div class="card" style="border-left:3px solid #1ABC9C">
+      <div class="card-header"><div class="card-title" style="color:#1ABC9C">ClusterIP — internal only</div></div>
+      <div class="why-box"><h4>Why it exists</h4><p>Other pods in the cluster use <code>nginx-svc.prod.svc.cluster.local</code> to reach nginx. Without it, they'd need to hard-code pod IPs which change on every restart. ClusterIP is the backbone of all service-to-service communication.</p></div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl apply -f nginx-svc.yaml</span><br>
+        <span class="note"># type: ClusterIP, selector: {app: nginx}, port: 80</span><br>
+        <span class="ok">service/nginx-svc created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get svc nginx-svc -n prod</span><br>
+        <span class="ok">NAME        TYPE       CLUSTER-IP     PORT(S)</span><br>
+        <span class="ok">nginx-svc   ClusterIP  10.96.100.10   80/TCP</span><br><br>
+        <span class="note"># From any pod in the cluster:</span><br>
+        <span class="$">$</span> <span class="cmd">curl nginx-svc.prod.svc.cluster.local</span><br>
+        <span class="ok">Welcome to nginx!</span>
+      </div>
+      <div class="exam-warn">ClusterIP is ONLY reachable from inside the cluster. You cannot curl it from your laptop. Not accessible from the internet.</div>
+    </div>
+    <div class="card" style="border-left:3px solid #9B59B6">
+      <div class="card-header"><div class="card-title" style="color:#9B59B6">🌐 LoadBalancer — internet exposed</div></div>
+      <div class="why-box"><h4>Why it exists</h4><p>On EKS, creating a LoadBalancer Service automatically provisions a real AWS NLB. The DNS name appears as EXTERNAL-IP. Traffic flows: internet → NLB → any worker node → kube-proxy iptables → pod. No manual load balancer config needed.</p></div>
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl apply -f webapp-lb.yaml</span><br>
+        <span class="note"># type: LoadBalancer, selector: {app: webapp}</span><br>
+        <span class="ok">service/webapp-lb created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get svc webapp-lb -n prod</span><br>
+        <span class="ok">EXTERNAL-IP: a1b2c3.elb.us-east-1.amazonaws.com</span><br><br>
+        <span class="$">$</span> <span class="cmd">curl http://a1b2c3.elb.us-east-1.amazonaws.com</span><br>
+        <span class="ok">"hello from webapp v2"</span><br><br>
+        <span class="note"># Traffic path: internet → NLB → node:NodePort → iptables → pod</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 7. CM + SECRET -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="cm">
+  <span class="section-tag" style="background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.25)">⑧ ConfigMap</span>
+  <h2>cm/app-config — externalise your config</h2>
+  <p class="lead">Separates configuration from the container image. The same Docker image runs in dev, staging, and prod by consuming different ConfigMaps. No rebuild needed when config changes.</p>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <div class="why-box"><h4>Why it exists</h4><p>Baking config into the image means rebuilding and redeploying for every environment change. A ConfigMap decouples config from code. Change <code>LOG_LEVEL</code> from <code>debug</code> to <code>info</code>? Update the ConfigMap, restart the pod. Zero image rebuild.</p></div>
+        <div class="without-box"><h4>Without ConfigMap</h4><p>Hardcoded <code>DB_HOST=localhost</code> in the image. Works in dev. Fails in prod. Build a new image for prod. Now you're maintaining two slightly different images for one app. Drift happens. Bugs appear only in prod.</p></div>
+      </div>
+      <div>
+        <div class="cmd-block">
+          <span class="$">$</span> <span class="cmd">kubectl create configmap app-config \</span><br>
+          <span class="cmd">  --from-literal=DB_HOST=postgres.prod \</span><br>
+          <span class="cmd">  --from-literal=LOG_LEVEL=info -n prod</span><br>
+          <span class="ok">configmap/app-config created</span><br><br>
+          <span class="note"># Consume as env vars in pod spec:</span><br>
+          <span class="note"># env:</span><br>
+          <span class="note">#   - name: DB_HOST</span><br>
+          <span class="note">#     valueFrom:</span><br>
+          <span class="note">#       configMapKeyRef:</span><br>
+          <span class="note">#         name: app-config</span><br>
+          <span class="note">#         key: DB_HOST</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="secret">
+  <span class="section-tag" style="background:rgba(231,76,60,.1);color:#E74C3C;border:1px solid rgba(231,76,60,.25)">⑨ Secret</span>
+  <h2>🔐 secret/db-creds — sensitive data (base64 ≠ encrypted)</h2>
+  <p class="lead">Stores passwords, tokens, keys. The red badge + lock icon is a visual warning: Secrets are base64 encoded in etcd by default — anyone with kubectl access can decode them instantly. Enable KMS for real encryption.</p>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <div class="without-box"><h4>⚠ The base64 trap (critical exam point)</h4><p>base64 is encoding, NOT encryption. <code>echo "cEBzc3cwcmQ=" | base64 -d</code> gives you the password in plain text immediately. To truly protect secrets: enable KMS envelope encryption at the EKS cluster level, or use AWS Secrets Manager with ASCP.</p></div>
+        <div class="why-box"><h4>Still better than hardcoding</h4><p>Even without KMS, Secrets are better than env vars in a Dockerfile or committed plaintext. RBAC can restrict who can <code>kubectl get secret</code>. The secret isn't in version control. It's a foundation to build on.</p></div>
+      </div>
+      <div>
+        <div class="cmd-block">
+          <span class="$">$</span> <span class="cmd">kubectl create secret generic db-creds \</span><br>
+          <span class="cmd">  --from-literal=password=p@ssw0rd -n prod</span><br>
+          <span class="ok">secret/db-creds created</span><br><br>
+          <span class="$">$</span> <span class="cmd">kubectl get secret db-creds -n prod -o yaml</span><br>
+          <span class="warn">data:</span><br>
+          <span class="warn">  password: cEBzc3cwcmQ=   ← base64, NOT encrypted!</span><br><br>
+          <span class="$">$</span> <span class="cmd">echo "cEBzc3cwcmQ=" | base64 -d</span><br>
+          <span class="warn">p@ssw0rd    ← decoded in 1 second</span><br><br>
+          <span class="note"># Real fix: enable KMS on EKS + use AWS Secrets Manager</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- 10. DAEMONSET -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="section" id="daemonset">
+  <span class="section-tag" style="background:rgba(56,189,248,.08);color:#38bdf8;border:1px solid rgba(56,189,248,.25)">⑩ DaemonSet</span>
+  <h2>ds/fluent-bit (2 pods · 2 nodes)</h2>
+  <p class="lead">Lives in <code>kube-system</code>, not <code>prod</code>. Kubernetes infrastructure namespace. Fluent Bit runs on EVERY node — one pod per node. Not 6 pods, not 3 pods. Exactly 1 per node, always. When node-02 joined, Fluent Bit was placed there automatically.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="why-box"><h4>Why DaemonSet, not Deployment</h4><p>Log collection must happen at the node level — it reads from <code>/var/log/containers/</code> on the host filesystem. You can't do that with a Deployment because the scheduler might put both pods on one node, leaving the other node blind. DaemonSet guarantees coverage.</p></div>
+      <div class="without-box"><h4>Without Fluent Bit DaemonSet</h4><p>Pods on node-02 generate logs. Nobody reads them. When the pod restarts, those logs are gone forever. No logs in OpenSearch, no alarms in CloudWatch. Silent failures in production.</p></div>
+      <div class="exam-warn">DaemonSets are NOT supported on AWS Fargate. You must use EC2 node groups if you need DaemonSets (Fluent Bit, node-exporter, VPC CNI, etc.).</div>
+    </div>
+    <div class="card">
+      <div class="cmd-block">
+        <span class="$">$</span> <span class="cmd">kubectl apply -f fluent-bit-ds.yaml</span><br>
+        <span class="ok">daemonset.apps/fluent-bit created</span><br><br>
+        <span class="$">$</span> <span class="cmd">kubectl get pods -n kube-system -l app=fluent-bit -o wide</span><br>
+        <span class="ok">NAME              NODE      STATUS</span><br>
+        <span class="ok">fluent-bit-n1ds   node-01   Running  ← auto-placed</span><br>
+        <span class="ok">fluent-bit-n2ds   node-02   Running  ← auto-placed when node-02 joined</span><br><br>
+        <span class="note"># Add a 3rd node? DaemonSet places fluent-bit there automatically.</span><br>
+        <span class="note"># Remove a node? Its DaemonSet pod is deleted automatically.</span>
+      </div>
+      <div class="diagram">
+        <div class="diagram-title">DaemonSet: 1 pod per node, automatically</div>
+        <svg viewBox="0 0 580 140" style="width:100%">
+          <rect x="10" y="10" width="170" height="118" rx="8" fill="rgba(230,126,34,.05)" stroke="#E67E22" stroke-width="1.5"/>
+          <text x="95" y="28" text-anchor="middle" fill="#E67E22" font-size="9.5" font-weight="700">node-01</text>
+          <rect x="22" y="36" width="146" height="28" rx="5" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5"/>
+          <text x="95" y="54" text-anchor="middle" fill="#7dd3fc" font-size="9">fluent-bit (DaemonSet)</text>
+          <rect x="22" y="72" width="65" height="48" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="54" y="100" text-anchor="middle" fill="#7dd3fc" font-size="7.5">app-pod-1</text>
+          <rect x="95" y="72" width="65" height="48" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="127" y="100" text-anchor="middle" fill="#7dd3fc" font-size="7.5">app-pod-2</text>
+          <path d="M95,64 L54,72 M95,64 L127,72" stroke="rgba(56,189,248,.4)" stroke-width="1"/>
+          <text x="95" y="130" text-anchor="middle" fill="#94a3b8" font-size="7.5">reads /var/log/containers</text>
+
+          <rect x="205" y="10" width="170" height="118" rx="8" fill="rgba(230,126,34,.05)" stroke="#E67E22" stroke-width="1.5"/>
+          <text x="290" y="28" text-anchor="middle" fill="#E67E22" font-size="9.5" font-weight="700">node-02</text>
+          <rect x="217" y="36" width="146" height="28" rx="5" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5"/>
+          <text x="290" y="54" text-anchor="middle" fill="#7dd3fc" font-size="9">fluent-bit (DaemonSet)</text>
+          <rect x="217" y="72" width="65" height="48" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="249" y="100" text-anchor="middle" fill="#7dd3fc" font-size="7.5">app-pod-3</text>
+          <rect x="290" y="72" width="65" height="48" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+          <text x="322" y="100" text-anchor="middle" fill="#7dd3fc" font-size="7.5">mysql-1</text>
+
+          <rect x="400" y="10" width="170" height="118" rx="8" fill="rgba(230,126,34,.04)" stroke="rgba(230,126,34,.4)" stroke-width="1.5" stroke-dasharray="5"/>
+          <text x="485" y="28" text-anchor="middle" fill="rgba(230,126,34,.7)" font-size="9.5">node-03 (new)</text>
+          <rect x="412" y="36" width="146" height="28" rx="5" fill="rgba(56,189,248,.08)" stroke="rgba(56,189,248,.6)" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="485" y="54" text-anchor="middle" fill="rgba(125,209,252,.8)" font-size="9">fluent-bit ← auto-created</text>
+          <text x="485" y="90" text-anchor="middle" fill="#475569" font-size="9">when node joins,</text>
+          <text x="485" y="104" text-anchor="middle" fill="#475569" font-size="9">DaemonSet places pod</text>
+          <text x="485" y="120" text-anchor="middle" fill="#475569" font-size="9">here automatically</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+// Highlight clicked badge
+document.querySelectorAll('.badge, .cp-bar, .ns-box, .w-node, .pod').forEach(el => {
+  el.addEventListener('click', function() {
+    this.style.transform = 'scale(1.05)';
+    setTimeout(() => this.style.transform = '', 300);
+  });
+});
+</script>
+<script src="../course-flashcards/ask-ai.js" data-module="01"></script>
+</body>
+</html>
