@@ -1,17 +1,26 @@
 /**
- * POST /api/ask  { question, module?, source?, stream? }
+ * POST /api/ask  { question, module?, source?, model? }
  *
- * RAG pipeline: embed question → retrieve top-k chunks → GPT-4o-mini → answer + sources
+ * RAG pipeline: embed (OpenAI text-embedding-3-small) → retrieve → Claude (generation)
+ * Embeddings stay on OpenAI (Anthropic has no embeddings API).
+ * Generation uses Claude Haiku by default; pass model="sonnet" for more depth.
  */
 const { createClient } = require('@supabase/supabase-js')
 const OpenAI = require('openai')
+const Anthropic = require('@anthropic-ai/sdk')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 )
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai    = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const MODELS = {
+  haiku:  'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-6',
+}
 
 const SYSTEM = `You are an expert instructor for the AWS course "Running Containers on Amazon EKS" (course code 200-COREKS).
 Your job: answer the student's question using ONLY the numbered course excerpts provided.
@@ -30,10 +39,11 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
 
-  const { question, module: filterModule, source: filterSource } = req.body || {}
+  const { question, module: filterModule, source: filterSource, model: modelKey = 'haiku' } = req.body || {}
   if (!question?.trim()) {
     return res.status(400).json({ error: '`question` is required' })
   }
+  const claudeModel = MODELS[modelKey] || MODELS.haiku
 
   try {
     // 1. Embed question
@@ -78,25 +88,25 @@ module.exports = async (req, res) => {
       )
       .join('\n\n---\n\n')
 
-    // 4. Call GPT-4o-mini
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-      max_tokens: 900,
+    // 4. Call Claude for generation
+    const message = await anthropic.messages.create({
+      model:      claudeModel,
+      max_tokens: 1024,
+      system:     SYSTEM,
       messages: [
-        { role: 'system', content: SYSTEM },
         {
-          role: 'user',
+          role:    'user',
           content: `Course excerpts:\n\n${context}\n\n---\n\nStudent question: ${question}`,
         },
       ],
     })
 
-    const answer = completion.choices[0].message.content
+    const answer = message.content[0].text
 
     return res.json({
       question,
       answer,
+      model: claudeModel,
       sources: chunks.map(c => ({
         module:       c.module,
         module_title: c.module_title,
@@ -105,7 +115,7 @@ module.exports = async (req, res) => {
         title:        c.title,
         similarity:   Math.round(c.similarity * 1000) / 1000,
       })),
-      usage: completion.usage,
+      usage: { input_tokens: message.usage.input_tokens, output_tokens: message.usage.output_tokens },
     })
   } catch (err) {
     console.error('[ask]', err.message)

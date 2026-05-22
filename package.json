@@ -3,14 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "ingest":           "python3 scripts/ingest.py",
-    "ingest:slides":    "python3 scripts/ingest.py --source slides",
-    "ingest:notes":     "python3 scripts/ingest.py --source notes",
-    "ingest:flashcards":"python3 scripts/ingest.py --source flashcards",
-    "ingest:clear":     "python3 scripts/ingest.py --clear",
-    "dev":              "vercel dev"
+    "ingest": "python3 scripts/ingest.py",
+    "ingest:slides": "python3 scripts/ingest.py --source slides",
+    "ingest:notes": "python3 scripts/ingest.py --source notes",
+    "ingest:flashcards": "python3 scripts/ingest.py --source flashcards",
+    "ingest:clear": "python3 scripts/ingest.py --clear",
+    "dev": "vercel dev"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@supabase/supabase-js": "^2.39.7",
     "openai": "^4.47.1"
   },

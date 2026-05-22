@@ -145,6 +145,10 @@ button#send:disabled { background: var(--panel2); color: var(--muted); cursor: n
       <option value="flashcard">Flashcards only</option>
       <option value="notes">Notes only</option>
     </select>
+    <select id="sel-model" title="Claude model for generation">
+      <option value="haiku">Claude Haiku (fast)</option>
+      <option value="sonnet">Claude Sonnet (detailed)</option>
+    </select>
   </div>
 
   <div class="messages" id="messages">
@@ -265,12 +269,13 @@ async function sendQuestion() {
 
   const module = document.getElementById('sel-module').value || undefined
   const source = document.getElementById('sel-source').value || undefined
+  const model  = document.getElementById('sel-model').value  || 'haiku'
 
   try {
     const res = await fetch(`${API_BASE}/api/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, module, source }),
+      body: JSON.stringify({ question: q, module, source, model }),
     })
     const data = await res.json()
     removeTyping()
@@ -278,7 +283,9 @@ async function sendQuestion() {
     if (data.error) {
       addMessage('bot', `<span style="color:var(--bad)">Error: ${escapeHtml(data.error)}</span>`)
     } else {
-      addMessage('bot', formatAnswer(data.answer), data.sources)
+      const modelLabel = data.model?.includes('haiku') ? '⚡ Haiku' : '🧠 Sonnet'
+      const modelBadge = `<span style="font-size:.7em;opacity:.55;margin-left:8px">${modelLabel}</span>`
+      addMessage('bot', formatAnswer(data.answer) + modelBadge, data.sources)
     }
   } catch (e) {
     removeTyping()
