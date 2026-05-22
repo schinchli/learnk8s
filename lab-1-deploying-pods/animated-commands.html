@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kubectl Live — Commands Running Animated</title>
+<style>
+:root{
+  --bg:#06080d;--panel:#11151c;--p2:#1f2738;--text:#f1f5f9;--muted:#94a3b8;
+  --accent:#38bdf8;--good:#27AE60;--bad:#E74C3C;--warn:#F39C12;
+  --pod:#4A90E2;--svc:#1ABC9C;--dep:#9B59B6;--node:#E67E22;
+  --term:#03050a;--green:#4ade80;--yellow:#fde68a;--purple:#a78bfa;
+  --cyan:#7dd3fc;--red:#f87171;--amber:#fbbf24;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:radial-gradient(ellipse at top,rgba(74,144,226,.07),transparent 55%),
+    radial-gradient(ellipse at bottom right,rgba(155,89,182,.04),transparent 55%),var(--bg);
+  color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh;overflow-x:hidden;
+}
+body{padding-left:58px;}
+
+/* ── RAIL ── */
+.rail{position:fixed;top:0;left:0;bottom:0;width:58px;background:#0c1018;
+  border-right:1px solid #1f2738;display:flex;flex-direction:column;
+  align-items:center;padding:10px 0;gap:3px;z-index:200;overflow-y:auto;}
+.rb{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#4A90E2,#9B59B6);
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;
+  font-size:.88em;text-decoration:none;margin-bottom:7px;flex-shrink:0;}
+.rl{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:1.1em;text-decoration:none;transition:background .12s;
+  position:relative;flex-shrink:0;}
+.rl:hover{background:rgba(255,255,255,.08);}
+.rl.on{background:rgba(56,189,248,.18);}
+.rl.on::before{content:\'\';position:absolute;left:-7px;top:9px;bottom:9px;width:3px;
+  background:#38bdf8;border-radius:0 2px 2px 0;}
+.rl:hover::after{content:attr(title);position:absolute;left:50px;top:50%;
+  transform:translateY(-50%);background:#1f2738;color:#f1f5f9;padding:5px 11px;
+  border-radius:6px;font-size:.78em;white-space:nowrap;border:1px solid #475569;
+  z-index:300;pointer-events:none;}
+.rsec{font-size:.52em;color:#334155;text-transform:uppercase;letter-spacing:.06em;
+  padding:6px 0 2px;text-align:center;width:100%;flex-shrink:0;}
+
+/* ── HEADER ── */
+header{padding:16px 28px;
+  background:linear-gradient(135deg,rgba(74,144,226,.88),rgba(155,89,182,.88)),var(--bg);
+  border-bottom:1px solid rgba(255,255,255,.06);box-shadow:0 4px 20px rgba(0,0,0,.4);
+  display:flex;align-items:center;gap:16px;}
+.hbadge{background:rgba(255,255,255,.15);border-radius:6px;padding:2px 10px;
+  font-size:.72em;font-weight:700;letter-spacing:.06em;}
+header h1{margin:0;font-size:1.3em;}
+header p{margin:3px 0 0;opacity:.85;font-size:.85em;color:#f1f5f9;}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;
+  max-width:1700px;margin:0 auto;}
+
+/* ── NAVBAR ── */
+.nbar{grid-column:1/-1;background:var(--panel);border:1px solid var(--p2);
+  border-radius:12px;padding:12px 18px;display:grid;grid-template-columns:1fr auto;
+  gap:14px;align-items:center;}
+.stitle{font-weight:700;font-size:1.05em;color:var(--accent);}
+.prow{display:flex;align-items:center;gap:12px;margin-top:5px;}
+.pcnt{font-family:ui-monospace,monospace;font-size:.84em;color:var(--muted);min-width:80px;}
+.pbar{flex:1;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;border:1px solid #334155;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--pod),var(--dep));border-radius:3px;transition:width .4s ease;}
+.nbts{display:flex;gap:7px;}
+button{background:var(--p2);color:var(--text);border:1px solid #475569;padding:8px 13px;
+  border-radius:6px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .15s;font-family:inherit;}
+button:hover:not(:disabled){background:#475569;}
+button:disabled{opacity:.4;cursor:not-allowed;}
+button.pri{background:#4A90E2;border-color:#4A90E2;color:#fff;}
+
+/* ── STATS ── */
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+.stat{background:var(--panel);border:1px solid var(--p2);border-radius:10px;
+  padding:9px 10px;text-align:center;}
+.sv{font-size:1.35em;font-weight:700;font-family:ui-monospace,monospace;transition:all .4s;}
+.sl{font-size:.64em;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.sv.ok{color:var(--good);}
+.sv.bl{color:var(--pod);}
+.sv.pp{color:var(--dep);}
+
+/* ── TERMINAL ── */
+.term-panel{background:var(--panel);border-radius:12px;padding:10px;border:1px solid var(--p2);}
+.term-panel h2{font-size:.75em;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
+  font-weight:700;padding:2px 4px;margin-bottom:8px;}
+.terminal{background:var(--term);border-radius:8px;padding:12px 14px;height:520px;
+  overflow-y:auto;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;
+  line-height:1.6;border:1px solid #1f2937;scroll-behavior:smooth;}
+.tline{white-space:pre-wrap;word-break:break-all;}
+.tline.p {color:var(--green);}
+.tline.cmd{color:var(--yellow);}
+.tline.ok {color:var(--green);}
+.tline.out{color:var(--muted);}
+.tline.err{color:var(--red);}
+.tline.wrn{color:var(--amber);}
+.tline.nfo{color:var(--cyan);}
+.tline.sec{color:var(--purple);font-weight:700;border-top:1px solid #1f2738;margin-top:4px;padding-top:4px;}
+.tline.hdr{color:var(--purple);font-weight:700;}
+.tline.cmt{color:#475569;font-style:italic;}
+.cursor{display:inline-block;width:8px;height:13px;background:var(--accent);
+  animation:blink .9s step-end infinite;vertical-align:middle;margin-left:1px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.prompt-span{color:var(--accent);font-weight:700;}
+
+/* ── CLUSTER ── */
+.cluster-panel{background:var(--panel);border-radius:12px;padding:10px;border:1px solid var(--p2);}
+.cluster-panel h2{font-size:.75em;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
+  font-weight:700;padding:2px 4px;margin-bottom:8px;}
+.cluster{background:var(--term);border-radius:8px;height:520px;padding:14px;
+  overflow-y:auto;border:1px solid #1f2937;}
+
+/* cluster components */
+.cp-bar{background:linear-gradient(135deg,rgba(74,144,226,.08),rgba(155,89,182,.08));
+  border:2px solid #4A90E2;border-radius:9px;padding:10px 14px;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.cp-lbl{font-size:.66em;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.cp-chips{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;}
+.cpc{padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.04);
+  border:1px solid #334155;font-size:.7em;color:var(--muted);font-family:ui-monospace,monospace;}
+.cpc.lit{color:var(--accent);border-color:var(--accent);background:rgba(56,189,248,.1);}
+
+.ns-box{border:2px dashed rgba(243,156,18,.4);border-radius:9px;padding:10px 12px;
+  margin-bottom:10px;position:relative;}
+.ns-sys{border-color:rgba(56,189,248,.35);}
+.ns-lbl{position:absolute;top:-10px;left:10px;background:var(--term);padding:1px 8px;
+  font-size:.66em;color:#F39C12;font-weight:700;letter-spacing:1px;border-radius:4px;}
+.ns-sys .ns-lbl{color:var(--accent);}
+.res-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.badge{padding:3px 9px;border-radius:5px;font-size:.7em;font-family:ui-monospace,monospace;
+  font-weight:700;border:1.5px solid;animation:none;}
+.badge.new{animation:pop .4s ease-out;}
+@keyframes pop{0%{transform:scale(0);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.bd{border-color:var(--dep);color:var(--dep);background:rgba(155,89,182,.08);}
+.bs{border-color:#818cf8;color:#818cf8;background:rgba(129,140,248,.08);}
+.bci{border-color:var(--svc);color:var(--svc);background:rgba(26,188,156,.08);}
+.blb{border-color:var(--dep);color:var(--dep);background:rgba(155,89,182,.08);}
+.bcm{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.06);}
+.bsc{border-color:var(--bad);color:var(--bad);background:rgba(231,76,60,.06);}
+.bds{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.05);}
+
+.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.wnode{border:2px solid var(--node);border-radius:7px;padding:9px 11px;
+  background:rgba(230,126,34,.04);transition:all .4s;}
+.wnode.new{animation:pop .5s ease-out;}
+.nhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.nname{font-family:ui-monospace,monospace;font-weight:700;font-size:.82em;color:var(--node);}
+.nver{font-size:.66em;color:var(--muted);padding:2px 6px;background:rgba(255,255,255,.05);border-radius:4px;}
+.pods{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;}
+.pod{border:1.5px solid var(--pod);border-radius:4px;padding:2px 6px;
+  background:rgba(74,144,226,.08);font-family:ui-monospace,monospace;font-size:.68em;
+  color:var(--pod);transition:all .35s;}
+.pod.ok{border-color:var(--good);color:var(--good);background:rgba(39,174,96,.07);
+  box-shadow:0 0 5px rgba(39,174,96,.3);}
+.pod.new{animation:pop .5s ease-out;}
+.pod.term{opacity:.4;border-style:dashed;}
+.pod.pend{border-color:var(--amber);color:var(--amber);animation:pulse 1s infinite;}
+.pod.sts{border-color:#818cf8;color:#818cf8;background:rgba(129,140,248,.08);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── EXPLAIN ── */
+.explain{grid-column:1/-1;background:linear-gradient(135deg,#0d1320,#131a2a);
+  border-radius:13px;padding:20px 24px;border:1px solid var(--p2);border-left:4px solid var(--pod);}
+.exgrid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:22px;}
+.exlbl{font-size:.7em;color:var(--pod);text-transform:uppercase;letter-spacing:2px;
+  font-weight:700;margin-bottom:5px;}
+.extitle{font-size:1.18em;margin-bottom:8px;}
+.exbody{color:var(--muted);font-size:.92em;line-height:1.7;}
+.exbody code{background:#050810;padding:2px 6px;border-radius:4px;
+  color:var(--yellow);font-family:ui-monospace,monospace;font-size:.87em;}
+.exbody strong{color:var(--text);}
+.narr-lbl{font-size:.7em;color:var(--muted);text-transform:uppercase;
+  letter-spacing:2px;font-weight:700;margin-bottom:7px;}
+.narr-q{background:linear-gradient(135deg,#050810,#0b1020);border-left:3px solid var(--pod);
+  border-radius:7px;padding:14px 18px;font-size:1em;line-height:1.65;
+  color:var(--text);font-style:italic;}
+
+/* ── VOICE ── */
+.vp{position:fixed;bottom:16px;left:66px;width:270px;background:var(--panel);
+  border:1px solid var(--p2);border-radius:10px;padding:15px;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  z-index:250;opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .2s,transform .2s;}
+.vp.open{opacity:1;pointer-events:auto;transform:translateX(0);}
+.vph{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
+  font-size:.85em;font-weight:700;}
+.vpr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font-size:.85em;}
+.vpr .lb{color:var(--muted);}
+.vpr select{background:#0a0e1a;color:var(--text);border:1px solid #475569;border-radius:4px;
+  padding:4px 7px;font-size:.85em;max-width:160px;font-family:inherit;}
+
+/* ── MISC ── */
+.rail-spacer{flex:1;min-height:12px;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media(max-width:1100px){.layout{grid-template-columns:1fr;}
+  .terminal,.cluster{height:380px;}.stats{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:720px){body{padding-left:50px;}.rail{width:50px;}
+  .terminal{font-size:11px;}}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rb" title="Dashboard">K8</a>
+  <a href="index.html" class="rl" title="Dashboard">🏠</a>
+  <div class="rsec">labs</div>
+  <a href="animated-lab.html"                          class="rl" title="Core K8s Concepts">📚</a>
+  <a href="animated-lab-production.html"               class="rl" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html"                      class="rl" title="AWS EKS Lab">☁️</a>
+  <a href="animated-lab-kubernetes-fundamentals.html"  class="rl" title="K8s Fundamentals">📦</a>
+  <a href="animated-commands.html"                     class="rl on" title="kubectl Live">⌨️</a>
+  <div class="rsec">mod</div>
+  <a href="animated-lab-eks-fundamentals.html"         class="rl" title="02 EKS Fundamentals">🔶</a>
+  <a href="animated-lab-building-eks-cluster.html"     class="rl" title="03 Building Clusters">🔧</a>
+  <a href="animated-lab-deploying-apps.html"           class="rl" title="04 Deploying Apps">🚀</a>
+  <a href="animated-lab-scale-gitops.html"             class="rl" title="05 Scale & GitOps">📈</a>
+  <a href="animated-lab-networking.html"               class="rl" title="06 Networking">🌐</a>
+  <a href="animated-lab-observability.html"            class="rl" title="07 Observability">🔭</a>
+  <a href="animated-lab-storage.html"                  class="rl" title="08 Storage">💾</a>
+  <a href="animated-lab-security.html"                 class="rl" title="09 Security">🔐</a>
+  <div class="rsec">ref</div>
+  <a href="cluster-explained.html"                     class="rl" title="Cluster Explained">🗺</a>
+  <a href="deep-dive.html"                             class="rl" title="Deep Dive">🔬</a>
+  <a href="../course-flashcards/index.html"            class="rl" title="Flashcards">🃏</a>
+  <div class="rail-spacer"></div>
+  <button class="rl" id="vbtn" title="Voice settings" style="background:transparent;border:none;cursor:pointer;font-family:inherit;">🎙</button>
+</aside>
+
+<div class="vp" id="vp">
+  <div class="vph"><span>🎙 Narration</span><button onclick="document.getElementById('vp').classList.remove('open')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1em;padding:0">✕</button></div>
+  <div class="vpr"><span class="lb">On/off</span><button id="bmute" style="padding:6px 10px">🔊</button></div>
+  <div class="vpr"><span class="lb">Voice</span><select id="vsel"></select></div>
+</div>
+
+<header>
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:3px">
+      <span class="hbadge">⌨️ LIVE COMMANDS</span>
+      <h1>kubectl Live — Watch Every Command Run</h1>
+    </div>
+    <p>20 commands typed character-by-character · output streams in · cluster updates live · WHY explained below</p>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="nbar">
+    <div>
+      <div class="stitle" id="stitle">Ready to start</div>
+      <div class="prow">
+        <div class="pcnt" id="pcnt">0 / 20</div>
+        <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="nbts">
+      <button id="bprev" disabled>◀</button>
+      <button id="bnext" class="pri">▶ Run next</button>
+      <button id="bplay">⏯ Auto</button>
+      <button id="breset">↺</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="sv bl" id="sn">0</div><div class="sl">Nodes</div></div>
+    <div class="stat"><div class="sv ok" id="sp">0</div><div class="sl">Pods Ready</div></div>
+    <div class="stat"><div class="sv" id="ss">0</div><div class="sl">Services</div></div>
+    <div class="stat"><div class="sv pp" id="sd">0</div><div class="sl">Deployments</div></div>
+    <div class="stat"><div class="sv" id="sns">1</div><div class="sl">Namespaces</div></div>
+    <div class="stat"><div class="sv" id="sst">—</div><div class="sl">Cluster</div></div>
+  </div>
+
+  <div class="term-panel">
+    <h2>💻 kubectl · live terminal</h2>
+    <div id="term" class="terminal"></div>
+  </div>
+
+  <div class="cluster-panel">
+    <h2>🔵 Live Kubernetes cluster</h2>
+    <div id="cluster" class="cluster"></div>
+  </div>
+
+  <div class="explain">
+    <div class="exgrid">
+      <div>
+        <div class="exlbl" id="exlbl">STEP 0 OF 20</div>
+        <h3 class="extitle" id="extitle">Welcome</h3>
+        <div class="exbody" id="exbody">Press <strong>▶ Run next</strong> or hit <kbd style="background:#334155;padding:2px 7px;border-radius:4px;font-size:.85em">→</kbd> to run the first command. Each step types the command, streams the output, and updates the cluster visual.</div>
+      </div>
+      <div>
+        <div class="narr-lbl">🎙 What this command does</div>
+        <div class="narr-q"><span id="narr">Press ▶ or → to start.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+function fresh(){
+  return {
+    clusterReady:false, cpVersion:'', nodes:[],
+    namespaces:['default'], pods:[], services:[],
+    deployments:[], configMaps:[], secrets:[],
+    daemonSets:[], statefulSets:[],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  STEPS
+//  Each step: title, narration, explain{h,p}, cmd, lines[], apply(s)
+// ═══════════════════════════════════════════════════════════════
+const S = [
+
+// ── 1 ──────────────────────────────────────────────────────────
+{title:'kubectl cluster-info — connect to the cluster',
+ narration:'Cluster-info connects kubectl to the API server. The line that says Kubernetes control plane is running tells you the exact HTTPS address kubectl uses for every command from now on.',
+ explain:{h:'Connecting kubectl to the cluster',
+   p:'Before running any command, kubectl must know <strong>which cluster to talk to</strong>. On EKS, <code>aws eks update-kubeconfig --name my-cluster</code> writes the API server endpoint, CA certificate, and IAM token command into <code>~/.kube/config</code>. Once that is done, every kubectl command talks to that endpoint.'},
+ cmd:'kubectl cluster-info',
+ lines:[
+   {k:'ok',t:'Kubernetes control plane is running at https://api.k8s.local:6443'},
+   {k:'ok',t:'CoreDNS is running at https://api.k8s.local:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy'},
+   {k:'cmt',t:'# API server endpoint saved in ~/.kube/config'},
+ ],
+ apply(s){s.clusterReady=true;s.cpVersion='1.29';return s;}},
+
+// ── 2 ──────────────────────────────────────────────────────────
+{title:'kubectl get nodes — see the worker machines',
+ narration:'Get nodes lists every EC2 instance (on EKS) that is registered as a Kubernetes worker. STATUS Ready means the kubelet on that machine is healthy and the API server can schedule pods there.',
+ explain:{h:'Worker nodes — where containers actually run',
+   p:'A node is a physical or virtual machine running <strong>kubelet</strong> (manages pods), <strong>kube-proxy</strong> (manages iptables for Services), and a <strong>container runtime</strong> (containerd). On EKS, these are EC2 instances in your account. The control plane is in AWS\'s account.'},
+ cmd:'kubectl get nodes',
+ lines:[
+   {k:'hdr',t:'NAME         STATUS   ROLES    AGE   VERSION'},
+   {k:'ok', t:'node-01      Ready    <none>   2m    v1.29.0'},
+ ],
+ apply(s){s.nodes=[{id:'n1',name:'node-01',ver:'v1.29.0'}];return s;}},
+
+// ── 3 ──────────────────────────────────────────────────────────
+{title:'kubectl create namespace prod',
+ narration:'Namespaces are like folders inside the cluster. Creating prod means all our app resources will live in their own isolated space, separate from kube-system which holds Kubernetes infrastructure.',
+ explain:{h:'Namespace — a virtual cluster inside your cluster',
+   p:"Without namespaces every team's pods, services, and configs mix in <code>default</code>. Names collide. RBAC becomes impossible to scope. Network Policies can\'t target a team. <strong>Create prod</strong> before deploying any app resources — then every kubectl command uses <code>-n prod</code>."},
+ cmd:'kubectl create namespace prod',
+ lines:[
+   {k:'ok',t:'namespace/prod created'},
+   {k:'cmt',t:'# Now use -n prod with every app command'},
+ ],
+ apply(s){s.namespaces=['default','kube-system','prod'];return s;}},
+
+// ── 4 ──────────────────────────────────────────────────────────
+{title:'kubectl apply -f nginx-pod.yaml — first pod',
+ narration:'Apply sends the Pod spec to the API server. The API server validates it, writes it to etcd, the scheduler assigns it to node-01, and kubelet on node-01 pulls the nginx image and starts the container.',
+ explain:{h:'Pod — the smallest unit Kubernetes knows about',
+   p:'A Pod wraps one or more containers that share a <strong>network namespace</strong> (same IP, same localhost). Every pod gets a unique cluster IP assigned by the VPC CNI plugin on EKS. <code>kubectl apply</code> is declarative — run it 100 times, same result.'},
+ cmd:'kubectl apply -f nginx-pod.yaml',
+ lines:[
+   {k:'cmt',t:'# nginx-pod.yaml: kind: Pod, containers: [{name: nginx, image: nginx:1.25}]'},
+   {k:'ok', t:'pod/nginx created'},
+   {k:'cmt',t:'# Flow: API server → etcd → scheduler picks node-01 → kubelet starts container'},
+ ],
+ apply(s){s.pods.push({id:'p1',nodeId:'n1',ns:'prod',name:'nginx',ready:true,isNew:true,w:'pod'});return s;}},
+
+// ── 5 ──────────────────────────────────────────────────────────
+{title:'kubectl get pods -n prod — see it running',
+ narration:'Get pods shows every pod in the prod namespace. One-slash-one under READY means one container is running out of one container total. Zero under RESTARTS means it has not crashed yet. Running under STATUS means the container is live.',
+ explain:{h:'Reading kubectl get pods output',
+   p:'<strong>READY 1/1</strong> = 1 container running / 1 expected. <strong>STATUS Running</strong> = container started and readiness probe is passing. <strong>RESTARTS 0</strong> = never crashed. If STATUS is <code>CrashLoopBackOff</code> — container keeps dying, check logs.'},
+ cmd:'kubectl get pods -n prod',
+ lines:[
+   {k:'hdr',t:'NAME    READY   STATUS    RESTARTS   AGE'},
+   {k:'ok', t:'nginx   1/1     Running   0          8s'},
+ ],
+ apply(s){return s;}},
+
+// ── 6 ──────────────────────────────────────────────────────────
+{title:'kubectl describe pod nginx -n prod',
+ narration:'Describe shows the full story of a pod — which node it is on, its IP address, the events timeline (Scheduled, Pulled, Created, Started), and container status. The Events section is the first place to look when a pod is not starting.',
+ explain:{h:'Describe — your first debugging tool',
+   p:'The <strong>Events</strong> section shows exactly what happened and when. <code>Scheduled</code>: scheduler picked the node. <code>Pulled</code>: image downloaded. <code>Created</code>: container object created. <code>Started</code>: process running. If stuck on <code>Pulling</code> — ECR auth issue. Stuck on <code>Pending</code> — no node has capacity.'},
+ cmd:'kubectl describe pod nginx -n prod',
+ lines:[
+   {k:'out',t:'Name:         nginx'},
+   {k:'out',t:'Node:         node-01/10.0.0.10'},
+   {k:'ok', t:'IP:           10.244.0.5'},
+   {k:'ok', t:'Status:       Running'},
+   {k:'out',t:'Containers:'},
+   {k:'out',t:'  nginx:  Image: nginx:1.25  State: Running'},
+   {k:'hdr',t:'Events:'},
+   {k:'ok', t:'  Normal  Scheduled  → node-01 selected'},
+   {k:'ok', t:'  Normal  Pulled     → image nginx:1.25 pulled in 3.2s'},
+   {k:'ok', t:'  Normal  Created    → container created'},
+   {k:'ok', t:'  Normal  Started    → container started'},
+ ],
+ apply(s){return s;}},
+
+// ── 7 ──────────────────────────────────────────────────────────
+{title:'kubectl logs nginx -n prod',
+ narration:'Logs streams stdout and stderr from the container. This is exactly what the nginx process is printing. Add -f to follow live. Add --previous to see logs from the last crashed container.',
+ explain:{h:'Logs — see what the container is printing',
+   p:'Containers write to <strong>stdout and stderr</strong>. kubelet captures this and makes it available via <code>kubectl logs</code>. On EKS, the Fluent Bit DaemonSet also collects these logs and ships them to CloudWatch or OpenSearch. Use <code>-f</code> to follow in real time.'},
+ cmd:'kubectl logs nginx -n prod',
+ lines:[
+   {k:'ok',t:'/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty'},
+   {k:'ok',t:'/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh'},
+   {k:'ok',t:'2024/01/01 00:00:01 [notice] 1#1: nginx/1.25.3'},
+   {k:'ok',t:'2024/01/01 00:00:01 [notice] 1#1: start worker processes'},
+   {k:'cmt',t:'# Use -f to follow live: kubectl logs nginx -n prod -f'},
+ ],
+ apply(s){return s;}},
+
+// ── 8 ──────────────────────────────────────────────────────────
+{title:'kubectl exec -it nginx -n prod -- bash',
+ narration:'Exec opens an interactive shell inside the running container. This is the most powerful debugging command — you can inspect the filesystem, run curl to test connectivity, check environment variables, or read mounted secret files.',
+ explain:{h:'Exec — a shell inside the running container',
+   p:'<code>-it</code> = interactive terminal. <code>--</code> separates kubectl args from the command. Inside the shell you are running <em>inside the container</em> — same filesystem, same env vars, same network. You can <code>curl localhost:80</code> to test the app or <code>cat /etc/creds/password</code> to verify a mounted Secret.'},
+ cmd:'kubectl exec -it nginx -n prod -- bash',
+ lines:[
+   {k:'ok', t:'root@nginx:/# '},
+   {k:'p',  t:'# (now inside the container)'},
+   {k:'ok', t:'root@nginx:/# hostname'},
+   {k:'out',t:'nginx'},
+   {k:'ok', t:'root@nginx:/# curl -s localhost:80 | head -3'},
+   {k:'out',t:'<!DOCTYPE html><html><head><title>Welcome to nginx!</title>'},
+   {k:'ok', t:'root@nginx:/# env | grep NGINX'},
+   {k:'out',t:'NGINX_VERSION=1.25.3'},
+   {k:'ok', t:'root@nginx:/# exit'},
+   {k:'out',t:'exit'},
+ ],
+ apply(s){return s;}},
+
+// ── 9 ──────────────────────────────────────────────────────────
+{title:'kubectl apply -f nginx-svc.yaml — ClusterIP Service',
+ narration:'Applying the Service creates a stable virtual IP at 10.96.100.10 and a DNS name nginx-svc.prod.svc.cluster.local. kube-proxy on every node immediately writes iptables rules to route traffic from this ClusterIP to the nginx pod.',
+ explain:{h:'Service — stable endpoint in front of ephemeral pods',
+   p:'Pods restart with new IPs. A <strong>Service</strong> solves this by giving you a stable ClusterIP and DNS name that <em>never changes</em>. When pod nginx dies and restarts as a new pod with IP 10.244.0.9, the Service automatically routes to the new pod. The consumer never notices.'},
+ cmd:'kubectl apply -f nginx-svc.yaml',
+ lines:[
+   {k:'cmt',t:'# nginx-svc.yaml: type: ClusterIP, selector: {app: nginx}, port: 80→80'},
+   {k:'ok', t:'service/nginx-svc created'},
+   {k:'hdr',t:'NAME        TYPE        CLUSTER-IP     PORT(S)   SELECTOR'},
+   {k:'ok', t:'nginx-svc   ClusterIP   10.96.100.10   80/TCP    app=nginx'},
+   {k:'ok', t:'DNS: nginx-svc.prod.svc.cluster.local → 10.96.100.10 → pod'},
+ ],
+ apply(s){s.services.push({name:'nginx-svc',type:'ClusterIP',ns:'prod'});return s;}},
+
+// ── 10 ─────────────────────────────────────────────────────────
+{title:'kubectl apply -f webapp-deploy.yaml — Deployment',
+ narration:'Creating a Deployment creates a ReplicaSet which creates three pods. If any pod crashes, the ReplicaSet controller creates a replacement automatically. The 3 slash 3 in the output means three pods are ready out of three desired.',
+ explain:{h:'Deployment — managed replicas + rolling updates',
+   p:'A <strong>Deployment</strong> wraps a ReplicaSet. The ReplicaSet controller runs a reconciliation loop: if actual pod count drops below desired (crash, eviction), it creates new pods immediately. The Deployment layer adds rolling update logic and rollback history on top.'},
+ cmd:'kubectl apply -f webapp-deploy.yaml',
+ lines:[
+   {k:'cmt',t:'# replicas: 3, image: webapp:v1, selector: {app: webapp}'},
+   {k:'ok', t:'deployment.apps/webapp created'},
+   {k:'hdr',t:'NAME     READY   UP-TO-DATE   AVAILABLE'},
+   {k:'ok', t:'webapp   3/3     3            3'},
+   {k:'cmt',t:'# 3 pods created across node-01'},
+ ],
+ apply(s){
+   s.deployments.push({name:'webapp',ns:'prod',r:3,rr:3});
+   ['abc','def','ghi'].forEach(id=>s.pods.push({id:'w'+id,nodeId:'n1',ns:'prod',name:'webapp-'+id,ready:true,isNew:true,w:'deploy'}));
+   return s;}},
+
+// ── 11 ─────────────────────────────────────────────────────────
+{title:'kubectl get nodes — second node joins',
+ narration:'A second node has joined the cluster. The managed node group Auto Scaling Group launched a new EC2 instance, the kubelet registered it, and now the scheduler can distribute pods across both nodes for high availability.',
+ explain:{h:'Why two nodes? Single point of failure',
+   p:"With one node, a node crash takes down <em>all</em> your pods. With two nodes, the scheduler spreads pods across both. A node failure takes down roughly half your pods — the other half keep serving traffic. On EKS, the managed node group's ASG automatically replaces failed nodes."},
+ cmd:'kubectl get nodes',
+ lines:[
+   {k:'hdr',t:'NAME         STATUS   ROLES    AGE   VERSION'},
+   {k:'ok', t:'node-01      Ready    <none>   8m    v1.29.0'},
+   {k:'ok', t:'node-02      Ready    <none>   22s   v1.29.0  ← NEW'},
+   {k:'cmt',t:'# Scheduler will now spread new pods across both nodes'},
+ ],
+ apply(s){
+   s.nodes.push({id:'n2',name:'node-02',ver:'v1.29.0'});
+   const g=s.pods.find(p=>p.name==='webapp-ghi');if(g)g.nodeId='n2';
+   return s;}},
+
+// ── 12 ─────────────────────────────────────────────────────────
+{title:'kubectl set image — rolling update to v2',
+ narration:'Set image triggers a rolling update. The Deployment controller creates a new ReplicaSet for v2 and starts shifting pods: one new v2 pod created and confirmed ready, then one old v1 pod terminated — repeated until all pods are on v2. Zero downtime.',
+ explain:{h:'Rolling update — zero-downtime version change',
+   p:"The Deployment's <code>strategy.maxUnavailable: 0</code> means no pod is removed until a new v2 pod is ready. <code>maxSurge: 1</code> means one extra pod is allowed during the transition. The Service routes to <strong>ready pods only</strong> — terminating pods are removed from endpoints immediately."},
+ cmd:"kubectl set image deploy/webapp webapp=webapp:v2 -n prod",
+ lines:[
+   {k:'ok', t:'deployment.apps/webapp image updated'},
+   {k:'out',t:'Waiting for rollout...'},
+   {k:'ok', t:'webapp-v2-aaa  Running ✓  (old webapp-abc: Terminating)'},
+   {k:'ok', t:'webapp-v2-bbb  Running ✓  (old webapp-def: Terminating)'},
+   {k:'ok', t:'webapp-v2-ccc  Running ✓  (old webapp-ghi: Terminating)'},
+   {k:'ok', t:'Rollout complete. 3/3 pods on webapp:v2'},
+   {k:'cmt',t:'# kubectl rollout undo deploy/webapp  →  instant rollback'},
+ ],
+ apply(s){
+   s.pods=s.pods.filter(p=>p.w!=='deploy');
+   ['aaa','bbb','ccc'].forEach((id,i)=>s.pods.push({id:'v2'+id,nodeId:i===2?'n2':'n1',ns:'prod',name:'webapp-v2-'+id,ready:true,isNew:true,w:'deploy'}));
+   s.deployments[0].rr=3;return s;}},
+
+// ── 13 ─────────────────────────────────────────────────────────
+{title:'kubectl delete pod webapp-v2-aaa — crash simulation',
+ narration:'Deleting a pod simulates a crash. The ReplicaSet controller immediately detects that actual count is two, desired is three. Within one second it creates a new replacement pod. This is the reconciliation control loop — desired state always wins.',
+ explain:{h:'Self-healing — the reconciliation loop',
+   p:'The controller-manager runs a tight loop: <em>observe actual state → compare with desired state → act on difference</em>. Desired: 3 pods. Actual after deletion: 2 pods. Action: create 1 new pod. This happens in under a second. The Service automatically routes to the new pod once its readiness probe passes.'},
+ cmd:'kubectl delete pod webapp-v2-aaa -n prod',
+ lines:[
+   {k:'out',t:'pod "webapp-v2-aaa" deleted'},
+   {k:'wrn',t:'ReplicaSet: desired=3, actual=2 → creating replacement immediately'},
+   {k:'ok', t:'webapp-v2-zzz   ContainerCreating  ← controller created new pod'},
+   {k:'ok', t:'webapp-v2-zzz   Running ✓  ← ready in 4s, added to Service endpoints'},
+   {k:'cmt',t:'# Pod crash → self-healed → no manual action needed'},
+ ],
+ apply(s){
+   const idx=s.pods.findIndex(p=>p.name==='webapp-v2-aaa');
+   if(idx!==-1){s.pods[idx].term=true;s.pods[idx].ready=false;}
+   s.pods.push({id:'v2zzz',nodeId:'n1',ns:'prod',name:'webapp-v2-zzz',ready:true,isNew:true,w:'deploy'});
+   return s;}},
+
+// ── 14 ─────────────────────────────────────────────────────────
+{title:'kubectl scale deploy/webapp --replicas=6',
+ narration:'Scale changes spec.replicas from three to six. The ReplicaSet controller creates three more pods. The scheduler distributes them across both nodes. The Service automatically load-balances across all six pods.',
+ explain:{h:'Horizontal scaling — just change the number',
+   p:'Kubernetes horizontal scaling is a single spec field change. The ReplicaSet controller detects the diff (have 3, want 6) and creates 3 more pods. The scheduler places them on the node with the most free capacity first. No downtime, no restarts, no config changes.'},
+ cmd:'kubectl scale deploy/webapp --replicas=6 -n prod',
+ lines:[
+   {k:'ok', t:'deployment.apps/webapp scaled'},
+   {k:'hdr',t:'NAME     READY   REPLICAS'},
+   {k:'ok', t:'webapp   6/6     6'},
+   {k:'cmt',t:'# 3 new pods spread across node-01 and node-02'},
+ ],
+ apply(s){
+   s.pods=s.pods.filter(p=>!p.term);
+   ['d1','d2','d3'].forEach((id,i)=>s.pods.push({id:'xd'+id,nodeId:i%2===0?'n2':'n1',ns:'prod',name:'webapp-v2-'+id,ready:true,isNew:true,w:'deploy'}));
+   s.deployments[0].r=6;s.deployments[0].rr=6;return s;}},
+
+// ── 15 ─────────────────────────────────────────────────────────
+{title:'kubectl create configmap app-config',
+ narration:'A ConfigMap stores non-sensitive configuration as key-value pairs. The same Docker image can now run in dev, staging, and prod by consuming different ConfigMaps. No rebuild needed when config changes.',
+ explain:{h:'ConfigMap — config lives outside the image',
+   p:'Baking <code>DB_HOST=localhost</code> into the image means rebuilding for every environment. A ConfigMap decouples config from code. Pods consume it as env vars or volume-mounted files. Change <code>LOG_LEVEL</code> from debug to info? Update the ConfigMap and restart the pod. <strong>Zero image rebuild.</strong>'},
+ cmd:'kubectl create configmap app-config --from-literal=DB_HOST=postgres.prod --from-literal=LOG_LEVEL=info -n prod',
+ lines:[
+   {k:'ok', t:'configmap/app-config created'},
+   {k:'hdr',t:'DATA'},
+   {k:'ok', t:'DB_HOST:   postgres.prod.svc.cluster.local'},
+   {k:'ok', t:'LOG_LEVEL: info'},
+   {k:'cmt',t:'# Consume: env.valueFrom.configMapKeyRef or volumes.configMap'},
+ ],
+ apply(s){s.configMaps.push({name:'app-config',ns:'prod'});return s;}},
+
+// ── 16 ─────────────────────────────────────────────────────────
+{title:'kubectl create secret generic db-creds',
+ narration:'A Secret stores sensitive data. The value is base64 encoded, NOT encrypted. Anyone with kubectl get secret can decode it in one command. For real security on EKS, enable KMS envelope encryption on the cluster.',
+ explain:{h:'Secret — base64 is NOT encryption',
+   p:'<code>echo "cEBzc3cwcmQ=" | base64 -d</code> gives you <code>p@ssw0rd</code> instantly. base64 is encoding, not encryption. The key differences from ConfigMap: stored as base64, stricter RBAC by convention, and can be encrypted with KMS. <strong>Always enable KMS for production Secrets on EKS.</strong>'},
+ cmd:'kubectl create secret generic db-creds --from-literal=password=p@ssw0rd -n prod',
+ lines:[
+   {k:'ok', t:'secret/db-creds created'},
+   {k:'hdr',t:'DATA (base64 encoded, NOT encrypted)'},
+   {k:'wrn',t:'password: cEBzc3cwcmQ=  ← base64 of "p@ssw0rd"'},
+   {k:'wrn',t:'echo "cEBzc3cwcmQ=" | base64 -d  →  p@ssw0rd  ← decoded in 0.01s'},
+   {k:'cmt',t:'# Fix: aws eks create-cluster --secrets-encryption-config keyArn=...'},
+ ],
+ apply(s){s.secrets.push({name:'db-creds',ns:'prod'});return s;}},
+
+// ── 17 ─────────────────────────────────────────────────────────
+{title:'kubectl apply -f webapp-lb.yaml — LoadBalancer Service',
+ narration:'On EKS, creating a Service of type LoadBalancer automatically provisions a real AWS Network Load Balancer. The DNS name appears as EXTERNAL-IP within two to three minutes. Traffic flows: internet to NLB to any worker node to kube-proxy to pod.',
+ explain:{h:'LoadBalancer — AWS NLB provisioned automatically',
+   p:"The AWS Cloud Provider controller watches for Services with <code>type: LoadBalancer</code>. It calls the AWS API to create a Network Load Balancer, registers all worker nodes as targets, and sets the Service's <code>status.loadBalancer.ingress.hostname</code>. Costs ~$0.025/hr on top of compute."},
+ cmd:'kubectl apply -f webapp-lb.yaml',
+ lines:[
+   {k:'cmt',t:'# type: LoadBalancer, selector: {app: webapp}, port: 80'},
+   {k:'ok', t:'service/webapp-lb created'},
+   {k:'out',t:'Waiting for AWS NLB to provision (~2-3 min on EKS)...'},
+   {k:'ok', t:'EXTERNAL-IP: a1b2c3.elb.us-east-1.amazonaws.com'},
+   {k:'ok', t:'curl http://a1b2c3.elb.us-east-1.amazonaws.com → "hello from webapp v2"'},
+ ],
+ apply(s){s.services.push({name:'webapp-lb',type:'LoadBalancer',ns:'prod'});return s;}},
+
+// ── 18 ─────────────────────────────────────────────────────────
+{title:'kubectl apply -f fluent-bit-ds.yaml — DaemonSet',
+ narration:'A DaemonSet places exactly one pod on every node, automatically. Fluent Bit reads the node log files and ships them to OpenSearch or CloudWatch. When a new node joins, the DaemonSet controller places a Fluent Bit pod there automatically.',
+ explain:{h:'DaemonSet — guaranteed 1 pod per node',
+   p:'Log collection must happen at the <strong>node level</strong> — Fluent Bit reads from <code>/var/log/containers/</code> on the host filesystem. A Deployment can\'t guarantee both nodes are covered. DaemonSet guarantees it. <strong>Not supported on Fargate</strong> — you need EC2 node groups for DaemonSets.'},
+ cmd:'kubectl apply -f fluent-bit-ds.yaml',
+ lines:[
+   {k:'ok', t:'daemonset.apps/fluent-bit created'},
+   {k:'hdr',t:'NAME         DESIRED  CURRENT  READY  NODE-SELECTOR'},
+   {k:'ok', t:'fluent-bit   2        2        2      <none>'},
+   {k:'cmt',t:'# DESIRED=2 = number of nodes in cluster'},
+   {k:'ok', t:'fluent-bit-n1  Running  node-01  ← 1 per node, automatic'},
+   {k:'ok', t:'fluent-bit-n2  Running  node-02  ← placed when node-02 joined'},
+ ],
+ apply(s){
+   s.daemonSets.push({name:'fluent-bit',ns:'kube-system'});
+   s.nodes.forEach(n=>s.pods.push({id:'fb-'+n.id,nodeId:n.id,ns:'kube-system',name:'fb-'+n.id.slice(-2),ready:true,isNew:true,w:'ds'}));
+   return s;}},
+
+// ── 19 ─────────────────────────────────────────────────────────
+{title:'kubectl apply -f mysql-sts.yaml — StatefulSet',
+ narration:'A StatefulSet gives each pod a stable ordered name and its own PersistentVolumeClaim. mysql-0 always gets PVC data-mysql-0. mysql-1 always gets data-mysql-1. Even after a crash and restart, same name, same storage. Replication config never breaks.',
+ explain:{h:'StatefulSet — ordered identity + own storage per pod',
+   p:'Deployments have interchangeable pods (random hash names). StatefulSets have <strong>stable ordered names</strong> (mysql-0, mysql-1) and each pod owns its PVC forever. MySQL replication uses <code>mysql-0.mysql-headless.prod</code> as the primary hostname — this DNS name is stable even after restarts.'},
+ cmd:'kubectl apply -f mysql-sts.yaml',
+ lines:[
+   {k:'cmt',t:'# kind: StatefulSet, replicas: 2, serviceName: mysql-headless'},
+   {k:'ok', t:'statefulset.apps/mysql created'},
+   {k:'ok', t:'mysql-0  Running  node-01  PVC: data-mysql-0 (10Gi) ← starts first'},
+   {k:'ok', t:'mysql-1  Running  node-02  PVC: data-mysql-1 (10Gi) ← starts after 0 is ready'},
+   {k:'cmt',t:'# PVCs survive pod restarts — data is permanent'},
+ ],
+ apply(s){
+   s.statefulSets.push({name:'mysql',ns:'prod'});
+   [0,1].forEach(i=>s.pods.push({id:'my'+i,nodeId:i===0?'n1':'n2',ns:'prod',name:'mysql-'+i,ready:true,isNew:true,w:'sts'}));
+   return s;}},
+
+// ── 20 ─────────────────────────────────────────────────────────
+{title:'kubectl get all -n prod — everything you built',
+ narration:'Get all shows every resource in the prod namespace. You started with nothing and built a complete cluster: pods, deployments, statefulsets, services, configmap, and secret. The cluster is self-healing, scalable, and externally accessible.',
+ explain:{h:'The complete picture — what you built in 20 commands',
+   p:'You connected to the cluster, created a namespace, deployed pods, exposed them via Services (ClusterIP and LoadBalancer), added a Deployment for rolling updates, scaled it, added a DaemonSet for log collection, and a StatefulSet for MySQL. The system is <strong>self-healing</strong>, <strong>scalable</strong>, and <strong>externally accessible</strong>.'},
+ cmd:'kubectl get all -n prod',
+ lines:[
+   {k:'hdr',t:'NAME                         READY   STATUS    NODE'},
+   {k:'ok', t:'pod/nginx                    1/1     Running   node-01'},
+   {k:'ok', t:'pod/webapp-v2-bbb            1/1     Running   node-01'},
+   {k:'ok', t:'pod/webapp-v2-ccc            1/1     Running   node-02'},
+   {k:'ok', t:'pod/webapp-v2-zzz            1/1     Running   node-01'},
+   {k:'ok', t:'pod/webapp-v2-d1             1/1     Running   node-02'},
+   {k:'ok', t:'pod/webapp-v2-d2             1/1     Running   node-01'},
+   {k:'ok', t:'pod/webapp-v2-d3             1/1     Running   node-02'},
+   {k:'ok', t:'pod/mysql-0                  1/1     Running   node-01'},
+   {k:'ok', t:'pod/mysql-1                  1/1     Running   node-02'},
+   {k:'hdr',t:'NAME                                      READY'},
+   {k:'ok', t:'deployment.apps/webapp                   6/6'},
+   {k:'ok', t:'statefulset.apps/mysql                   2/2'},
+   {k:'hdr',t:'NAME              TYPE           CLUSTER-IP      EXTERNAL-IP'},
+   {k:'ok', t:'service/nginx-svc ClusterIP      10.96.100.10    <none>'},
+   {k:'ok', t:'service/webapp-lb LoadBalancer   10.96.200.50    a1b2c3.elb...'},
+ ],
+ apply(s){return s;}},
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const TOTAL = S.length;
+let cursor = -1, playing = false, ptimer = null, typing = false;
+
+// accumulated terminal lines across all steps
+let termLines = [];
+
+function computeStateAt(idx){
+  let s = fresh();
+  for(let i=0;i<=idx&&i<TOTAL;i++) s = S[i].apply(s);
+  return s;
+}
+
+function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function termHTML(lines, showCursor){
+  let h = '';
+  for(const l of lines){
+    if(l.k==='p') h+=`<div class="tline p"><span class="prompt-span">$</span> <span style="color:var(--yellow)">${esc(l.t)}</span></div>`;
+    else h+=`<div class="tline ${l.k}">${esc(l.t)}</div>`;
+  }
+  if(showCursor) h+=`<div class="tline"><span class="cursor"></span></div>`;
+  return h;
+}
+
+function renderCluster(state){
+  const c = $('cluster');
+  if(!state.clusterReady){
+    c.innerHTML=`<div style="padding:40px 20px;text-align:center;color:var(--muted)">
+      <div style="font-size:2.2em;margin-bottom:8px">⌨️</div>
+      <div style="font-size:1.1em;font-weight:700;color:var(--text);margin-bottom:8px">kubectl Live</div>
+      <div style="font-size:.88em;line-height:1.6;max-width:320px;margin:0 auto">20 commands · watch each one run · cluster updates live<br><br>Press <strong style="color:var(--accent)">▶ Run next</strong> to start</div>
+    </div>`;
+    return;
+  }
+  const lit = cursor>=0 ? ['api-server'] : [];
+  let h=`<div class="cp-bar"><div><div class="cp-lbl">Control Plane · K8S v${state.cpVersion} (EKS-Managed)</div></div>
+    <div class="cp-chips">${['api-server','etcd','scheduler','controller-mgr'].map(c=>`<span class="cpc${lit.includes(c)?' lit':''}">${c}</span>`).join('')}</div></div>`;
+
+  const appNs = state.namespaces.filter(n=>n!=='kube-system');
+  for(const ns of appNs){
+    const nsPods = state.pods.filter(p=>p.ns===ns&&!p.term);
+    const nsSvcs = state.services.filter(s=>s.ns===ns);
+    const nsDeps = state.deployments.filter(d=>d.ns===ns);
+    const nsCMs  = state.configMaps.filter(c=>c.ns===ns);
+    const nsSecs = state.secrets.filter(s=>s.ns===ns);
+    const nsSTS  = state.statefulSets.filter(s=>s.ns===ns);
+    if(!nsPods.length&&!nsSvcs.length&&!nsDeps.length&&!nsCMs.length&&!nsSecs.length&&!nsSTS.length) continue;
+    h+=`<div class="ns-box"><div class="ns-lbl">ns: ${ns}</div>`;
+    if(nsDeps.length||nsSTS.length||nsSvcs.length||nsCMs.length||nsSecs.length){
+      h+=`<div class="res-row">`;
+      nsDeps.forEach(d=>h+=`<span class="badge bd">${d.name} ${d.rr}/${d.r}</span>`);
+      nsSTS.forEach(st=>h+=`<span class="badge bs">sts/${st.name}</span>`);
+      nsSvcs.forEach(sv=>h+=`<span class="badge ${sv.type==='LoadBalancer'?'blb':'bci'}">${sv.type==='LoadBalancer'?'🌐 ':''}svc/${sv.name}</span>`);
+      nsCMs.forEach(cm=>h+=`<span class="badge bcm">cm/${cm.name}</span>`);
+      nsSecs.forEach(s=>h+=`<span class="badge bsc">🔐 ${s.name}</span>`);
+      h+=`</div>`;
+    }
+    h+=`<div class="ngrid">`;
+    state.nodes.forEach(node=>{
+      const nodePods=nsPods.filter(p=>p.nodeId===node.id);
+      if(!nodePods.length) return;
+      h+=`<div class="wnode"><div class="nhdr"><span class="nname">⊙ ${node.name}</span><span class="nver">${node.ver}</span></div><div class="pods">`;
+      nodePods.slice(0,10).forEach(p=>{
+        const cls=['pod'];
+        if(p.ready)cls.push('ok');
+        if(p.isNew)cls.push('new');
+        if(p.pend)cls.push('pend');
+        if(p.term)cls.push('term');
+        if(p.w==='sts')cls.push('sts');
+        const label=p.name.length>14?p.name.slice(-12):p.name;
+        h+=`<div class="${cls.join(' ')}">${label}</div>`;
+      });
+      if(nodePods.length>10) h+=`<span style="font-size:.65em;color:var(--muted)">+${nodePods.length-10}</span>`;
+      h+=`</div></div>`;
+    });
+    h+=`</div></div>`;
+  }
+  const sysPods = state.pods.filter(p=>p.ns==='kube-system'&&!p.term);
+  if(sysPods.length){
+    h+=`<div class="ns-box ns-sys"><div class="ns-lbl">ns: kube-system</div><div class="res-row">`;
+    state.daemonSets.forEach(ds=>h+=`<span class="badge bds">ds/${ds.name} (${sysPods.filter(p=>p.w==='ds').length} pods · ${state.nodes.length} nodes)</span>`);
+    h+=`</div></div>`;
+  }
+  c.innerHTML = h;
+}
+
+function updateStats(state){
+  $('sn').textContent = state.nodes.length;
+  $('sp').textContent = state.pods.filter(p=>p.ready&&!p.term).length;
+  $('ss').textContent = state.services.length;
+  $('sd').textContent = state.deployments.length;
+  $('sns').textContent = state.namespaces.length;
+  const el = $('sst');
+  el.textContent = state.clusterReady?'ACTIVE':'—';
+  el.style.color = state.clusterReady?'var(--good)':'var(--muted)';
+}
+
+function updateNavbar(idx){
+  const step = idx>=0&&idx<TOTAL?S[idx]:null;
+  $('stitle').textContent = step?step.title:'Ready to start';
+  $('pcnt').textContent = `${idx+1} / ${TOTAL}`;
+  $('pfill').style.width = `${((idx+1)/TOTAL)*100}%`;
+  $('bprev').disabled = idx<=-1;
+  $('bnext').disabled = idx>=TOTAL-1||typing;
+  $('bplay').disabled = typing;
+  if(step){
+    $('exlbl').textContent = `STEP ${idx+1} OF ${TOTAL}`;
+    $('extitle').textContent = step.title;
+    $('exbody').innerHTML = step.explain.p;
+    $('narr').textContent = step.narration;
+    const exEl=$('explain');if(exEl)exEl.style.borderLeftColor=idx<5?'var(--pod)':idx<10?'var(--good)':idx<14?'var(--warn)':idx<17?'var(--accent)':'var(--dep)';
+  }
+}
+
+// ─── Typewriter ───────────────────────────────────────────────
+function typeCommand(cmd, onDone){
+  typing = true;
+  $('bnext').disabled = true;
+  $('bplay').disabled = true;
+  let i = 0;
+  const line = {k:'p', t:''};
+  termLines.push(line);
+  const speed = Math.max(28, 60 - cmd.length);
+  function tick(){
+    if(i<cmd.length){
+      line.t = cmd.slice(0,++i);
+      $('term').innerHTML = termHTML(termLines, true);
+      $('term').scrollTop = $('term').scrollHeight;
+      setTimeout(tick, speed + (Math.random()*20-10));
+    } else {
+      $('term').innerHTML = termHTML(termLines, false);
+      setTimeout(onDone, 200);
+    }
+  }
+  tick();
+}
+
+function streamOutput(lines, onDone, idx=0){
+  if(idx>=lines.length){
+    typing=false;
+    $('bnext').disabled = cursor>=TOTAL-1;
+    $('bplay').disabled = false;
+    onDone();
+    return;
+  }
+  const l = lines[idx];
+  const delay = l.k==='ok'?60:l.k==='cmt'?40:50;
+  setTimeout(()=>{
+    termLines.push({k:l.k,t:l.t});
+    $('term').innerHTML = termHTML(termLines, idx<lines.length-1);
+    $('term').scrollTop = $('term').scrollHeight;
+    streamOutput(lines, onDone, idx+1);
+  }, delay);
+}
+
+// ─── Run step ─────────────────────────────────────────────────
+function runStep(idx){
+  if(idx<0||idx>=TOTAL) return;
+  cursor = idx;
+  const step = S[idx];
+  updateNavbar(idx);
+  speak(step.narration);
+
+  // Add section separator
+  if(idx===0) termLines.push({k:'cmt',t:'# ── kubectl session started ──'});
+
+  typeCommand(step.cmd, ()=>{
+    streamOutput(step.lines, ()=>{
+      // After output: update cluster
+      const state = computeStateAt(idx);
+      renderCluster(state);
+      updateStats(state);
+      // Remove isNew flags after animation
+      setTimeout(()=>{
+        state.pods.forEach(p=>{ p.isNew=false; });
+        state.nodes.forEach(n=>{ n.isNew=false; });
+      }, 600);
+      if(playing && cursor<TOTAL-1){
+        ptimer = setTimeout(()=>runStep(cursor+1), 3500);
+      }
+    });
+  });
+}
+
+function next()  { if(cursor<TOTAL-1&&!typing) runStep(cursor+1); }
+function prev()  { if(cursor>-1&&!typing){ cursor--; const state=cursor>=0?computeStateAt(cursor):fresh(); renderCluster(state); updateStats(state); updateNavbar(cursor); } }
+function play()  { if(playing){pause();return;} playing=true; $('bplay').textContent='⏸ Stop'; if(!typing)next(); }
+function pause() { playing=false; clearTimeout(ptimer); $('bplay').textContent='⏯ Auto'; }
+function reset() { pause(); cursor=-1; typing=false; termLines=[]; $('term').innerHTML=''; renderCluster(fresh()); updateStats(fresh()); updateNavbar(-1); $('bnext').disabled=false; $('bplay').disabled=false; }
+
+$('bnext').onclick = next;
+$('bprev').onclick = prev;
+$('bplay').onclick = play;
+$('breset').onclick = reset;
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if(e.key==='ArrowRight') { e.preventDefault(); next(); }
+  else if(e.key==='ArrowLeft') { e.preventDefault(); if(!typing)prev(); }
+  else if(e.key===' ') { e.preventDefault(); play(); }
+  else if(e.key==='Home') { e.preventDefault(); reset(); }
+  else if(e.key==='m'||e.key==='M') { e.preventDefault(); $('bmute').click(); }
+});
+
+// ─── Voice ────────────────────────────────────────────────────
+let muted=localStorage.getItem('k8s-cmd-muted')==='1', selV=null;
+const synth=window.speechSynthesis;
+const PREF=['Ava','Zoe','Allison','Samantha','Karen'];
+function vscore(v){ let s=0; if(/Premium/i.test(v.name))s+=100;else if(/Siri/i.test(v.name))s+=80;else if(/Enhanced/i.test(v.name))s+=60; const i=PREF.indexOf(v.name.replace(/\s*\([^)]*\)\s*/g,'').trim());if(i!==-1)s+=20-i; if(v.lang==='en-US')s+=5; return s; }
+function populateV(){ if(!synth)return; const vs=synth.getVoices().filter(v=>v.lang.startsWith('en')).sort((a,b)=>vscore(b)-vscore(a)); const sel=$('vsel'); sel.innerHTML=''; vs.forEach(v=>{ const o=document.createElement('option');o.value=v.name;o.textContent=(/Premium|Siri|Enhanced/i.test(v.name)?'⭐ ':'')+v.name;sel.appendChild(o); }); selV=(localStorage.getItem('k8s-cmd-voice')&&vs.find(v=>v.name===localStorage.getItem('k8s-cmd-voice')))||vs[0]; if(selV)sel.value=selV.name; $('bmute').textContent=muted?'🔇':'🔊'; $('bmute').classList.toggle('muted',muted); }
+if(synth){synth.onvoiceschanged=populateV;populateV();}
+function speak(t){ if(!synth||muted||!t)return;try{synth.cancel();}catch(e){} (t.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g)||[t]).forEach(c=>{const u=new SpeechSynthesisUtterance(c.trim());if(selV)u.voice=selV;u.rate=0.95;synth.speak(u);}); }
+$('bmute').onclick=()=>{ muted=!muted;localStorage.setItem('k8s-cmd-muted',muted?'1':'0');$('bmute').textContent=muted?'🔇':'🔊';$('bmute').classList.toggle('muted',muted);if(muted&&synth)try{synth.cancel();}catch(e){} };
+$('vsel').onchange=e=>{ const v=synth.getVoices().find(x=>x.name===e.target.value);if(v){selV=v;localStorage.setItem('k8s-cmd-voice',v.name);} };
+$('vbtn').onclick=e=>{ e.stopPropagation();$('vp').classList.toggle('open'); };
+document.addEventListener('click',e=>{ if(!e.target.closest('#vp')&&!e.target.closest('#vbtn'))$('vp').classList.remove('open'); });
+
+// ─── Init ─────────────────────────────────────────────────────
+function init(){
+  if(!document.getElementById('term')){
+    document.addEventListener('DOMContentLoaded',init);return;
+  }
+  renderCluster(fresh());
+  updateStats(fresh());
+  updateNavbar(-1);
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}
+else{init();}
+</script>
+<script src="../course-flashcards/ask-ai.js" data-module="01"></script>
+</body>
+</html>
