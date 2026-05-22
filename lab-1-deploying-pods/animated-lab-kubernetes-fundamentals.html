@@ -1,212 +1,1115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Kubernetes Fundamentals — Animated Lab</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Module 01 — Kubernetes Fundamentals. Containers, Pods, Services, control plane, scheduling, workloads. Terminal + live cluster animations.">
+<meta name="theme-color" content="#06080d">
+<title>K8s Fundamentals — Animated Lab</title>
+<style>
+
+  :root {
+    /* AWS service category colors */
+    --aws-compute: #4A90E2;   /* pods/nodes */
+    --aws-network: #9B59B6;   /* services   */
+    --aws-storage: #27AE60;   /* workloads  */
+    --aws-security:#E74C3C;  /* secrets    */
+    --aws-mgmt:    #1ABC9C;   /* configmaps */
+    --aws-edge:    #E67E22;   /* namespaces */
+    --aws-data: #527FFF;
+
+    --container: #FF8C42;
+    --pod: #4A90E2;
+    --service: #1ABC9C;
+    --bad: #E74C3C;
+    --good: #27AE60;
+    --bg: #06080d;
+    --panel: #11151c;
+    --panel-light: #1f2738;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --term-bg: #03050a;
+    --term-fg: #c5e478;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(ellipse at top, rgba(56, 189, 248, 0.05), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(155, 89, 182, 0.04), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 28px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.85), rgba(155, 89, 182, 0.85)), var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  header h1 { margin: 0; font-size: 1.4em; }
+  header p { margin: 4px 0 0; opacity: 0.85; font-size: 0.92em; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 0.7fr 1.8fr;
+    gap: 12px;
+    padding: 12px;
+    max-width: 1700px;
+    margin: 0 auto;
+  }
+  .navbar {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .nav-buttons { display: flex; gap: 8px; }
+  .nav-buttons button { min-width: 42px; padding: 8px 12px; font-size: 1em; }
+  .step-info { display: flex; flex-direction: column; gap: 6px; }
+  .step-info .title { font-weight: 700; font-size: 1.05em; color: var(--accent); }
+  .step-info .progress-row { display: flex; align-items: center; gap: 12px; }
+  .step-counter { font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted); min-width: 110px; }
+  .progress-bar { flex: 1; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; border: 1px solid #334155; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #4A90E2, #9B59B6); border-radius: 3px; transition: width 0.4s ease; }
+  .kbd { background: #334155; color: var(--text); border: 1px solid #475569; border-bottom-width: 2px; border-radius: 4px; padding: 2px 8px; font-family: ui-monospace, monospace; font-size: 0.8em; margin: 0 3px; }
+  .voice-controls { display: flex; gap: 6px; align-items: center; font-size: 0.78em; color: var(--muted); }
+  .voice-controls select { background: var(--panel-light); color: var(--text); border: 1px solid #475569; border-radius: 4px; padding: 4px 6px; font-size: 0.85em; max-width: 160px; }
+
+  .panel { background: var(--panel); border-radius: 12px; padding: 10px; border: 1px solid var(--panel-light); }
+  .panel h2 { margin: 0 0 8px 0; font-size: 0.78em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; padding: 2px 4px; }
+
+  .terminal {
+    background: var(--term-bg); border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; padding: 10px 12px; height: 580px;
+    overflow-y: auto; line-height: 1.55;
+    border: 1px solid #1f2937;
+  }
+  .term-line { color: var(--term-fg); white-space: pre-wrap; word-break: break-all; }
+  .term-line .prompt { color: #38bdf8; font-weight: 700; }
+  .term-line .cmd { color: #fde68a; }
+  .term-line.out { color: #94a3b8; }
+  .term-line.good { color: #4ade80; }
+  .term-line.bad { color: #f87171; }
+  .term-line.warn { color: #fbbf24; }
+  .term-line.title { color: #a78bfa; font-weight: 700; padding-top: 6px; }
+  .term-line.note { color: #818cf8; font-style: italic; }
+  .term-line.aws { color: #ED7100; font-weight: 700; }
+
+  .cluster {
+    height: 580px; background: #03050a;
+    border-radius: 8px; padding: 12px;
+    overflow-y: auto; position: relative;
+  }
+
+  .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; grid-column: 1 / -1; }
+  .stat { background: var(--panel); border: 1px solid var(--panel-light); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat .v { font-size: 1.4em; font-weight: 700; font-family: ui-monospace, monospace; }
+  .stat .l { font-size: 0.65em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .stat .v.good { color: var(--good); }
+
+  /* AWS icons */
+  .aws-icon {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 4px;
+    font-size: 0.75em; font-weight: 700;
+    font-family: ui-monospace, monospace;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .aws-icon svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .aws-compute  { background: rgba(237, 113, 0, 0.12); color: var(--aws-compute); border: 1px solid var(--aws-compute); }
+  .aws-network  { background: rgba(140, 79, 255, 0.12); color: var(--aws-network); border: 1px solid var(--aws-network); }
+  .aws-storage  { background: rgba(122, 161, 22, 0.12); color: var(--aws-storage); border: 1px solid var(--aws-storage); }
+  .aws-security { background: rgba(221, 52, 76, 0.12); color: var(--aws-security); border: 1px solid var(--aws-security); }
+  .aws-mgmt     { background: rgba(231, 21, 123, 0.12); color: var(--aws-mgmt); border: 1px solid var(--aws-mgmt); }
+  .aws-edge     { background: rgba(108, 174, 62, 0.12); color: var(--aws-edge); border: 1px solid var(--aws-edge); }
+
+  /* VPC / Subnet boxes */
+  .vpc {
+    border: 2px solid var(--aws-network);
+    border-radius: 12px;
+    padding: 16px;
+    background: rgba(140, 79, 255, 0.04);
+    position: relative;
+    margin-top: 16px;
+  }
+  .vpc .vpc-label {
+    position: absolute; top: -12px; left: 16px;
+    background: var(--bg); padding: 2px 10px;
+    font-size: 0.72em; color: var(--aws-network);
+    font-weight: 700; letter-spacing: 1.5px;
+    border-radius: 4px;
+  }
+  .az-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .subnet {
+    border: 2px dashed rgba(140, 79, 255, 0.5);
+    border-radius: 10px;
+    padding: 12px;
+    background: rgba(140, 79, 255, 0.03);
+    position: relative;
+  }
+  .subnet .subnet-label {
+    position: absolute; top: -10px; left: 12px;
+    background: var(--bg); padding: 2px 8px;
+    font-size: 0.68em; color: #c084fc;
+    font-weight: 700; letter-spacing: 1px;
+    border-radius: 4px;
+  }
+
+  /* EKS control plane (outside VPC, managed by AWS) */
+  .eks-control-plane {
+    background: linear-gradient(135deg, rgba(237, 113, 0, 0.1), rgba(140, 79, 255, 0.1));
+    border: 2px solid var(--aws-compute);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .eks-control-plane .label {
+    font-size: 0.7em; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+  }
+  .eks-control-plane .name {
+    font-weight: 700; font-family: ui-monospace, monospace; color: var(--aws-compute);
+  }
+  .eks-control-plane .components {
+    margin-left: auto; display: flex; gap: 6px;
+    font-size: 0.7em; color: var(--muted); font-family: ui-monospace, monospace;
+  }
+
+  /* EC2 worker node */
+  .ec2-node {
+    border: 2px solid var(--aws-compute);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(237, 113, 0, 0.05);
+    margin-top: 10px;
+    transition: all 0.5s;
+  }
+  .ec2-node.new { animation: spawn 0.8s ease-out; }
+  .ec2-node.draining { border-style: dashed; opacity: 0.7; }
+  .ec2-node .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .ec2-node .name {
+    font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.85em;
+    color: var(--aws-compute);
+  }
+  .ec2-node .type {
+    font-size: 0.7em; color: var(--muted);
+    padding: 2px 6px; background: rgba(255,255,255,0.05); border-radius: 4px;
+  }
+  .ec2-node .pods {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+    min-height: 32px;
+  }
+
+  @keyframes spawn {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .pod-mini {
+    border: 2px solid var(--pod);
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: rgba(74, 144, 226, 0.1);
+    font-family: ui-monospace, monospace;
+    font-size: 0.72em;
+    color: var(--pod);
+    transition: all 0.5s;
+  }
+  .pod-mini.ready { box-shadow: 0 0 8px rgba(80, 200, 120, 0.4); }
+  .pod-mini.new { animation: spawn 0.8s ease-out; }
+
+  /* External services (ECR, IAM, CloudWatch outside VPC) */
+  .external-services {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 10px;
+  }
+  .ext-svc {
+    flex: 1; min-width: 180px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid;
+    background: rgba(255,255,255,0.02);
+  }
+  .ext-svc .header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .ext-svc .name { font-weight: 700; font-size: 0.85em; font-family: ui-monospace, monospace; }
+  .ext-svc .meta { font-size: 0.72em; color: var(--muted); }
+  .ext-svc.ecr      { border-color: var(--aws-storage); }
+  .ext-svc.iam      { border-color: var(--aws-security); }
+  .ext-svc.cw       { border-color: var(--aws-mgmt); }
+  .ext-svc.elb      { border-color: var(--aws-network); }
+  .ext-svc.igw      { border-color: var(--aws-edge); }
+  .ext-svc.ecr .name      { color: var(--aws-storage); }
+  .ext-svc.iam .name      { color: var(--aws-security); }
+  .ext-svc.cw .name       { color: var(--aws-mgmt); }
+  .ext-svc.elb .name      { color: var(--aws-network); }
+  .ext-svc.igw .name      { color: var(--aws-edge); }
+
+  /* Internet origin */
+  .internet {
+    background: linear-gradient(135deg, rgba(108, 174, 62, 0.1), rgba(56, 189, 248, 0.1));
+    border: 1px dashed var(--aws-edge);
+    border-radius: 8px;
+    padding: 8px 14px;
+    text-align: center;
+    font-size: 0.82em;
+    color: var(--aws-edge);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  /* Commentary panel */
+  .explain {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #0d1320, #131a2a);
+    border-radius: 14px;
+    padding: 22px 26px;
+    border: 1px solid var(--panel-light);
+    border-left: 4px solid var(--aws-compute);
+  }
+  .explain-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .explain-grid > div:has(.narration-quote) { display: none; }
+  .explain .step-label {
+    font-size: 0.72em; color: var(--aws-compute);
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .explain h3 { margin: 0 0 10px; font-size: 1.2em; }
+  .explain p { margin: 0; color: var(--muted); font-size: 0.95em; line-height: 1.65; }
+  .explain p code { background: #050810; padding: 2px 6px; border-radius: 4px; color: #fde68a; font-size: 0.9em; }
+  .narration-label { font-size: 0.72em; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin-bottom: 8px; }
+  .narration-quote { background: linear-gradient(135deg, #050810, #0b1020); border-left: 3px solid var(--aws-compute); border-radius: 8px; padding: 16px 20px; font-size: 1.05em; line-height: 1.65; color: var(--text); font-style: italic; }
+
+  button { background: var(--panel-light); color: var(--text); border: 1px solid #475569; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.15s; font-family: inherit; }
+  button:hover:not(:disabled) { background: #475569; border-color: #64748b; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: #4A90E2; border-color: #4A90E2; color: #fff; }
+  button.mute-btn { padding: 6px 10px; }
+  button.mute-btn.muted { background: rgba(231, 76, 60, 0.2); border-color: var(--bad); }
+
+  /* ====== Shared slim left rail (cross-lab nav) ====== */
+  body { padding-left: 60px; }
+  .rail {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 60px; z-index: 200;
+    background: #0c1018; border-right: 1px solid #1f2738;
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .rail-brand {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4A90E2, #9B59B6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: white; font-size: 0.9em;
+    text-decoration: none; margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+  .rail-link {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; color: white;
+    text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .rail-link:hover { background: rgba(255,255,255,0.08); }
+  .rail-link.active { background: rgba(56, 189, 248, 0.18); }
+  .rail-link.active::before {
+    content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px;
+    width: 3px; background: #38bdf8;
+    border-radius: 0 2px 2px 0;
+  }
+  .rail-link:hover::after {
+    content: attr(title);
+    position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+    background: #1f2738; color: #f1f5f9;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 0.85em; font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid #475569;
+    z-index: 300; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  html, body { overflow-x: hidden; }
+
+  /* ====== View Transitions API — smooth cross-fades between steps ====== */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.32s;
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation: none; }
+    .ec2-node, .pod-mini { animation: none !important; transition: none !important; }
+  }
+  /* Smooth reflow of EC2 nodes and pods between steps */
+  .ec2-node, .pod-mini {
+    transition: opacity 0.3s ease, transform 0.3s ease,
+                border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  /* ====== Rail footer (voice trigger) + voice popup ====== */
+  .rail-spacer { flex: 1; min-height: 12px; }
+  .rail-link.voice-trigger {
+    background: transparent; border: none; cursor: pointer; font-family: inherit;
+  }
+  .rail-link.voice-trigger.narration-off { opacity: 0.4; }
+  .voice-popup {
+    position: fixed; bottom: 16px; left: 68px;
+    width: 280px; max-width: calc(100vw - 80px);
+    background: var(--panel);
+    border: 1px solid var(--panel-light);
+    border-radius: 10px; padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 250; opacity: 0; pointer-events: none;
+    transform: translateX(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .voice-popup.open { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .voice-popup-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 0.85em; font-weight: 700; color: var(--text);
+  }
+  .voice-popup-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 1em; cursor: pointer; padding: 0;
+    width: 22px; height: 22px;
+  }
+  .voice-popup-close:hover { color: var(--text); }
+  .voice-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin: 10px 0; font-size: 0.85em;
+  }
+  .voice-row .lbl { color: var(--muted); }
+  .voice-row select, .voice-row input[type="range"] {
+    background: #0a0e1a; color: var(--text);
+    border: 1px solid #475569; border-radius: 4px;
+    padding: 4px 8px; font-size: 0.85em; max-width: 160px;
+    font-family: inherit;
+  }
+  .nav-actions { display: flex; gap: 10px; align-items: center; }
+
+  /* ====== Responsive breakpoints ====== */
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .explain-grid { grid-template-columns: 1fr; gap: 16px; }
+    .terminal, .cluster { height: 420px; }
+    .navbar { grid-template-columns: auto 1fr; row-gap: 10px; }
+    .voice-controls { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    body { padding-left: 50px; }
+    .rail { width: 50px; }
+    .rail-brand { width: 36px; height: 36px; }
+    .rail-link { width: 38px; height: 38px; font-size: 1.1em; }
+    header { padding: 14px 18px; }
+    header h1 { font-size: 1.05em; }
+    header p { font-size: 0.78em; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .layout { padding: 10px; gap: 10px; }
+    .terminal { font-size: 11px; height: 320px; }
+    .cluster { height: 360px; }
+    .navbar { grid-template-columns: 1fr; }
+    .voice-controls { flex-wrap: wrap; }
+    .voice-controls select { max-width: 130px; }
+  }
+
+  /* ── K8s cluster visual components ── */
+  .control-plane { background:linear-gradient(135deg,rgba(74,144,226,.08),rgba(155,89,182,.08)); border:2px solid #4A90E2; border-radius:10px; padding:12px; margin-bottom:12px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .cp-label { font-size:.68em; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; }
+  .cp-ver   { font-weight:700; font-family:ui-monospace,monospace; color:#4A90E2; }
+  .cp-components { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  .cp-chip  { padding:2px 8px; border-radius:4px; background:rgba(255,255,255,.04); border:1px solid #334155; font-size:.7em; color:var(--muted); font-family:ui-monospace,monospace; }
+  .cp-chip.lit { color:var(--accent); border-color:var(--accent); background:rgba(56,189,248,.1); }
+  .ns-box   { border:2px dashed rgba(230,126,34,.45); border-radius:10px; padding:12px; margin-bottom:10px; position:relative; }
+  .ns-label { position:absolute; top:-10px; left:12px; background:var(--bg); padding:2px 8px; font-size:.68em; color:#E67E22; font-weight:700; letter-spacing:1px; border-radius:4px; }
+  .node-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+  .worker-node { border:2px solid #E67E22; border-radius:8px; padding:10px; background:rgba(230,126,34,.04); transition:all .4s; }
+  .worker-node.new { animation:spawn .6s ease-out; }
+  .node-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .node-name{ font-family:ui-monospace,monospace; font-weight:700; font-size:.82em; color:#E67E22; }
+  .node-ver { font-size:.68em; color:var(--muted); padding:2px 6px; background:rgba(255,255,255,.05); border-radius:4px; }
+  .pods-wrap{ display:flex; flex-wrap:wrap; gap:5px; min-height:28px; }
+  .pod-chip { border:1.5px solid var(--pod); border-radius:5px; padding:3px 7px; background:rgba(74,144,226,.08); font-family:ui-monospace,monospace; font-size:.7em; color:var(--pod); transition:all .35s; }
+  .pod-chip.ready       { box-shadow:0 0 7px rgba(39,174,96,.4); border-color:var(--good); color:var(--good); background:rgba(39,174,96,.07); }
+  .pod-chip.new         { animation:spawn .6s ease-out; }
+  .pod-chip.pending     { border-color:#F1C40F; color:#F1C40F; background:rgba(241,196,15,.06); animation:blink 1.2s infinite; }
+  .pod-chip.terminating { opacity:.4; border-style:dashed; }
+  .res-row  { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:8px; }
+  .b-deploy { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; font-weight:700; border:1.5px solid #9B59B6; color:#9B59B6; background:rgba(155,89,182,.08); }
+  .b-sts    { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; font-weight:700; border:1.5px solid #818cf8; color:#818cf8; background:rgba(129,140,248,.08); }
+  .b-svc-ci { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; font-weight:700; border:1.5px solid #1ABC9C; color:#1ABC9C; background:rgba(26,188,156,.08); }
+  .b-svc-lb { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; font-weight:700; border:1.5px solid #9B59B6; color:#9B59B6; background:rgba(155,89,182,.08); }
+  .b-cm     { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; border:1.5px solid #38bdf8; color:#38bdf8; background:rgba(56,189,248,.06); }
+  .b-secret { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; border:1.5px solid var(--bad); color:var(--bad); background:rgba(231,76,60,.06); }
+  .b-ds     { padding:3px 9px; border-radius:5px; font-size:.73em; font-family:ui-monospace,monospace; border:1.5px solid #38bdf8; color:#38bdf8; background:rgba(56,189,248,.05); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+</style>
 </head>
 <body>
-<script>
-window.LAB_CONFIG = {
-  badge: 'MODULE 01', icon: '📦', title: 'Kubernetes Fundamentals',
-  subtitle: '22-step walkthrough · containers · pods · services · control plane · scheduling · kubectl · workloads',
-  color1: 'rgba(74,144,226,.85)', color2: 'rgba(39,174,96,.85)',
-  railLinks: [
-    {href:'index.html',icon:'🏠',title:'Dashboard'},
-    {href:'animated-lab.html',icon:'📚',title:'K8s Core Concepts',active:true},
-    {href:'animated-lab-eks-fundamentals.html',icon:'🔶',title:'EKS Fundamentals'},
-    {href:'../course-flashcards/module-01/index.html',icon:'🃏',title:'Flashcards'},
-  ],
-  bottomLinks:[
-    {href:'../course-flashcards/module-01/index.html',label:'🃏 Module 01 Flashcards'},
-    {href:'animated-lab-eks-fundamentals.html',label:'🔶 EKS Fundamentals'},
-    {href:'../course-flashcards/index.html',label:'📖 All Modules'},
-  ]
-};
 
-window.LAB_STEPS = [
-  // ── CONTAINERS ──────────────────────────────────────────────────
-  { section:'Containers', title:'Why containers? 5 properties',
-    narration:'Containers are portable, cloud deployable, scalable, continuously deployable, and declarative. These 5 properties make them ideal for modern cloud applications.',
-    render(s){clearSVG(s);
-      tx(s,410,30,'5 Container Properties',13,700,'#4A90E2');
-      const ps=[['Portable','Runs on any OS with container runtime'],['Cloud deployable','EC2 · Lambda · ECS · EKS · App Runner'],['Scalable','Add/remove replicas without rebuilding'],['Continuously deployable','Same image in dev, staging, prod'],['Declarative','Describe result, not steps']];
-      ps.forEach(([h,d],i)=>{rr(s,60,50+i*100,700,80,'#0a1a2a','#4A90E2',8,1.5);tx(s,410,80+i*100,h,13,700,'#4A90E2');tx(s,410,98+i*100,d,10,400,'#94a3b8');});
-    }
+<aside class="rail">
+  <a href="index.html" class="rail-brand" title="Dashboard">K8</a>
+  <a href="index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="animated-lab.html" class="rail-link" title="K8s Core Concepts">📚</a>
+  <a href="animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="animated-lab-kubernetes-fundamentals.html" class="rail-link active" title="K8s Fundamentals">📦</a>
+  <a href="animated-lab-eks-fundamentals.html" class="rail-link" title="02: EKS Fundamentals">🔶</a>
+  <a href="animated-lab-building-eks-cluster.html" class="rail-link" title="03: Building Clusters">🔧</a>
+  <a href="animated-lab-deploying-apps.html" class="rail-link" title="04: Deploying Apps">🚀</a>
+  <a href="animated-lab-scale-gitops.html" class="rail-link" title="05: Scale & GitOps">📈</a>
+  <a href="animated-lab-networking.html" class="rail-link" title="06: Networking">🌐</a>
+  <a href="animated-lab-observability.html" class="rail-link" title="07: Observability">🔭</a>
+  <a href="animated-lab-storage.html" class="rail-link" title="08: Storage">💾</a>
+  <a href="animated-lab-security.html" class="rail-link" title="09: Security">🔐</a>
+  <div class="rail-spacer"></div>
+  <button class="rail-link voice-trigger" id="voice-trigger" title="Voice settings">🎙</button>
+</aside>
+
+<div class="voice-popup" id="voice-popup">
+  <div class="voice-popup-header">
+    <span>🎙 Narration</span>
+    <button class="voice-popup-close" id="voice-popup-close">✕</button>
+  </div>
+  <div class="voice-row"><span class="lbl">On / off</span><button id="btn-mute" class="mute-btn">🔊</button></div>
+  <div class="voice-row"><span class="lbl">Voice</span><select id="voice-select"></select></div>
+</div>
+
+<header>
+  <h1>📦 Kubernetes Fundamentals — animated</h1>
+  <p>Module 01 · 20 steps · containers · pods · services · control plane · scheduling · workloads</p>
+</header>
+
+<div class="layout">
+
+  <div class="navbar">
+    <div class="step-info">
+      <div class="title" id="step-title">Ready to start</div>
+      <div class="progress-row">
+        <div class="step-counter" id="step-counter">0 / 20</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <div class="nav-buttons">
+        <button id="btn-prev">◀</button>
+        <button id="btn-next" class="primary">▶</button>
+        <button id="btn-play">⏯</button>
+        <button id="btn-reset">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="s-nodes">0</div><div class="l">Nodes</div></div>
+    <div class="stat"><div class="v good" id="s-pods">0</div><div class="l">Pods Ready</div></div>
+    <div class="stat"><div class="v" id="s-svcs">0</div><div class="l">Services</div></div>
+    <div class="stat"><div class="v" id="s-deploys">0</div><div class="l">Deployments</div></div>
+    <div class="stat"><div class="v" id="s-ns">1</div><div class="l">Namespaces</div></div>
+    <div class="stat"><div class="v" id="s-status">—</div><div class="l">Cluster</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>💻 kubectl · cluster state</h2>
+    <div id="terminal" class="terminal"></div>
+  </div>
+
+  <div class="panel">
+    <h2>🔵 Live Kubernetes cluster</h2>
+    <div id="cluster" class="cluster"></div>
+  </div>
+
+  <div class="explain">
+    <div class="explain-grid">
+      <div>
+        <div class="step-label" id="explain-label">STEP 0</div>
+        <h3 id="explain-title">Welcome to Kubernetes Fundamentals</h3>
+        <p id="explain-text">20 steps through every core concept: containers, Pods, Services, the control plane, scheduling, kubectl, and workloads. Press → or ▶ to begin.</p>
+      </div>
+      <div>
+        <div class="narration-label">🎙 Narration</div>
+        <div class="narration-quote"><span id="narration-text">Press ▶ or → to start the lab.</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function initialState() {
+  return {
+    clusterReady: false,
+    controlPlane: null,
+    nodes:        [],
+    namespaces:   ['default'],
+    pods:         [],
+    services:     [],
+    deployments:  [],
+    configMaps:   [],
+    secrets:      [],
+    daemonSets:   [],
+    statefulSets: [],
+  };
+}
+
+const STEPS = [
+  {
+    title: 'Empty cluster — control plane running',
+    explain: { h: 'Cluster anatomy: two zones', p: 'A Kubernetes cluster has two parts. The <strong>control plane</strong> runs the API server, etcd, scheduler, and controller-manager — on EKS, AWS manages these. Worker <strong>nodes</strong> run your workloads. We start with one node, no pods.' },
+    narration: 'A Kubernetes cluster has two zones. The control plane runs the API server, etcd, scheduler, and controller manager. On EKS, AWS manages these entirely. Worker nodes run your workloads.',
+    term: [
+      {k:'section',t:'── Kubernetes cluster ready ──'},
+      {k:'cmd',t:'kubectl cluster-info'},
+      {k:'good',t:'Kubernetes control plane running at https://api.k8s.local:6443'},
+      {k:'cmd',t:'kubectl get nodes'},
+      {k:'good',t:'NAME         STATUS   ROLES    AGE   VERSION'},
+      {k:'good',t:'node-01      Ready    <none>   1m    v1.29.0'},
+    ],
+    apply: s => { s.clusterReady=true; s.controlPlane={version:'1.29',lit:['api-server']}; s.nodes=[{id:'n1',name:'node-01',ver:'v1.29.0',ready:true}]; return s; },
   },
-  { section:'Containers', title:'Monolith vs Microservices',
-    narration:'A monolith bundles everything into one deployable. Microservices split the app into independent services — each deployable and scalable on its own. Containers are the perfect unit for microservices.',
-    render(s){clearSVG(s);
-      tx(s,210,30,'Monolith',13,700,'#E74C3C');rr(s,60,50,300,320,'#1a0505','#E74C3C',10,2);
-      ['UI Layer','Business Logic','Order Service','User Service','Database Layer'].forEach((l,i)=>{ rr(s,80,70+i*56,260,44,'#2a0808','#E74C3C',6,1);tx(s,210,95+i*56,l,10,700,'#f1f5f9');});
-      tx(s,600,30,'Microservices',13,700,'#27AE60');
-      [['API Gateway','edge'],['Auth Svc','auth'],['Orders Svc','orders'],['Products Svc','products'],['Notify Svc','notify']].forEach(([l,_],i)=>{rr(s,460,50+i*56,280,44,'#0a1a0a','#27AE60',6,1);tx(s,600,75+i*56,l,10,700,'#86efac');});
-      rr(s,160,400,200,40,'#0a1020','#4A90E2',6,1);tx(s,260,424,'Containers enable this →',9,700,'#4A90E2');
-    }
+  {
+    title: 'Container benefits — 5 properties',
+    explain: { h: 'Why containers?', p: 'Containers are <code>portable</code> (run on any OS), <code>cloud deployable</code> (EC2/ECS/EKS/Lambda), <code>scalable</code> (add/remove fast), <code>continuously deployable</code> (identical image dev→prod), and <code>declarative</code> (describe result, not steps). These five properties make them ideal for microservices.' },
+    narration: 'Containers have five key properties. Portable: same image runs anywhere. Cloud deployable: EC2, ECS, EKS, Lambda. Scalable: add or remove replicas in seconds. Continuously deployable: identical image from dev to prod. And declarative: describe what you want, Kubernetes reconciles it.',
+    term: [
+      {k:'section',t:'── Container properties ──'},
+      {k:'k8s',t:'1. Portable          → runs on any OS with container runtime'},
+      {k:'k8s',t:'2. Cloud deployable  → EC2 | ECS | EKS | Lambda | App Runner'},
+      {k:'k8s',t:'3. Scalable          → add/remove replicas without architecture change'},
+      {k:'k8s',t:'4. Continuously deployable → identical image dev→staging→prod'},
+      {k:'k8s',t:'5. Declarative       → describe desired state, K8s reconciles'},
+      {k:'note',t:'These five properties are the foundation of everything in this course.'},
+    ],
+    apply: s => s,
   },
-  { section:'Containers', title:'Container orchestration — the scale problem',
-    narration:'1 container on 1 host is easy. 1000 containers on 100 hosts requires automation for scheduling, networking, health, scaling, and recovery. That is what Kubernetes provides.',
-    render(s){clearSVG(s);
-      tx(s,180,30,'1 Host (easy)',12,700,'#27AE60');rr(s,60,50,240,120,'#0a1a0a','#27AE60',8,1.5);
-      [0,1,2].forEach(i=>{rr(s,80+i*70,70,56,80,'#1a3a1a','#27AE60',4,1);tx(s,108+i*70,115,'📦',13,400,'#f1f5f9');});
-      tx(s,600,30,'100 Hosts (needs orchestration)',12,700,'#E74C3C');
-      rr(s,420,50,360,420,'#1a0505','#E74C3C',8,1.5);
-      for(let r=0;r<6;r++)for(let c=0;c<5;c++){rr(s,432+c*64,62+r*62,52,50,'#2a0808','#E74C3C',3,1);tx(s,458+c*64,90+r*62,'?',10,700,'#E74C3C');}
-      rr(s,300,320,160,50,'#0a1020','#4A90E2',8,1.5);tx(s,380,340,'Kubernetes',12,700,'#4A90E2');tx(s,380,358,'solves this',10,400,'#94a3b8');
-    }
+  {
+    title: 'Container orchestration — why we need it',
+    explain: { h: 'The scale problem', p: 'Running 2 containers on 1 host is trivial. Running 1,000 containers across 50 hosts requires automation for scheduling, networking, health checking, auto-restart, and rolling updates. That is exactly what Kubernetes provides.' },
+    narration: 'One container on one host is easy. A thousand containers across fifty hosts is impossible to manage manually. You need something to schedule them, network them, health-check them, and restart them when they fail. That is Kubernetes.',
+    term: [
+      {k:'section',t:'── Without orchestration ──'},
+      {k:'warn',t:'100 hosts × 10 containers each = 1,000 containers to manage manually'},
+      {k:'bad', t:'Where does pod-xyz land? Is it healthy? Did it restart? Rolling update?'},
+      {k:'section',t:'── With Kubernetes ──'},
+      {k:'good',t:'Scheduling:  scheduler picks best node automatically'},
+      {k:'good',t:'Self-healing: kubelet restarts failed containers. Always.'},
+      {k:'good',t:'Rolling update: Deployment controller. Zero downtime. Rollback in 1 cmd.'},
+    ],
+    apply: s => s,
   },
-  // ── PODS & SERVICES ─────────────────────────────────────────────
-  { section:'Pods & Services', title:'What is a Pod?',
-    narration:'A Pod is the smallest deployable unit in Kubernetes. One or more containers share the same network namespace and can share volumes. Every Pod gets a unique IP.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'Pod — smallest deployable unit',13,700,'#4A90E2');
-      rr(s,100,50,620,300,'#0a1020','#4A90E2',12,2);tx(s,410,78,'Pod  (ip: 10.0.1.42)',12,700,'#4A90E2');
-      rr(s,130,100,250,180,'#0c2a0a','#27AE60',8,1.5);tx(s,255,130,'Container A',11,700,'#27AE60');tx(s,255,148,'nginx:1.25',9,400,'#94a3b8');tx(s,255,166,'port: 80',9,400,'#64748b');
-      rr(s,440,100,250,180,'#0c2a0a','#27AE60',8,1.5);tx(s,565,130,'Container B',11,700,'#27AE60');tx(s,565,148,'logging-agent',9,400,'#94a3b8');tx(s,565,166,'shares /logs volume',9,400,'#64748b');
-      rr(s,130,300,560,40,'#0a1a3a','#4A90E2',6,1);tx(s,410,323,'Shared network namespace · localhost communication · optional shared volumes',9,400,'#94a3b8');
-      tx(s,410,380,'YAML: kind: Pod → spec.containers: [{name, image, ports}]',10,700,'#64748b');
-    }
+  {
+    title: 'Create a Namespace — logical isolation',
+    explain: { h: 'Namespaces divide the cluster', p: 'Namespaces create virtual sub-clusters inside one physical cluster. Resources in different namespaces are isolated by default. Common pattern: <code>default</code>, <code>kube-system</code>, <code>prod</code>, <code>staging</code>. kubectl commands default to the <code>default</code> namespace.' },
+    narration: 'Namespaces divide one cluster into logical sub-clusters. Resources in different namespaces do not see each other by default. You can use them to separate teams, environments, or applications.',
+    term: [
+      {k:'cmd', t:'kubectl create namespace prod'},
+      {k:'good',t:'namespace/prod created'},
+      {k:'cmd', t:'kubectl get namespaces'},
+      {k:'out', t:'NAME          STATUS   AGE'},
+      {k:'good',t:'default       Active   5m'},
+      {k:'good',t:'kube-system   Active   5m   ← system components live here'},
+      {k:'good',t:'prod          Active   1s   ← our app goes here'},
+    ],
+    apply: s => { s.namespaces=['default','kube-system','prod']; return s; },
   },
-  { section:'Pods & Services', title:'Services — stable endpoints for Pods',
-    narration:'Pods are ephemeral — they restart with new IPs. A Service gives a stable ClusterIP and DNS name. kube-proxy uses iptables to route traffic to healthy matching Pods.',
-    render(s){clearSVG(s);
-      rr(s,50,60,200,80,'#0c2a3a','#38bdf8',8,1.5);tx(s,150,92,'Service',12,700,'#38bdf8');tx(s,150,108,'app: backend',9,400,'#94a3b8');tx(s,150,122,'ClusterIP: 10.100.0.26',9,400,'#64748b');
-      arrH(s,252,100,310,'#38bdf8');
-      ['10.0.1.5','10.0.1.6','10.0.1.7'].forEach((ip,i)=>{rr(s,312,50+i*100,220,80,'#0a1a0a','#27AE60',8,1.5);tx(s,422,82+i*100,'Pod — app: backend',10,700,'#27AE60');tx(s,422,98+i*100,ip,9,400,'#94a3b8');});
-      tx(s,410,370,'kube-proxy sets iptables rules to load-balance across matching Pods',10,400,'#94a3b8');
-      tx(s,410,388,'Pod crashes → restarted with new IP → Service still works ✓',10,700,'#27AE60');
-    }
+  {
+    title: 'Deploy first Pod — kubectl apply',
+    explain: { h: 'A Pod: the smallest deployable unit', p: 'A Pod wraps one or more containers that share a <strong>network namespace</strong> and optional volumes. Every Pod gets a unique cluster IP. This is NOT a container — it is a K8s object that <em>contains</em> containers. Containers inside a Pod talk to each other via <code>localhost</code>.' },
+    narration: 'A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers. They share the same network namespace, so they communicate via localhost. Every Pod gets its own cluster IP.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f nginx-pod.yaml'},
+      {k:'out', t:'# kind: Pod  spec.containers: [{name: nginx, image: nginx:1.25}]'},
+      {k:'good',t:'pod/nginx created'},
+      {k:'cmd', t:'kubectl get pods -n prod'},
+      {k:'out', t:'NAME    READY   STATUS    RESTARTS   AGE'},
+      {k:'good',t:'nginx   1/1     Running   0          4s'},
+      {k:'note',t:'Pod IP: 10.244.0.5  ← real VPC IP on EKS via CNI plugin'},
+    ],
+    apply: s => { s.pods.push({id:'p1',nodeId:'n1',ns:'prod',name:'nginx',ready:true,isNew:true,workload:'pod'}); return s; },
   },
-  // ── INTERNALS ───────────────────────────────────────────────────
-  { section:'K8s Internals', title:'Cluster anatomy — control plane vs data plane',
-    narration:'The control plane runs Kubernetes itself (API server, etcd, scheduler, controller manager). Worker nodes run your workloads. EKS manages the control plane for you.',
-    render(s){clearSVG(s);
-      rr(s,30,40,360,390,'#0c1018','#4A90E2',10,2);tx(s,210,65,'Control Plane',12,700,'#4A90E2');
-      [['kube-apiserver','Front door — all requests go here'],['etcd','Cluster state store (key-value)'],['kube-scheduler','Assigns pods to nodes'],['kube-controller-manager','Reconciles desired vs actual']].forEach(([n,d],i)=>{rr(s,50,80+i*82,300,68,'#0c2a3a','#4A90E2',6,1);tx(s,200,108+i*82,n,11,700,'#4A90E2');tx(s,200,124+i*82,d,9,400,'#94a3b8');});
-      rr(s,430,40,360,390,'#0a1018','#27AE60',10,2);tx(s,610,65,'Worker Nodes',12,700,'#27AE60');
-      [['kubelet','Runs containers per PodSpec'],['kube-proxy','iptables rules for Services'],['Container runtime','containerd / Docker'],['Your Pods','Application workloads']].forEach(([n,d],i)=>{rr(s,450,80+i*82,320,68,'#0a1a0a','#27AE60',6,1);tx(s,610,108+i*82,n,11,700,'#27AE60');tx(s,610,124+i*82,d,9,400,'#94a3b8');});
-    }
+  {
+    title: 'Inspect the Pod — describe, logs, exec',
+    explain: { h: 'Three diagnostic commands you will use every day', p: '<code>kubectl describe pod</code> shows events, conditions, node, and IP. <code>kubectl logs</code> streams stdout/stderr. <code>kubectl exec -it -- bash</code> opens a shell inside the running container. These three commands diagnose 80% of production issues.' },
+    narration: 'Three commands every Kubernetes engineer uses daily. Describe shows the full picture — events, node, IP. Logs streams stdout and stderr. And exec gives you a shell inside the running container.',
+    term: [
+      {k:'cmd', t:'kubectl describe pod nginx -n prod'},
+      {k:'out', t:'Node:    node-01/10.0.0.1'},
+      {k:'out', t:'IP:      10.244.0.5'},
+      {k:'good',t:'Status:  Running'},
+      {k:'out', t:'Events:  Scheduled → Pulled → Created → Started'},
+      {k:'cmd', t:'kubectl logs nginx -n prod'},
+      {k:'out', t:'2024/01/01 00:00:01 [notice] 1#1: nginx/1.25 started'},
+      {k:'cmd', t:'kubectl exec -it nginx -n prod -- bash'},
+      {k:'good',t:'root@nginx:/# curl localhost:80'},
+      {k:'out', t:'<html>Welcome to nginx!</html>'},
+    ],
+    apply: s => s,
   },
-  { section:'K8s Internals', title:'Control loop — reconciliation',
-    narration:'Kubernetes controllers watch for drift between desired state (your manifest) and actual state (what is running). When they differ, the controller acts to reconcile them. This loop never stops.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'Kubernetes Control Loop',13,700,'#818cf8');
-      const steps=[{x:260,y:80,l:'Desired State',sub:'Your manifest: replicas: 3',c:'#4A90E2'},{x:560,y:200,l:'Observe',sub:'kubectl get pods → 2 running',c:'#818cf8'},{x:560,y:350,l:'Diff',sub:'want 3, have 2 → need 1 more',c:'#F39C12'},{x:260,y:450,l:'Act',sub:'Create 1 new Pod',c:'#27AE60'},{x:60,y:280,l:'Actual State',sub:'Running pods in cluster',c:'#94a3b8'}];
-      steps.forEach(({x,y,l,sub,c})=>{rr(s,x-100,y-30,200,72,c+'08',c,8,1.5);tx(s,x,y-4,l,12,700,c);tx(s,x,y+14,sub,9,400,'#94a3b8');});
-      arrH(s,162,116,158,'#4A90E2');arrV(s,562,132,198,'#818cf8');arrV(s,562,272,318,'#F39C12');arrH(s,458,366,362,'#27AE60');arrV(s,158,422,312,'#94a3b8');
-      tx(s,410,540,'If desired = actual → no action. If drift detected → reconcile.',10,700,'#27AE60');
-    }
+  {
+    title: 'Create a Service — stable endpoint for pods',
+    explain: { h: 'Services decouple consumers from pod IPs', p: 'Pods restart with new IPs. A <strong>Service</strong> provides a stable <code>ClusterIP</code> and DNS name (<code>nginx.prod.svc.cluster.local</code>). kube-proxy sets iptables rules to distribute traffic to healthy pods matching the label selector.' },
+    narration: 'Pods restart with new IPs. A Service solves this by giving you a stable ClusterIP and DNS name. kube-proxy sets iptables rules to route traffic to any healthy pod matching the label selector. Consumers use the Service DNS name, never pod IPs.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f nginx-svc.yaml   # type: ClusterIP'},
+      {k:'good',t:'service/nginx-svc created'},
+      {k:'cmd', t:'kubectl get svc -n prod'},
+      {k:'out', t:'NAME        TYPE        CLUSTER-IP     PORT(S)'},
+      {k:'good',t:'nginx-svc   ClusterIP   10.96.100.10   80/TCP'},
+      {k:'note',t:'DNS: nginx-svc.prod.svc.cluster.local → 10.96.100.10 → pods'},
+    ],
+    apply: s => { s.services.push({name:'nginx-svc',type:'ClusterIP',ns:'prod'}); return s; },
   },
-  { section:'K8s Internals', title:'kube-scheduler — placing Pods',
-    narration:'The scheduler filters nodes that cannot fit a Pod (predicates), then scores remaining nodes (priorities), and picks the best. Key predicates: resource fit, taints, affinity, volume availability.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'Pod Scheduling — Filter then Score',12,700,'#F39C12');
-      rr(s,30,60,160,80,'#0c2a0a','#27AE60',8,1.5);tx(s,110,92,'Pending Pod',11,700,'#27AE60');tx(s,110,108,'cpu: 1, mem: 512Mi',9,400,'#94a3b8');
-      arrH(s,192,100,230,'#F39C12');
-      tx(s,330,55,'Filter (predicates)',10,700,'#E74C3C');
-      const nodes=[{n:'Node A',cpu:'8 CPU free',ok:true},{n:'Node B',cpu:'0.5 CPU free',ok:false},{n:'Node C',cpu:'4 CPU free',ok:true},{n:'Node D',cpu:'tainted: gpu',ok:false},{n:'Node E',cpu:'2 CPU free',ok:true}];
-      nodes.forEach(({n,cpu,ok},i)=>{const c=ok?'#27AE60':'#E74C3C';rr(s,240,68+i*88,160,72,ok?'#0a1a0a':'#1a0505',c,6,1);tx(s,320,96+i*88,n,10,700,c);tx(s,320,112+i*88,cpu,8,400,'#94a3b8');tx(s,320,126+i*88,ok?'✓ passes':'✗ filtered',8,700,c);});
-      arrH(s,402,130,450,'#27AE60');
-      tx(s,560,55,'Score & pick',10,700,'#27AE60');
-      [[580,90,'Node A','score: 82','#27AE60'],[580,175,'Node C','score: 71','#4A90E2'],[580,260,'Node E','score: 55','#94a3b8']].forEach(([x,y,n,sc,c])=>{rr(s,480,y-20,200,64,c+'08',c,6,1);tx(s,580,y+4,n,11,700,c);tx(s,580,y+20,sc,9,400,'#94a3b8');});
-      arrV(s,580,154,170,'#F39C12');
-      rr(s,480,280,200,50,'#0a2a0a','#27AE60',8,2);tx(s,580,308,'→ Schedule on Node A',10,700,'#27AE60');
-    }
+  {
+    title: 'Create a Deployment — self-healing replicas',
+    explain: { h: 'Deployment → ReplicaSet → Pods', p: 'A <strong>Deployment</strong> declares desired state (e.g., 3 replicas of nginx). It creates a <strong>ReplicaSet</strong> which creates and maintains exactly 3 Pods. If any pod crashes, the ReplicaSet controller creates a replacement. The Deployment also manages rolling updates.' },
+    narration: 'A Deployment is the most common workload. You declare three replicas of nginx. The Deployment creates a ReplicaSet. The ReplicaSet ensures exactly three pods are always running. Pod crashes? New one created automatically. This is the reconciliation control loop.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f webapp-deploy.yaml   # replicas: 3'},
+      {k:'good',t:'deployment.apps/webapp created'},
+      {k:'cmd', t:'kubectl get pods -n prod'},
+      {k:'out', t:'NAME                  READY   STATUS'},
+      {k:'good',t:'webapp-7d9f5b-abc     1/1     Running'},
+      {k:'good',t:'webapp-7d9f5b-def     1/1     Running'},
+      {k:'good',t:'webapp-7d9f5b-ghi     1/1     Running'},
+      {k:'good',t:'nginx                 1/1     Running'},
+    ],
+    apply: s => {
+      s.deployments.push({name:'webapp',ns:'prod',replicas:3,readyReplicas:3});
+      ['abc','def','ghi'].forEach(id => s.pods.push({id:'w'+id,nodeId:'n1',ns:'prod',name:'webapp-'+id,ready:true,isNew:true,workload:'deploy'}));
+      return s;
+    },
   },
-  // ── KUBECTL ─────────────────────────────────────────────────────
-  { section:'kubectl', title:'kubectl — 5 essential commands',
-    narration:'kubectl is the primary CLI for Kubernetes. get shows resources, apply creates/updates from manifests, describe shows details, logs streams container output, exec runs commands inside a container.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'kubectl — Essential Commands',13,700,'#94a3b8');
-      [['kubectl get pods -n prod','Lists all Pods in the prod namespace with status'],['kubectl apply -f deploy.yaml','Creates or updates resources from a YAML manifest'],['kubectl describe pod nginx-xyz','Shows events, conditions, and config for a Pod'],['kubectl logs nginx-xyz -f','Streams log output from the container in real time'],['kubectl exec -it nginx-xyz -- bash','Opens an interactive shell inside a running container']].forEach(([cmd,desc],i)=>{rr(s,40,50+i*96,740,82,'#03050a','#27AE60',6,1.5);tx(s,50,70+i*96,'$ '+cmd,10.5,700,'#c5e478','start');tx(s,50,90+i*96,desc,9.5,400,'#94a3b8','start');});
-    }
+  {
+    title: 'Second node joins — scheduler distributes pods',
+    explain: { h: 'Scheduler predicates + priorities', p: 'The scheduler uses <strong>predicates</strong> (hard filters: resource fit, taints, affinity) then <strong>priorities</strong> (soft scoring: spread, least-waste) to pick the best node. Adding a second node lets it spread pods for HA — a single node failure will not take down the app.' },
+    narration: 'A second node joins. The scheduler filters candidates with predicates, then scores survivors with priorities. Spreading pods across nodes means a single node failure does not take down the application.',
+    term: [
+      {k:'cmd', t:'kubectl get nodes'},
+      {k:'good',t:'NAME         STATUS   AGE   VERSION'},
+      {k:'good',t:'node-01      Ready    8m    v1.29.0'},
+      {k:'good',t:'node-02      Ready    10s   v1.29.0   ← new node'},
+      {k:'cmd', t:'kubectl get pods -n prod -o wide'},
+      {k:'out', t:'webapp-abc   Running  node-01'},
+      {k:'out', t:'webapp-def   Running  node-01'},
+      {k:'out', t:'webapp-ghi   Running  node-02  ← scheduler spread for HA'},
+    ],
+    apply: s => {
+      s.nodes.push({id:'n2',name:'node-02',ver:'v1.29.0',ready:true});
+      const ghi = s.pods.find(p => p.name==='webapp-ghi'); if(ghi) ghi.nodeId='n2';
+      return s;
+    },
   },
-  { section:'kubectl', title:'Namespaces — logical isolation',
-    narration:'Namespaces divide a cluster into virtual sub-clusters. Resources in different namespaces are isolated by default. Use namespaces for: environment separation (dev/staging/prod) or team separation.',
-    render(s){clearSVG(s);
-      rr(s,30,30,760,480,'#0a0f18','#1f2738',12,1.5);tx(s,410,55,'EKS Cluster',12,700,'#94a3b8');
-      [[80,'default','#38bdf8'],[300,'kube-system','#818cf8'],[520,'prod','#27AE60']].forEach(([x,name,c])=>{rr(s,x,70,200,380,c+'08',c,8,1.5);tx(s,x+100,95,name,11,700,c);[1,2].forEach(j=>{rr(s,x+20,110+j*80,160,60,'#0a1020',c,5,1);tx(s,x+100,145+j*80,'Pod',10,700,c);});});
-      tx(s,410,495,'kubectl create namespace my-ns   |   kubectl config set-context --current --namespace=prod',9,400,'#475569');
-    }
+  {
+    title: 'Rolling update — kubectl set image',
+    explain: { h: 'Zero-downtime deployment', p: 'A rolling update creates a new ReplicaSet (v2) and gradually shifts: scale up new RS, scale down old RS, one pod at a time. Each new pod must pass <code>readinessProbe</code> before the next is started. <code>kubectl rollout undo</code> reverses instantly.' },
+    narration: 'Rolling update. Deployment creates a new ReplicaSet for version two. It scales up the new set while scaling down the old, one pod at a time. Each new pod must pass readiness before the next starts. Zero downtime. kubectl rollout undo reverses it instantly.',
+    term: [
+      {k:'cmd', t:'kubectl set image deploy/webapp webapp=webapp:v2 -n prod'},
+      {k:'good',t:'deployment.apps/webapp image updated'},
+      {k:'out', t:'webapp-v2-aaa: Running ✓  (old webapp-abc: Terminating)'},
+      {k:'out', t:'webapp-v2-bbb: Running ✓  (old webapp-def: Terminating)'},
+      {k:'good',t:'webapp-v2-ccc: Running ✓  (old webapp-ghi: Terminating)'},
+      {k:'good',t:'Rollout complete. 3/3 pods on v2.'},
+      {k:'note',t:'kubectl rollout undo deploy/webapp  →  instant rollback to v1'},
+    ],
+    apply: s => {
+      s.pods = s.pods.filter(p => p.workload!=='deploy');
+      ['aaa','bbb','ccc'].forEach((id,i) => s.pods.push({id:'v2'+id,nodeId:i===2?'n2':'n1',ns:'prod',name:'webapp-v2-'+id,ready:true,isNew:true,workload:'deploy'}));
+      return s;
+    },
   },
-  { section:'kubectl', title:'kubectl apply workflow — end to end',
-    narration:'kubectl apply sends the manifest to the API server. The API server validates and persists it to etcd. The controller creates a ReplicaSet. The scheduler places Pods. kubelet starts containers.',
-    render(s){clearSVG(s);
-      tx(s,410,20,'kubectl apply -f deploy.yaml → running Pod',12,700,'#27AE60');
-      const steps=[{x:60,l:'kubectl',sub:'sends YAML',c:'#38bdf8'},{x:215,l:'API Server',sub:'validates + stores',c:'#818cf8'},{x:370,l:'etcd',sub:'persists state',c:'#F39C12'},{x:520,l:'Controller',sub:'creates ReplicaSet',c:'#27AE60'},{x:660,l:'Scheduler',sub:'picks node',c:'#94a3b8'}];
-      steps.forEach(({x,l,sub,c},i)=>{rr(s,x,50,130,80,c+'08',c,8,1.5);tx(s,x+65,84,l,11,700,c);tx(s,x+65,100,sub,8.5,400,'#94a3b8');if(i<steps.length-1)arrH(s,x+132,90,x+213,c);});
-      arrV(s,725,132,165,'#94a3b8');
-      rr(s,500,170,200,80,'#0a1a0a','#27AE60',8,1.5);tx(s,600,200,'kubelet',11,700,'#27AE60');tx(s,600,216,'starts container',9,400,'#94a3b8');
-      arrV(s,600,252,285,'#27AE60');
-      rr(s,480,290,240,80,'#0a2a0a','#27AE60',10,2);tx(s,600,322,'Pod: Running ✓',13,700,'#27AE60');tx(s,600,340,'app is live',9,400,'#94a3b8');
-    }
+  {
+    title: 'Pod crash → ReplicaSet auto-heals',
+    explain: { h: 'Reconciliation control loop in action', p: 'Delete a pod to simulate a crash. The ReplicaSet controller detects actual count (2) < desired (3) and immediately creates a replacement. This reconciliation loop — observe, diff, act — is the core of Kubernetes self-healing.' },
+    narration: 'Delete a pod to simulate a crash. The ReplicaSet controller detects the count dropped to two. Desired is three. It immediately creates a new pod. Desired state always wins. This is the reconciliation loop running continuously.',
+    term: [
+      {k:'cmd', t:'kubectl delete pod webapp-v2-aaa -n prod   # simulate crash'},
+      {k:'out', t:'pod "webapp-v2-aaa" deleted'},
+      {k:'warn',t:'ReplicaSet: desired=3, actual=2 → creating replacement now'},
+      {k:'cmd', t:'kubectl get pods -n prod'},
+      {k:'out', t:'webapp-v2-aaa   Terminating'},
+      {k:'good',t:'webapp-v2-zzz   ContainerCreating  ← new pod, auto-created'},
+      {k:'good',t:'webapp-v2-bbb   Running'},
+      {k:'good',t:'webapp-v2-ccc   Running'},
+    ],
+    apply: s => {
+      const idx = s.pods.findIndex(p => p.name==='webapp-v2-aaa');
+      if(idx!==-1) { s.pods[idx].terminating=true; s.pods[idx].ready=false; }
+      s.pods.push({id:'v2zzz',nodeId:'n1',ns:'prod',name:'webapp-v2-zzz',ready:false,isNew:true,workload:'deploy'});
+      return s;
+    },
   },
-  // ── K8S OBJECTS ──────────────────────────────────────────────────
-  { section:'K8s Objects', title:'ConfigMaps and Secrets',
-    narration:'ConfigMap stores non-sensitive config (feature flags, database URLs, config files). Secret stores sensitive data (passwords, tokens, keys) — base64 encoded in etcd. Both are injectable as env vars or volume mounts.',
-    render(s){clearSVG(s);
-      tx(s,230,25,'ConfigMap',13,700,'#38bdf8');rr(s,30,45,400,200,'#0c2a3a','#38bdf8',10,1.5);
-      tx(s,230,70,'Non-sensitive configuration',10,400,'#94a3b8');
-      [['DB_HOST','postgres.prod.svc.cluster.local'],['LOG_LEVEL','info'],['FEATURE_X','enabled']].forEach(([k,v],i)=>{rr(s,50,90+i*44,360,36,'#0a1a2a','#38bdf8',4,1);tx(s,240,111+i*44,`${k} = ${v}`,9.5,400,'#f1f5f9');});
-      tx(s,600,25,'Secret',13,700,'#E74C3C');rr(s,450,45,340,200,'#2a0505','#E74C3C',10,1.5);
-      tx(s,620,70,'Sensitive data — base64 encoded',10,400,'#94a3b8');
-      [['DB_PASSWORD','cEBzc3cwcmQ= (p@ssw0rd)'],['API_KEY','c2VjcmV0a2V5'],['TLS_CERT','LS0tLS1CRU...']].forEach(([k,v],i)=>{rr(s,470,90+i*44,300,36,'#1a0505','#E74C3C',4,1);tx(s,620,111+i*44,`${k}`,9.5,700,'#E74C3C');});
-      rr(s,200,280,420,90,'#0a1020','#27AE60',8,1.5);tx(s,410,305,'Pod consumes both:',10,700,'#27AE60');
-      tx(s,410,322,'env.valueFrom.configMapKeyRef  OR  envFrom.configMapRef',9,400,'#94a3b8');
-      tx(s,410,338,'env.valueFrom.secretKeyRef     OR  volumes.secret',9,400,'#94a3b8');
-    }
+  {
+    title: 'Scale to 6 replicas — kubectl scale',
+    explain: { h: 'Horizontal scaling is just a number', p: '<code>kubectl scale</code> updates <code>spec.replicas</code>. The ReplicaSet controller creates 3 new pods. The scheduler places them across nodes with available capacity. The Service automatically picks up the new pods via label selector.' },
+    narration: 'Scale to six replicas. One command. Three more pods. Scheduler places them across both nodes. The Service automatically picks up all six via label selector. Traffic is load-balanced to all of them.',
+    term: [
+      {k:'cmd', t:'kubectl scale deploy/webapp --replicas=6 -n prod'},
+      {k:'good',t:'deployment.apps/webapp scaled'},
+      {k:'cmd', t:'kubectl get pods -n prod'},
+      {k:'good',t:'webapp-v2-bbb  Running  node-01'},
+      {k:'good',t:'webapp-v2-ccc  Running  node-02'},
+      {k:'good',t:'webapp-v2-zzz  Running  node-01'},
+      {k:'good',t:'webapp-v2-d1   Running  node-02  ← new'},
+      {k:'good',t:'webapp-v2-d2   Running  node-01  ← new'},
+      {k:'good',t:'webapp-v2-d3   Running  node-02  ← new'},
+    ],
+    apply: s => {
+      s.pods = s.pods.filter(p => !p.terminating);
+      ['d1','d2','d3'].forEach((id,i) => s.pods.push({id:'xd'+id,nodeId:i%2===0?'n2':'n1',ns:'prod',name:'webapp-v2-'+id,ready:true,isNew:true,workload:'deploy'}));
+      s.deployments[0].replicas=6; s.deployments[0].readyReplicas=6;
+      return s;
+    },
   },
-  { section:'K8s Objects', title:'Deployments and rolling updates',
-    narration:'A Deployment manages ReplicaSets and enables rolling updates. When you update the image, it creates a new ReplicaSet and gradually shifts pods from old to new — zero downtime.',
-    render(s){clearSVG(s);
-      tx(s,410,20,'Rolling Update: webapp v1 → v2',12,700,'#4A90E2');
-      const stages=[{label:'Before',rs1:3,rs2:0},{label:'Step 1',rs1:2,rs2:1},{label:'Step 2',rs1:1,rs2:2},{label:'Done',rs1:0,rs2:3}];
-      stages.forEach(({label,rs1,rs2},si)=>{
-        const bx=60+si*185;
-        tx(s,bx+80,50,label,10,700,'#94a3b8');
-        if(rs1>0){rr(s,bx,65,160,30+rs1*44,'#1a0a0a','#E74C3C',6,1);tx(s,bx+80,82,'RS-v1 (old)',9,700,'#E74C3C');for(let p=0;p<rs1;p++){rr(s,bx+20,95+p*40,120,32,'#2a0808','#E74C3C',4,1);tx(s,bx+80,114+p*40,'pod v1',8.5,400,'#fca5a5');}}
-        if(rs2>0){const oy=70+rs1*44+(rs1>0?20:0);rr(s,bx,oy,160,30+rs2*44,'#0a1a0a','#27AE60',6,1);tx(s,bx+80,oy+17,'RS-v2 (new)',9,700,'#27AE60');for(let p=0;p<rs2;p++){rr(s,bx+20,oy+30+p*40,120,32,'#0a2a0a','#27AE60',4,1);tx(s,bx+80,oy+49+p*40,'pod v2',8.5,400,'#86efac');}}
-        if(si<3)arrH(s,bx+162,200,bx+183,'#4A90E2');
-      });
-      tx(s,410,490,'kubectl rollout undo deployment webapp  →  instant rollback to previous version',10,700,'#F39C12');
-    }
+  {
+    title: 'ConfigMap — externalise configuration',
+    explain: { h: 'Config lives outside the image', p: 'A <code>ConfigMap</code> stores non-sensitive config as key-value pairs. Pods consume it as env vars or volume mounts. The same image can run in dev/staging/prod with different configs. Changing a ConfigMap does NOT auto-restart pods unless you trigger it.' },
+    narration: 'ConfigMaps externalise configuration from the container image. Inject as environment variables or mount as files. The same image now runs in dev, staging, and prod with different configs. No rebuild needed.',
+    term: [
+      {k:'cmd', t:'kubectl create configmap app-config --from-literal=LOG_LEVEL=info --from-literal=DB_HOST=postgres.prod -n prod'},
+      {k:'good',t:'configmap/app-config created'},
+      {k:'cmd', t:'kubectl get configmap app-config -n prod -o yaml'},
+      {k:'out', t:'data:'},
+      {k:'out', t:'  DB_HOST:   postgres.prod'},
+      {k:'out', t:'  LOG_LEVEL: info'},
+    ],
+    apply: s => { s.configMaps.push({name:'app-config',ns:'prod'}); return s; },
   },
-  { section:'K8s Objects', title:'DaemonSet — one Pod per node',
-    narration:'A DaemonSet ensures exactly one Pod runs on every node. Used for node-level agents: Fluent Bit (log collection), node-exporter (metrics), aws-node (VPC CNI). Not supported on Fargate.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'DaemonSet — agent on every node',13,700,'#818cf8');
-      [['Node 1','us-east-1a',120],['Node 2','us-east-1b',360],['Node 3','us-east-1c',600]].forEach(([n,az,x])=>{rr(s,x-100,50,200,300,'#0a1020','#27AE60',10,1.5);tx(s,x,75,n,11,700,'#27AE60');tx(s,x,91,az,8.5,400,'#64748b');rr(s,x-80,110,160,60,'#1a0a2a','#818cf8',6,1);tx(s,x,134,'DaemonSet Pod',9,700,'#818cf8');tx(s,x,150,'fluent-bit',8.5,400,'#94a3b8');rr(s,x-80,185,160,44,'#0a1a0a','#27AE60',4,1);tx(s,x,210,'App Pod',9,400,'#86efac');rr(s,x-80,240,160,44,'#0a1a0a','#27AE60',4,1);tx(s,x,265,'App Pod',9,400,'#86efac');});
-      rr(s,160,390,500,50,'#1a0505','#E74C3C',8,1.5);tx(s,410,412,'⚠ DaemonSets are NOT supported on AWS Fargate',11,700,'#E74C3C');tx(s,410,428,'Use node groups if you need DaemonSets',9,400,'#94a3b8');
-    }
+  {
+    title: 'Secret — sensitive data (base64, not encrypted)',
+    explain: { h: 'base64 ≠ encryption', p: 'A <code>Secret</code> stores passwords, tokens, and keys. By default it is base64-encoded in etcd — <strong>NOT encrypted</strong>. Anyone with <code>kubectl get secret</code> access can decode it in one command. For real security: enable KMS envelope encryption on the cluster.' },
+    narration: 'Secrets store sensitive data. By default they are base64 encoded in etcd. That is NOT encryption. Anyone with kubectl access can decode them in seconds. For real security, enable KMS envelope encryption on the cluster.',
+    term: [
+      {k:'cmd', t:'kubectl create secret generic db-creds --from-literal=password=p@ssw0rd -n prod'},
+      {k:'good',t:'secret/db-creds created'},
+      {k:'cmd', t:'kubectl get secret db-creds -n prod -o jsonpath="{.data.password}"'},
+      {k:'warn',t:'cEBzc3cwcmQ=   ← base64, NOT encrypted!'},
+      {k:'note',t:'echo "cEBzc3cwcmQ=" | base64 -d  →  p@ssw0rd'},
+      {k:'note',t:'Fix: enable KMS envelope encryption in EKS cluster config'},
+    ],
+    apply: s => { s.secrets.push({name:'db-creds',ns:'prod'}); return s; },
   },
-  { section:'K8s Objects', title:'StatefulSet — stable identity pods',
-    narration:'StatefulSets give each Pod a persistent, ordered identity (mysql-0, mysql-1). They start in order and terminate in reverse order. Each Pod gets its own PersistentVolumeClaim that survives restarts.',
-    render(s){clearSVG(s);
-      tx(s,220,25,'Deployment',12,700,'#38bdf8');rr(s,30,45,380,380,'#0c1a2a','#38bdf8',10,1.5);tx(s,220,68,'Interchangeable pods, any can replace any',9,400,'#94a3b8');
-      ['pod-7f9d2','pod-3k8m1','pod-2p5x6'].forEach((n,i)=>{rr(s,60,85+i*88,320,72,'#0a1a2a','#38bdf8',6,1);tx(s,220,116+i*88,n,10,700,'#38bdf8');tx(s,220,132+i*88,'random hash name',8.5,400,'#64748b');});
-      tx(s,600,25,'StatefulSet',12,700,'#818cf8');rr(s,440,45,340,380,'#0a1020','#818cf8',10,1.5);tx(s,610,68,'Stable ordered names + persistent storage',9,400,'#94a3b8');
-      ['mysql-0','mysql-1','mysql-2'].forEach((n,i)=>{rr(s,460,85+i*88,300,72,'#0a0a1a','#818cf8',6,1);tx(s,610,116+i*88,n,10,700,'#818cf8');tx(s,610,132+i*88,'PVC: data-'+n,8.5,400,'#94a3b8');});
-    }
+  {
+    title: 'LoadBalancer Service — expose to internet',
+    explain: { h: 'On EKS this provisions an AWS NLB', p: 'Set Service <code>type: LoadBalancer</code>. On EKS the AWS Cloud Provider controller provisions a real <strong>Network Load Balancer</strong>. The DNS name appears as <code>EXTERNAL-IP</code>. Traffic: internet → NLB → NodePort → kube-proxy iptables → pod.' },
+    narration: 'Change the Service type to LoadBalancer. On EKS, the cloud provider controller provisions a real AWS Network Load Balancer. The DNS name appears as external IP within a few minutes. Traffic flows from the internet through the NLB to kube-proxy to your pods.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f webapp-lb-svc.yaml   # type: LoadBalancer'},
+      {k:'good',t:'service/webapp-lb created'},
+      {k:'out', t:'Waiting for AWS NLB provisioning (~2 min on EKS)...'},
+      {k:'good',t:'EXTERNAL-IP: a1b2c3.elb.us-east-1.amazonaws.com'},
+      {k:'cmd', t:'curl http://a1b2c3.elb.us-east-1.amazonaws.com'},
+      {k:'good',t:'"hello from webapp v2"'},
+    ],
+    apply: s => { s.services.push({name:'webapp-lb',type:'LoadBalancer',ns:'prod'}); return s; },
   },
-  // ── KNOWLEDGE CHECKS ────────────────────────────────────────────
-  { section:'Knowledge Checks', title:'KC1 & KC2 — official course answers',
-    narration:'KC1: basic unit of scaling and resiliency = Pod (answer B). KC2: a Kubernetes Service is a stable endpoint that routes traffic to matching Pods (answer A).',
-    render(s){clearSVG(s);
-      rr(s,30,30,760,210,'#0c1018','#38bdf8',10,1.5);tx(s,410,58,'KC1: What is the basic unit of scaling resiliency in Kubernetes?',11,700,'#38bdf8');
-      [['A. Deployment','Manages ReplicaSets','#475569',''],['B. Pod','Single or multi-container unit — CORRECT ✓','#27AE60','✓'],['C. Service','Network endpoint, not scaling unit','#475569',''],['D. Namespace','Logical isolation, not scaling unit','#475569','']].forEach(([l,d,c,m],i)=>{rr(s,50,78+i*36,700,30,c+'08',c,4,1);tx(s,60,97+i*36,l,10,700,c,'start');tx(s,230,97+i*36,d,9.5,400,'#94a3b8','start');tx(s,720,97+i*36,m,11,700,c);});
-      rr(s,30,260,760,200,'#0c1018','#818cf8',10,1.5);tx(s,410,288,'KC2: What is a Kubernetes Service?',11,700,'#818cf8');
-      [['A. Stable endpoint routing to matching pods — CORRECT ✓','#27AE60'],['B. A running container','#475569'],['C. A configuration file','#475569'],['D. A network namespace','#475569']].forEach(([l,c],i)=>{rr(s,50,308+i*32,700,26,c+'08',c,4,1);tx(s,60,326+i*32,l,9.5,i===0?700:400,c,'start');});
-    }
+  {
+    title: 'DaemonSet — one pod per node',
+    explain: { h: 'Node-level agents', p: 'A <code>DaemonSet</code> runs exactly one pod on <strong>every node</strong>. Used for: Fluent Bit (log collection), node-exporter (Prometheus), aws-node (VPC CNI plugin). <strong>Exam critical: DaemonSets are NOT supported on AWS Fargate — you must use EC2 node groups.</strong>' },
+    narration: 'A DaemonSet runs exactly one pod on every node. This is how you deploy node-level agents — Fluent Bit for logs, node-exporter for Prometheus metrics, the VPC CNI plugin. Critical exam point: DaemonSets are not supported on AWS Fargate.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f fluent-bit-ds.yaml'},
+      {k:'good',t:'daemonset.apps/fluent-bit created'},
+      {k:'cmd', t:'kubectl get pods -n kube-system -l app=fluent-bit -o wide'},
+      {k:'out', t:'NAME              NODE     STATUS'},
+      {k:'good',t:'fluent-bit-n1ds   node-01  Running  ← 1 per node, automatically'},
+      {k:'good',t:'fluent-bit-n2ds   node-02  Running  ← added when node-02 joined'},
+      {k:'note',t:'⚠ DaemonSets NOT supported on AWS Fargate — need EC2 node groups'},
+    ],
+    apply: s => {
+      s.daemonSets.push({name:'fluent-bit',ns:'kube-system'});
+      s.nodes.forEach(n => s.pods.push({id:'fb-'+n.id,nodeId:n.id,ns:'kube-system',name:'fb-'+n.id.slice(-2),ready:true,isNew:true,workload:'daemonset'}));
+      return s;
+    },
   },
-  { section:'Summary', title:'Module 01 — key takeaways',
-    narration:'Containers → Pods → Services → Control Plane → Scheduling → kubectl → Objects. Every piece builds on the one before it. EKS manages the control plane so you can focus on the application layer.',
-    render(s){clearSVG(s);
-      tx(s,410,25,'Module 01 — Kubernetes Fundamentals: Summary',13,700,'#f1f5f9');
-      [['📦 Containers','Portable, scalable, declarative units. Ideal for microservices.','#4A90E2'],['🫛 Pods','Smallest deployable unit. Share network + optional volumes. Unique IP.','#27AE60'],['🔗 Services','Stable ClusterIP + DNS. kube-proxy routes to healthy Pods via labels.','#38bdf8'],['⚙️ Control Plane','API server · etcd · scheduler · controller manager. EKS manages this.','#818cf8'],['📋 Scheduling','Filter (predicates) then score (priorities). Resource fit, taints, affinity.','#F39C12'],['🔧 kubectl','get · apply · describe · logs · exec. Your primary interface.','#94a3b8'],['📁 Objects','Deployment + RS (rolling updates), DaemonSet (per-node), StatefulSet (ordered).','#ED7100']].forEach(([icon,desc,c],i)=>{rr(s,40,45+i*68,740,58,c+'08',c,6,1.5);tx(s,60,72+i*68,icon,11,700,c,'start');tx(s,240,72+i*68,desc,10,400,'#94a3b8','start');});
-    }
+  {
+    title: 'StatefulSet — stable identity pods',
+    explain: { h: 'When pods are NOT interchangeable', p: 'A <code>StatefulSet</code> gives each pod a persistent ordered name (mysql-0, mysql-1) and its own <code>PersistentVolumeClaim</code>. Pods start in order (0 first) and stop in reverse. Use for: databases, Kafka, Elasticsearch — any app needing stable network identity.' },
+    narration: 'StatefulSets are for workloads where pods have unique identity. Each pod gets a stable name like mysql-0, mysql-1, and its own persistent volume claim. They start in order and stop in reverse. Use them for databases and distributed systems.',
+    term: [
+      {k:'cmd', t:'kubectl apply -f mysql-sts.yaml   # kind: StatefulSet, replicas: 2'},
+      {k:'good',t:'statefulset.apps/mysql created'},
+      {k:'cmd', t:'kubectl get pods -n prod'},
+      {k:'out', t:'NAME       READY   STATUS     PVC'},
+      {k:'good',t:'mysql-0    1/1     Running    data-mysql-0  ← stable name + own PVC'},
+      {k:'good',t:'mysql-1    1/1     Running    data-mysql-1  ← own separate PVC'},
+      {k:'note',t:'Deployment pods: random hash  |  StatefulSet: ordered stable names'},
+    ],
+    apply: s => {
+      s.statefulSets.push({name:'mysql',ns:'prod'});
+      [0,1].forEach(i => s.pods.push({id:'my'+i,nodeId:i===0?'n1':'n2',ns:'prod',name:'mysql-'+i,ready:true,isNew:true,workload:'statefulset'}));
+      return s;
+    },
+  },
+  {
+    title: 'Resource requests and limits',
+    explain: { h: 'Requests drive scheduling; limits throttle', p: '<code>requests.cpu</code> is the <strong>guaranteed</strong> amount — the scheduler uses this to find eligible nodes. <code>limits.cpu</code> is the <strong>maximum</strong>. Hit CPU limit → throttled. Hit memory limit → OOMKilled. Set requests too high → pods stuck Pending.' },
+    narration: "Resource requests are the scheduler's input. It finds nodes with enough remaining allocatable capacity to satisfy the request. Limits are enforced by the container runtime. Hit the CPU limit and the container is throttled. Hit the memory limit and it is OOM killed.",
+    term: [
+      {k:'section',t:'── Resource requests vs limits ──'},
+      {k:'out', t:'resources:'},
+      {k:'good',t:'  requests:  cpu: 250m   memory: 256Mi   ← scheduler uses this'},
+      {k:'warn',t:'  limits:    cpu: 500m   memory: 512Mi   ← runtime enforces this'},
+      {k:'note',t:'Scheduler: "node has ≥250m CPU allocatable?" → place pod here'},
+      {k:'note',t:'Runtime:   CPU > 500m → throttle  |  mem > 512Mi → OOMKill'},
+      {k:'cmd', t:'kubectl describe node node-01 | grep -A4 Allocatable'},
+      {k:'out', t:'  cpu:    1900m   ← 2000m total minus ~100m for system'},
+      {k:'out', t:'  memory: 3.5Gi'},
+    ],
+    apply: s => s,
+  },
+  {
+    title: 'Knowledge checks + module summary',
+    explain: { h: 'Every concept in one view', p: '<strong>KC1:</strong> Basic unit of scaling = <strong>B — Pod</strong>. <strong>KC2:</strong> Service = <strong>A — stable endpoint routing to pods via label selector</strong>. Summary: Containers → Pods → Services → Deployments → DaemonSets → StatefulSets. Control plane reconciles desired state to actual state, forever.' },
+    narration: 'Two knowledge checks. KC one: basic unit of scaling is the Pod. Not the container, not the deployment. KC two: a Service is a stable endpoint routing to pods via label selector. Module summary: containers, pods, services, deployments, daemonsets, statefulsets. The control plane reconciles forever.',
+    term: [
+      {k:'section',t:'── Knowledge checks ──'},
+      {k:'k8s', t:'KC1: Basic unit of scaling and resiliency?'},
+      {k:'good',t:'  B. Pod ← CORRECT (not Container, not Deployment)'},
+      {k:'k8s', t:'KC2: What is a Kubernetes Service?'},
+      {k:'good',t:'  A. Stable endpoint routing to pods via label selector ← CORRECT'},
+      {k:'section',t:'── kubectl get all -n prod ──'},
+      {k:'good',t:'deployment/webapp       6/6   ready'},
+      {k:'good',t:'statefulset/mysql       2/2   ready'},
+      {k:'good',t:'service/nginx-svc       ClusterIP    10.96.100.10'},
+      {k:'good',t:'service/webapp-lb       LoadBalancer a1b2c3.elb...'},
+      {k:'good',t:'daemonset/fluent-bit    2     desired=2 (1 per node)'},
+    ],
+    apply: s => s,
   },
 ];
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function computeStateAt(idx) {
+  let s = initialState();
+  for (let i=0; i<=idx && i<STEPS.length; i++) s = STEPS[i].apply(s);
+  return s;
+}
+function computeTermAt(idx) {
+  const lines = [];
+  for (let i=0; i<=idx && i<STEPS.length; i++) if (STEPS[i].term) lines.push(...STEPS[i].term);
+  return lines;
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderTerminal(lines) {
+  let html = '';
+  for (const l of lines) {
+    if (l.k==='cmd') html += `<div class="term-line"><span class="prompt">$</span> <span class="cmd">${esc(l.t)}</span></div>`;
+    else             html += `<div class="term-line ${l.k}">${esc(l.t)}</div>`;
+  }
+  const t = $('terminal');
+  t.innerHTML = html;
+  t.scrollTop = t.scrollHeight;
+}
+
+function renderCluster(state) {
+  const c = $('cluster');
+  if (!state.clusterReady) {
+    c.innerHTML = `<div style="color:var(--text);padding:40px 24px;text-align:center">
+      <div style="font-size:2.4em;margin-bottom:8px">📦</div>
+      <h3 style="margin:0 0 6px;font-size:1.15em">Kubernetes Fundamentals</h3>
+      <p style="font-size:0.9em;color:var(--muted);margin:0 0 22px;line-height:1.55">20 steps through every core concept. Containers, Pods, Services, control plane, scheduling, kubectl, workloads.</p>
+      <div style="background:rgba(74,144,226,.06);border:1px solid rgba(74,144,226,.25);border-radius:10px;padding:18px;max-width:380px;margin:0 auto;text-align:left">
+        <div style="font-size:.72em;color:#4A90E2;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">⌨ Keyboard shortcuts</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:.9em">
+          <span><kbd class="kbd">→</kbd></span><span>next step</span>
+          <span><kbd class="kbd">←</kbd></span><span>previous step</span>
+          <span><kbd class="kbd">Space</kbd></span><span>play / pause</span>
+          <span><kbd class="kbd">M</kbd></span><span>mute / unmute narration</span>
+        </div>
+      </div>
+      <p style="margin-top:22px;font-size:.95em;color:#4A90E2;font-weight:600">Press <kbd class="kbd">→</kbd> to begin</p>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+
+  // Control plane
+  const lit = state.controlPlane?.lit || [];
+  const cpC = ['api-server','etcd','scheduler','controller-mgr'];
+  html += `<div class="control-plane">
+    <div>
+      <div class="cp-label">Control Plane · K8s v${state.controlPlane.version} (EKS-managed)</div>
+    </div>
+    <div class="cp-components">
+      ${cpC.map(c => `<span class="cp-chip${lit.includes(c)?' lit':''}">${c}</span>`).join('')}
+    </div>
+  </div>`;
+
+  // App namespaces
+  const appNs = state.namespaces.filter(n => n!=='kube-system');
+  for (const ns of appNs) {
+    const nsPods    = state.pods.filter(p => p.ns===ns && !p.terminating);
+    const nsSvcs    = state.services.filter(s => s.ns===ns);
+    const nsDeploys = state.deployments.filter(d => d.ns===ns);
+    const nsCMs     = state.configMaps.filter(cm => cm.ns===ns);
+    const nsSecrets = state.secrets.filter(s => s.ns===ns);
+    const nsSTS     = state.statefulSets.filter(st => st.ns===ns);
+    if (!nsPods.length && !nsSvcs.length && !nsDeploys.length && !nsCMs.length && !nsSecrets.length && !nsSTS.length) continue;
+
+    html += `<div class="ns-box"><div class="ns-label">ns: ${ns}</div>`;
+    if (nsDeploys.length || nsSTS.length || nsSvcs.length || nsCMs.length || nsSecrets.length) {
+      html += `<div class="res-row">`;
+      nsDeploys.forEach(d  => html += `<span class="b-deploy">deploy/${d.name} ${d.readyReplicas}/${d.replicas}</span>`);
+      nsSTS.forEach(st     => html += `<span class="b-sts">sts/${st.name}</span>`);
+      nsSvcs.forEach(sv    => html += `<span class="b-svc-${sv.type==='LoadBalancer'?'lb':'ci'}">${sv.type==='LoadBalancer'?'🌐 ':''}svc/${sv.name}</span>`);
+      nsCMs.forEach(cm     => html += `<span class="b-cm">cm/${cm.name}</span>`);
+      nsSecrets.forEach(s  => html += `<span class="b-secret">🔐 secret/${s.name}</span>`);
+      html += `</div>`;
+    }
+    html += `<div class="node-grid">`;
+    state.nodes.forEach(node => {
+      const nodePods = nsPods.filter(p => p.nodeId===node.id);
+      if (!nodePods.length) return;
+      html += `<div class="worker-node${node.isNew?' new':''}">
+        <div class="node-hdr">
+          <div class="node-name">⬡ ${node.name}</div>
+          <div class="node-ver">${node.ver}</div>
+        </div>
+        <div class="pods-wrap">
+          ${nodePods.slice(0,10).map(p => {
+            const cls=['pod-chip']; if(p.ready)cls.push('ready'); if(p.isNew)cls.push('new'); if(p.pending)cls.push('pending'); if(p.terminating)cls.push('terminating');
+            const label = p.name.length>14 ? p.name.slice(-12) : p.name;
+            return `<div class="${cls.join(' ')}">${label}</div>`;
+          }).join('')}
+          ${nodePods.length>10?`<span style="font-size:.68em;color:var(--muted);align-self:center">+${nodePods.length-10}</span>`:''}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // kube-system (daemonsets)
+  const sysPods = state.pods.filter(p => p.ns==='kube-system' && !p.terminating);
+  if (sysPods.length) {
+    html += `<div class="ns-box" style="border-color:rgba(56,189,248,.35);margin-top:8px">
+      <div class="ns-label" style="color:#38bdf8">ns: kube-system</div>
+      <div class="res-row">`;
+    state.daemonSets.forEach(ds => html += `<span class="b-ds">ds/${ds.name} (${sysPods.filter(p=>p.workload==='daemonset').length} pods · ${state.nodes.length} nodes)</span>`);
+    html += `</div></div>`;
+  }
+
+  c.innerHTML = html;
+}
+
+function updateStats(state) {
+  $('s-nodes').textContent   = state.nodes.length;
+  $('s-pods').textContent    = state.pods.filter(p=>p.ready&&!p.terminating).length;
+  $('s-svcs').textContent    = state.services.length;
+  $('s-deploys').textContent = state.deployments.length;
+  $('s-ns').textContent      = state.namespaces.length;
+  const el = $('s-status');
+  el.textContent = state.clusterReady ? 'ACTIVE' : '—';
+  el.style.color  = state.clusterReady ? 'var(--good)' : 'var(--muted)';
+}
+
+function updateNavbar(idx) {
+  const step = idx>=0 && idx<STEPS.length ? STEPS[idx] : null;
+  $('step-title').textContent    = step ? step.title : 'Ready to start';
+  $('step-counter').textContent  = `${idx+1} / ${STEPS.length}`;
+  $('progress-fill').style.width = `${((idx+1)/STEPS.length)*100}%`;
+  if (step) {
+    $('explain-label').textContent  = `STEP ${idx+1} OF ${STEPS.length}`;
+    $('explain-title').innerHTML    = step.explain.h;
+    $('explain-text').innerHTML     = step.explain.p;
+    $('narration-text').textContent = step.narration||'';
+  } else {
+    $('explain-label').textContent  = 'READY';
+    $('explain-title').textContent  = 'Welcome to Kubernetes Fundamentals';
+    $('explain-text').textContent   = '20 steps through every core concept. Press → to begin.';
+    $('narration-text').textContent = 'Press ▶ or → to start.';
+  }
+  $('btn-prev').disabled = idx<=-1;
+  $('btn-next').disabled = idx>=STEPS.length-1;
+}
+
+// ─── VOICE ───────────────────────────────────────────────────────────────────
+let muted = localStorage.getItem('k8s-m1-muted')==='1';
+let selectedVoice = null;
+const synth = window.speechSynthesis;
+const PREFERRED = ['Ava','Zoe','Allison','Samantha','Karen','Daniel'];
+function voiceScore(v) {
+  let s=0;
+  if(/Premium/i.test(v.name))s+=100; else if(/Siri/i.test(v.name))s+=80; else if(/Enhanced/i.test(v.name))s+=60;
+  const i=PREFERRED.indexOf(v.name.replace(/\s*\([^)]*\)\s*/g,'').trim()); if(i!==-1)s+=(20-i);
+  if(/Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Jester|Albert|Fred/i.test(v.name))s-=50;
+  if(v.lang==='en-US')s+=5; return s;
+}
+function populateVoices() {
+  if(!synth)return;
+  const voices=synth.getVoices().filter(v=>v.lang.startsWith('en')).sort((a,b)=>voiceScore(b)-voiceScore(a));
+  $('voice-select').innerHTML='';
+  voices.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=(/Premium|Siri|Enhanced/i.test(v.name)?'⭐ ':'')+v.name; $('voice-select').appendChild(o); });
+  selectedVoice=(localStorage.getItem('k8s-m1-voice')&&voices.find(v=>v.name===localStorage.getItem('k8s-m1-voice')))||voices[0];
+  if(selectedVoice)$('voice-select').value=selectedVoice.name;
+  $('btn-mute').textContent=muted?'🔇':'🔊'; $('btn-mute').classList.toggle('muted',muted);
+}
+if(synth){ synth.onvoiceschanged=populateVoices; populateVoices(); }
+function speak(text) {
+  if(!synth||muted||!text)return; try{synth.cancel()}catch(e){}
+  (text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g)||[text]).forEach(c=>{ const u=new SpeechSynthesisUtterance(c.trim()); if(selectedVoice)u.voice=selectedVoice; u.rate=0.95; synth.speak(u); });
+}
+function stopSpeak(){ if(synth)try{synth.cancel()}catch(e){} }
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+let cursor=-1, playing=false, playTimer=null;
+function goToStep(newIdx, dir='forward') {
+  newIdx=Math.max(-1,Math.min(STEPS.length-1,newIdx)); cursor=newIdx;
+  const state=newIdx>=0?computeStateAt(newIdx):initialState();
+  const doUpdate=()=>{ renderCluster(state); updateStats(state); updateNavbar(newIdx); renderTerminal(newIdx>=0?computeTermAt(newIdx):[]); };
+  if(document.startViewTransition&&!window.__vt){ window.__vt=true; const t=document.startViewTransition(doUpdate); (t?.finished||Promise.resolve()).then(()=>{window.__vt=false;},()=>{window.__vt=false;}); }
+  else doUpdate();
+  if(dir==='forward'&&newIdx>=0&&STEPS[newIdx].narration)speak(STEPS[newIdx].narration); else stopSpeak();
+}
+function next(){ if(cursor<STEPS.length-1)goToStep(cursor+1,'forward'); else pause(); }
+function prev(){ if(cursor>-1)goToStep(cursor-1,'backward'); }
+function play(){ if(playing)return pause(); playing=true; $('btn-play').textContent='⏸'; const tick=()=>{ if(!playing)return; if(cursor>=STEPS.length-1){pause();return;} next(); playTimer=setTimeout(tick,5000); }; tick(); }
+function pause(){ playing=false; $('btn-play').textContent='⏯'; if(playTimer){clearTimeout(playTimer);playTimer=null;} }
+
+$('btn-next').onclick=$('btn-prev').onclick=$('btn-play').onclick=$('btn-reset').onclick=null;
+$('btn-next').onclick=next; $('btn-prev').onclick=prev; $('btn-play').onclick=play;
+$('btn-reset').onclick=()=>{ pause(); goToStep(-1,'backward'); };
+$('btn-mute').onclick=()=>{ muted=!muted; localStorage.setItem('k8s-m1-muted',muted?'1':'0'); $('btn-mute').textContent=muted?'🔇':'🔊'; $('btn-mute').classList.toggle('muted',muted); if(muted)stopSpeak(); };
+$('voice-select').onchange=e=>{ const v=synth.getVoices().find(x=>x.name===e.target.value); if(v){selectedVoice=v;localStorage.setItem('k8s-m1-voice',v.name);} };
+$('voice-trigger').onclick=e=>{ e.stopPropagation(); $('voice-popup').classList.toggle('open'); };
+$('voice-popup-close').onclick=()=>$('voice-popup').classList.remove('open');
+document.addEventListener('click',e=>{ if(!e.target.closest('#voice-popup')&&!e.target.closest('#voice-trigger'))$('voice-popup').classList.remove('open'); });
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.key==='ArrowRight'){e.preventDefault();next();}
+  else if(e.key==='ArrowLeft'){e.preventDefault();prev();}
+  else if(e.key===' '){e.preventDefault();play();}
+  else if(e.key==='Home'){e.preventDefault();pause();goToStep(-1,'backward');}
+  else if(e.key==='End'){e.preventDefault();pause();goToStep(STEPS.length-1,'forward');}
+  else if(e.key==='m'||e.key==='M'){e.preventDefault();$('btn-mute').click();}
+});
+goToStep(-1,'backward');
 </script>
-<script src="animated-lab-engine.js"></script>
 <script src="../course-flashcards/ask-ai.js" data-module="01"></script>
 </body>
 </html>
