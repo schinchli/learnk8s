@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Module 09 — Managing Security in EKS. 25-step animated walkthrough: 4Cs, IAM, RBAC, OIDC, aws-auth ConfigMap, Service Accounts, IRSA.">
+<meta name="theme-color" content="#06080d">
+<title>Managing Security in EKS — Animated Lab</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23F39C12'/><stop offset='1' stop-color='%23818cf8'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>🔐</text></svg>">
+<style>
+:root {
+  --iam:    #F39C12;
+  --rbac:   #818cf8;
+  --auth:   #38bdf8;
+  --warn:   #E74C3C;
+  --irsa:   #27AE60;
+  --bg:     #06080d;
+  --panel:  #11151c;
+  --panel-light: #1f2738;
+  --text:   #f1f5f9;
+  --muted:  #94a3b8;
+  --accent: #38bdf8;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background:
+    radial-gradient(ellipse at top, rgba(243,156,18,0.06), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(129,140,248,0.05), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+header {
+  padding: 16px 28px;
+  background: linear-gradient(135deg, rgba(243,156,18,0.85), rgba(129,140,248,0.85)), var(--bg);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  display: flex; align-items: center; gap: 16px;
+}
+header .badge { background: rgba(255,255,255,0.15); border-radius: 6px; padding: 2px 10px; font-size: 0.75em; font-weight: 700; letter-spacing: .06em; }
+header h1 { margin: 0; font-size: 1.3em; }
+header p { margin: 3px 0 0; opacity: 0.85; font-size: 0.88em; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  padding: 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.navbar {
+  grid-column: 1 / -1;
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex; gap: 16px; align-items: center;
+  flex-wrap: wrap;
+}
+.nav-btns { display: flex; gap: 8px; }
+button {
+  background: var(--panel-light); color: var(--text);
+  border: 1px solid #475569; border-radius: 6px;
+  padding: 8px 14px; font-size: 0.9em; cursor: pointer;
+  transition: background 0.15s;
+}
+button:hover { background: #2d3748; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+button.primary { background: rgba(56,189,248,0.2); border-color: var(--accent); color: var(--accent); }
+.step-info { flex: 1; }
+.step-title { font-weight: 700; color: var(--accent); font-size: 1em; }
+.step-narration { color: var(--muted); font-size: 0.87em; margin-top: 4px; line-height: 1.5; }
+.progress-bar { width: 100%; height: 5px; background: #1e293b; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--iam), var(--rbac)); border-radius: 3px; transition: width 0.3s; }
+.counter { font-size: 0.78em; color: var(--muted); white-space: nowrap; font-family: ui-monospace, monospace; }
+
+/* Left panel — step list */
+.steps-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: 680px;
+  padding: 12px;
+}
+.steps-panel h2 {
+  font-size: 0.72em; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .08em; margin: 0 0 10px; padding: 0 4px;
+}
+.step-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  font-size: 0.85em;
+}
+.step-item:hover { background: rgba(255,255,255,0.04); }
+.step-item.active { background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.25); }
+.step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--panel-light); border: 1px solid #475569;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75em; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.step-item.done .step-num { background: rgba(39,174,96,0.2); border-color: #27AE60; color: #27AE60; }
+.step-item.active .step-num { background: rgba(56,189,248,0.2); border-color: var(--accent); color: var(--accent); }
+.step-label { line-height: 1.4; }
+.step-section { font-size: 0.68em; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; }
+
+/* Right panel — SVG diagram */
+.diagram-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 680px;
+}
+#main-svg {
+  width: 100%; height: 100%;
+  max-height: 660px;
+}
+
+/* bottom rail */
+.bottom-rail {
+  grid-column: 1 / -1;
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.link-btn {
+  background: var(--panel-light); color: var(--text);
+  border: 1px solid #475569; border-radius: 6px;
+  padding: 6px 14px; font-size: 0.82em; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.12s;
+}
+.link-btn:hover { background: #2d3748; color: var(--accent); }
+.link-btn.active { background: rgba(243,156,18,0.15); border-color: var(--iam); color: var(--iam); }
+.kbd { background: #334155; border: 1px solid #475569; border-bottom-width: 2px; border-radius: 4px; padding: 1px 7px; font-family: ui-monospace; font-size: 0.78em; margin: 0 2px; color: var(--text); }
+.hint { font-size: 0.78em; color: var(--muted); margin-left: auto; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .steps-panel { max-height: 220px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span class="badge">MODULE 09</span>
+      <h1>🔐 Managing Security in EKS</h1>
+    </div>
+    <p>25-step walkthrough · 4Cs · IAM · RBAC · OIDC · aws-auth · Service Accounts · IRSA</p>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Top nav bar -->
+  <div class="navbar">
+    <div class="nav-btns">
+      <button id="btn-prev" disabled>◀ Prev</button>
+      <button id="btn-play" class="primary">▶ Auto-play</button>
+      <button id="btn-next">Next ▶</button>
+    </div>
+    <div class="step-info">
+      <div class="step-title" id="nav-title">—</div>
+      <div class="step-narration" id="nav-narration">—</div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:4%"></div></div>
+    </div>
+    <div class="counter" id="counter">1 / 25</div>
+  </div>
+
+  <!-- Step list -->
+  <div class="steps-panel">
+    <h2>Steps</h2>
+    <div id="step-list"></div>
+  </div>
+
+  <!-- SVG diagram -->
+  <div class="diagram-panel">
+    <svg id="main-svg" viewBox="0 0 820 620" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <!-- Bottom links -->
+  <div class="bottom-rail">
+    <a href="index.html" class="link-btn">🏠</a>
+    <a href="animated-lab-eks-fundamentals.html" class="link-btn">🔶</a>
+    <a href="animated-lab-storage.html" class="link-btn">💾</a>
+    <a href="animated-lab-observability.html" class="link-btn">🔭</a>
+    <a href="../course-flashcards/module-09/index.html" class="link-btn active">🃏</a>
+    <span class="hint"><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> navigate · <kbd class="kbd">Space</kbd> play/pause</span>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// STEPS DATA
+// ============================================================
+const STEPS = [
+  // ── SECTION: Cloud-Native Security ──────────────────────────
+  {
+    title: 'The 4Cs of cloud-native security',
+    section: 'Cloud-Native Security',
+    narration: 'Cloud-native security is layered: Cloud (AWS infra), Cluster (K8s control), Container (image security), Code (app security). Each C protects the next — defense in depth.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'The 4Cs of Cloud-Native Security — Defense in Depth',12,700,'#38bdf8');
+      // 4 concentric rings (drawn outside-in)
+      const rings = [
+        {r:270, label:'Cloud', detail:'VPC · IAM · Security Groups · AWS infrastructure', c:'#38bdf8', fill:'#0c2a3a'},
+        {r:200, label:'Cluster', detail:'RBAC · Admission controllers · Secrets', c:'#818cf8', fill:'#1a0a2a'},
+        {r:130, label:'Container', detail:'Image scanning · least privilege · no root', c:'#F39C12', fill:'#2a1a0a'},
+        {r: 65, label:'Code', detail:'SAST · input validation · dependencies', c:'#27AE60', fill:'#0a1a0a'},
+      ];
+      rings.forEach(({r,label,detail,c,fill})=>{
+        svg.appendChild(el('circle',{cx:410,cy:330,r,fill,stroke:c,'stroke-width':2,'stroke-dasharray': r>100?'none':'none'}));
+      });
+      // Labels pointing out from center
+      rings.forEach(({r,label,detail,c},i)=>{
+        const midR = r - 35;
+        svgText(svg,410,330-midR,label,i===0?11:10,700,c);
+        if(i===0) svgText(svg,410,330-midR+15,detail,8.5,400,'#94a3b8');
+      });
+      // outer annotation
+      svgText(svg,410,595,'Each layer protects the one inside it. A breach at Cloud affects all inner layers.',9.5,400,'#64748b');
+    }
+  },
+  {
+    title: 'Shared responsibility — default EKS',
+    section: 'Cloud-Native Security',
+    narration: 'In default EKS: AWS manages the control plane and underlying infrastructure. You manage worker nodes, network config, IAM, applications, add-ons, and OS patching.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Shared Responsibility — Default EKS',12,700,'#94a3b8');
+      // Two columns
+      roundRect(svg,30,55,370,480,'#0c2a3a','#38bdf8',10,1.5);
+      svgText(svg,215,80,'AWS manages',13,700,'#38bdf8');
+      const aws = ['Control plane','kube-apiserver (HA)','etcd (multi-AZ)','kube-scheduler','controller-manager','Underlying EC2 hardware'];
+      aws.forEach((t,i)=>{
+        roundRect(svg,50,100+i*64,330,50,'#0a2030','#38bdf8',6,1);
+        svgText(svg,70,121+i*64,'✓',12,700,'#27AE60',{anchor:'start'});
+        svgText(svg,90,121+i*64,t,11,700,'#f1f5f9',{anchor:'start'});
+      });
+      roundRect(svg,420,55,370,480,'#1a0a2a','#818cf8',10,1.5);
+      svgText(svg,605,80,'You manage',13,700,'#818cf8');
+      const you = ['Worker nodes (EC2)','Network config (VPC)','IAM roles & policies','Applications & containers','Add-ons & plugins','OS patching on nodes'];
+      you.forEach((t,i)=>{
+        roundRect(svg,440,100+i*64,330,50,'#130a20','#818cf8',6,1);
+        svgText(svg,460,121+i*64,'◆',12,700,'#F39C12',{anchor:'start'});
+        svgText(svg,480,121+i*64,t,11,700,'#f1f5f9',{anchor:'start'});
+      });
+    }
+  },
+  {
+    title: 'Shared responsibility — managed node groups',
+    section: 'Cloud-Native Security',
+    narration: 'With managed node groups, AWS additionally handles node OS patching and node replacement on failure. You still own applications, K8s RBAC, and network policies.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Shared Responsibility — Managed Node Groups',12,700,'#94a3b8');
+      // Header comparison
+      const cols = [{x:30,label:'Default EKS',c:'#475569',fill:'#0a1020'},{x:280,label:'Managed Node Groups',c:'#38bdf8',fill:'#0c2a3a'},{x:530,label:'You always own',c:'#818cf8',fill:'#1a0a2a'}];
+      cols.forEach(({x,label,c,fill})=>{
+        roundRect(svg,x,55,230,55,fill,c,8,1.5);
+        svgText(svg,x+115,88,label,11,700,c);
+      });
+      // AWS row
+      svgText(svg,30,152,'AWS manages:',10,700,'#38bdf8',{anchor:'start'});
+      const awsDef = ['Control plane only'];
+      const awsMng = ['Control plane','Node OS patching','Node replacement on failure','AMI version management'];
+      awsDef.forEach((t,i)=>{roundRect(svg,30,162+i*40,230,32,'#0a2030','#475569',4,1); svgText(svg,145,180+i*40,t,9.5,400,'#94a3b8');});
+      awsMng.forEach((t,i)=>{roundRect(svg,280,162+i*40,230,32,'#0c2a3a','#38bdf8',4,1); svgText(svg,395,180+i*40,t,9.5,700,'#38bdf8');});
+      // You row
+      svgText(svg,30,340,'You still manage:',10,700,'#818cf8',{anchor:'start'});
+      const you = ['Applications','K8s RBAC','Network policies','Pod security contexts'];
+      you.forEach((t,i)=>{
+        roundRect(svg,530,162+i*40,230,32,'#130a20','#818cf8',4,1);
+        svgText(svg,645,180+i*40,t,9.5,700,'#818cf8');
+        roundRect(svg,30,352+i*40,230,32,'#0a1020','#1f2738',4,1);
+        svgText(svg,145,370+i*40,t,9.5,400,'#94a3b8');
+        roundRect(svg,280,352+i*40,230,32,'#0a1020','#1f2738',4,1);
+        svgText(svg,395,370+i*40,t,9.5,400,'#94a3b8');
+      });
+    }
+  },
+  {
+    title: 'Shared responsibility — Fargate',
+    section: 'Cloud-Native Security',
+    narration: 'With Fargate, AWS manages the entire node layer — micro-VM isolation, OS, runtime. You own pod security context, application code, and K8s RBAC. Maximum AWS responsibility.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Shared Responsibility — Three-Column Comparison',12,700,'#94a3b8');
+      const cols = [
+        {x:20,  label:'Self-managed EC2', c:'#E74C3C', fill:'#1a0505'},
+        {x:290, label:'Managed Node Groups', c:'#38bdf8', fill:'#0c2a3a'},
+        {x:560, label:'AWS Fargate', c:'#F39C12', fill:'#2a1a0a'},
+      ];
+      cols.forEach(({x,label,c,fill})=>{
+        roundRect(svg,x,50,250,55,fill,c,8,1.5);
+        svgText(svg,x+125,83,label,11,700,c);
+      });
+      const rows = [
+        {label:'Control plane',    ec2:true,  mng:true,  far:true},
+        {label:'Node OS patching', ec2:false, mng:true,  far:true},
+        {label:'Node provisioning',ec2:false, mng:true,  far:true},
+        {label:'Micro-VM isolation',ec2:false,mng:false, far:true},
+        {label:'Runtime OS',       ec2:false, mng:false, far:true},
+        {label:'K8s RBAC',         ec2:false, mng:false, far:false},
+        {label:'Pod sec context',  ec2:false, mng:false, far:false},
+        {label:'Application code', ec2:false, mng:false, far:false},
+      ];
+      rows.forEach(({label,ec2,mng,far},i)=>{
+        const y = 125+i*54;
+        svgText(svg,410,y+18,label,10,700,'#94a3b8');
+        [[20,'#E74C3C',ec2],[290,'#38bdf8',mng],[560,'#F39C12',far]].forEach(([x,c,managed])=>{
+          roundRect(svg,x,y,250,42,managed?c.replace('#','#0a')+'18':'#0a1020',managed?c:'#1f2738',4,1);
+          svgText(svg,x+125,y+25,managed?'✓ AWS':'◆ You',10,700,managed?c:'#818cf8');
+        });
+      });
+    }
+  },
+
+  // ── SECTION: Authentication & Authorization ──────────────────
+  {
+    title: 'Two permission systems — IAM and RBAC',
+    section: 'Authentication & Authorization',
+    narration: 'IAM controls AWS API calls (create cluster, manage ECR). K8s RBAC controls K8s API calls (create pods, list secrets). They are separate but connected via the aws-auth ConfigMap.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Two Permission Systems — Separate but Connected',12,700,'#94a3b8');
+      // Left circle: IAM
+      svg.appendChild(el('circle',{cx:290,cy:280,r:160,fill:'#1a0d00',stroke:'#F39C12','stroke-width':2.5,'fill-opacity':'0.7'}));
+      svgText(svg,230,210,'IAM',16,700,'#F39C12');
+      svgText(svg,235,234,'Controls AWS API',10,400,'#94a3b8');
+      svgText(svg,235,252,'Create cluster',9.5,400,'#f1f5f9');
+      svgText(svg,235,268,'Manage node groups',9.5,400,'#f1f5f9');
+      svgText(svg,235,284,'ECR access',9.5,400,'#f1f5f9');
+      svgText(svg,235,300,'S3, DynamoDB, etc.',9.5,400,'#f1f5f9');
+      // Right circle: RBAC
+      svg.appendChild(el('circle',{cx:530,cy:280,r:160,fill:'#0d0d1a',stroke:'#818cf8','stroke-width':2.5,'fill-opacity':'0.7'}));
+      svgText(svg,575,210,'K8s RBAC',16,700,'#818cf8');
+      svgText(svg,575,234,'Controls K8s API',10,400,'#94a3b8');
+      svgText(svg,575,252,'Create pods',9.5,400,'#f1f5f9');
+      svgText(svg,575,268,'List services',9.5,400,'#f1f5f9');
+      svgText(svg,575,284,'Get secrets',9.5,400,'#f1f5f9');
+      svgText(svg,575,300,'Manage namespaces',9.5,400,'#f1f5f9');
+      // Overlap label
+      svgText(svg,410,272,'aws-auth',10,700,'#27AE60');
+      svgText(svg,410,290,'ConfigMap',10,700,'#27AE60');
+      svgText(svg,410,310,'bridges them',8.5,400,'#64748b');
+      // Bottom note
+      roundRect(svg,80,475,660,55,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,497,'IAM → who can call AWS APIs',10,700,'#F39C12');
+      svgText(svg,410,515,'RBAC → who can call K8s APIs',10,700,'#818cf8');
+    }
+  },
+  {
+    title: 'EKS authentication flow',
+    section: 'Authentication & Authorization',
+    narration: 'Six steps: User has IAM credentials → aws eks get-token generates bearer token → kubectl sends token → K8s API calls AWS IAM authenticator → IAM identity confirmed → RBAC decides what you can do.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'EKS Authentication Flow — 6 Steps',12,700,'#38bdf8');
+      const steps = [
+        {x:30,  y:70,  label:'1. IAM Creds', detail:'AWS_ACCESS_KEY_ID\nAWS_SECRET_ACCESS_KEY', c:'#F39C12'},
+        {x:30,  y:220, label:'2. Get Token', detail:'aws eks get-token\n--cluster-name prod', c:'#38bdf8'},
+        {x:30,  y:370, label:'3. kubectl send', detail:'Bearer token in\nHTTP Authorization header', c:'#818cf8'},
+        {x:450, y:370, label:'4. API calls IAM', detail:'K8s API server → AWS\nIAM Authenticator webhook', c:'#F39C12'},
+        {x:450, y:220, label:'5. IAM confirmed', detail:'AWS confirms IAM\nidentity is valid', c:'#27AE60'},
+        {x:450, y:70,  label:'6. RBAC check', detail:'K8s RBAC decides\nwhat you can do', c:'#818cf8'},
+      ];
+      steps.forEach(({x,y,label,detail,c})=>{
+        roundRect(svg,x,y,310,110,c.replace('#','#0c')+'18',c,8,1.5);
+        svgText(svg,x+155,y+36,label,12,700,c);
+        detail.split('\n').forEach((l,i)=>svgText(svg,x+155,y+58+i*18,l,9.5,400,'#94a3b8'));
+      });
+      // Arrows connecting steps
+      arrowV(svg,185,182,185,218,'#38bdf8');
+      arrowV(svg,185,332,185,368,'#818cf8');
+      arrowH(svg,342,425,448,425,'#F39C12');
+      arrowV(svg,605,368,605,332,'#27AE60');
+      arrowV(svg,605,218,605,182,'#818cf8');
+      arrowH(svg,448,125,342,125,'#27AE60');
+    }
+  },
+  {
+    title: 'OIDC — the trust bridge',
+    section: 'Authentication & Authorization',
+    narration: 'EKS cluster has an OIDC issuer URL. IAM trusts this OIDC provider. This enables workload identity (IRSA), external identity provider login, and federated auth. Enable via eksctl.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'OIDC — The Trust Bridge',12,700,'#38bdf8');
+      // EKS cluster
+      roundRect(svg,30,70,230,120,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,145,100,'EKS Cluster',12,700,'#38bdf8');
+      svgText(svg,145,118,'has OIDC issuer URL:',9,400,'#94a3b8');
+      svgText(svg,145,134,'oidc.eks.us-east-1.',8.5,400,'#c5e478');
+      svgText(svg,145,148,'amazonaws.com/id/XYZ',8.5,400,'#c5e478');
+      // IAM Trust
+      roundRect(svg,310,70,230,120,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,425,100,'AWS IAM',12,700,'#F39C12');
+      svgText(svg,425,118,'trusts this OIDC provider',9,400,'#94a3b8');
+      svgText(svg,425,136,'eksctl utils associate-',8.5,400,'#c5e478');
+      svgText(svg,425,150,'iam-oidc-provider',8.5,400,'#c5e478');
+      // Three outcomes
+      roundRect(svg,590,50,210,55,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,695,72,'Workload Identity',10,700,'#27AE60');
+      svgText(svg,695,88,'(IRSA)',9.5,400,'#94a3b8');
+      roundRect(svg,590,125,210,55,'#1a0a2a','#818cf8',8,1.5);
+      svgText(svg,695,147,'External IdP Login',10,700,'#818cf8');
+      svgText(svg,695,163,'(Okta, Azure AD)',9.5,400,'#94a3b8');
+      roundRect(svg,590,200,210,55,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,695,222,'Federated Auth',10,700,'#F39C12');
+      svgText(svg,695,238,'(cross-account)',9.5,400,'#94a3b8');
+      // arrows
+      arrowH(svg,262,130,308,130,'#38bdf8');
+      svgText(svg,285,124,'trust',8,700,'#38bdf8');
+      arrowH(svg,542,77,588,77,'#27AE60');
+      arrowH(svg,542,152,588,152,'#818cf8');
+      arrowH(svg,542,227,588,227,'#F39C12');
+      svg.appendChild(el('line',{x1:542,y1:130,x2:542,y2:77,stroke:'#27AE60','stroke-width':1.5}));
+      svg.appendChild(el('line',{x1:542,y1:130,x2:542,y2:227,stroke:'#F39C12','stroke-width':1.5}));
+      svg.appendChild(el('line',{x1:542,y1:77, x2:542,y2:227,stroke:'#475569','stroke-width':1.5}));
+      // bottom note
+      roundRect(svg,30,320,770,60,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,344,'Enable OIDC provider: eksctl utils associate-iam-oidc-provider --cluster prod --approve',9.5,400,'#c5e478');
+      svgText(svg,410,362,'This is a prerequisite for IRSA. Without it, pods cannot get pod-level IAM roles.',9.5,700,'#27AE60');
+      // explanation box
+      roundRect(svg,30,400,770,160,'#0a1020','#1f2738',8,1);
+      svgText(svg,410,424,'What is OIDC?',11,700,'#38bdf8');
+      svgText(svg,410,444,'OpenID Connect — an identity layer on top of OAuth 2.0.',10,400,'#94a3b8');
+      svgText(svg,410,462,'EKS acts as an identity provider (IdP) for the cluster.',10,400,'#94a3b8');
+      svgText(svg,410,480,'Tokens are signed JWTs that AWS IAM can verify.',10,400,'#94a3b8');
+      svgText(svg,410,498,'Used to bind K8s Service Accounts to IAM roles.',10,400,'#94a3b8');
+      svgText(svg,410,518,'Each cluster has a unique OIDC issuer URL.',10,400,'#64748b');
+    }
+  },
+
+  // ── SECTION: Kubernetes RBAC ─────────────────────────────────
+  {
+    title: 'RBAC — four objects',
+    section: 'Kubernetes RBAC',
+    narration: 'Role (namespaced rules), ClusterRole (cluster-wide rules), RoleBinding (bind Role to subject in namespace), ClusterRoleBinding (bind ClusterRole cluster-wide). Master these 4.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'K8s RBAC — Four Objects',13,700,'#818cf8');
+      const objs = [
+        {x:30,  y:60,  label:'Role', detail:'Namespaced.\nDefines allowed verbs+resources\nIN ONE namespace only.\nExample: can read pods in "prod"', c:'#818cf8', fill:'#1a0a2a'},
+        {x:420, y:60,  label:'ClusterRole', detail:'Cluster-wide.\nDefines rules across\nALL namespaces.\nExample: can read pods everywhere', c:'#38bdf8', fill:'#0c2a3a'},
+        {x:30,  y:310, label:'RoleBinding', detail:'Binds a Role (or ClusterRole)\nto a subject IN a namespace.\nSubjects: User, Group, SA\nScope: single namespace', c:'#F39C12', fill:'#2a1a0a'},
+        {x:420, y:310, label:'ClusterRoleBinding', detail:'Binds a ClusterRole\nto a subject cluster-wide.\nScope: all namespaces\nExample: cluster-admin binding', c:'#27AE60', fill:'#0a1a0a'},
+      ];
+      objs.forEach(({x,y,label,detail,c,fill})=>{
+        roundRect(svg,x,y,370,220,fill,c,10,2);
+        svgText(svg,x+185,y+34,label,14,700,c);
+        detail.split('\n').forEach((l,i)=>svgText(svg,x+185,y+62+i*22,l,10,400,'#94a3b8'));
+      });
+      // Center label
+      svgText(svg,410,295,'Role/ClusterRole = WHAT · Binding = WHO+WHAT link',9.5,700,'#64748b');
+    }
+  },
+  {
+    title: 'Role example — pod reader',
+    section: 'Kubernetes RBAC',
+    narration: 'A Role in namespace "default" granting get/watch/list on pods. Key fields: apiGroups (empty string = core API), resources, verbs. Verbs: get, list, watch, create, update, patch, delete.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Role Example — Pod Reader',12,700,'#818cf8');
+      // YAML box
+      roundRect(svg,30,50,430,320,'#03050a','#818cf8',8,1.5);
+      svgText(svg,245,74,'Role YAML',11,700,'#818cf8');
+      const lines = [
+        'apiVersion: rbac.authorization.k8s.io/v1',
+        'kind: Role',
+        'metadata:',
+        '  name: pod-reader',
+        '  namespace: default',
+        'rules:',
+        '  - apiGroups: [""]',
+        '    resources: ["pods"]',
+        '    verbs:',
+        '      - get',
+        '      - watch',
+        '      - list',
+      ];
+      lines.forEach((l,i)=>svgText(svg,50,96+i*19,l,9.5,400,'#c5e478',{anchor:'start'}));
+      // Annotations
+      roundRect(svg,480,60,310,58,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,635,83,'kind: Role',10,700,'#818cf8');
+      svgText(svg,635,99,'Namespaced — only "default" ns',9,400,'#94a3b8');
+      roundRect(svg,480,134,310,58,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,635,157,'apiGroups: [""]',10,700,'#38bdf8');
+      svgText(svg,635,173,'Empty string = core K8s API group',9,400,'#94a3b8');
+      roundRect(svg,480,208,310,58,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,635,231,'resources: ["pods"]',10,700,'#38bdf8');
+      svgText(svg,635,247,'Which K8s objects to control',9,400,'#94a3b8');
+      roundRect(svg,480,282,310,58,'#0c2a3a','#818cf8',6,1);
+      svgText(svg,635,305,'verbs: get/watch/list',10,700,'#818cf8');
+      svgText(svg,635,321,'READ-ONLY — no create/delete',9,400,'#94a3b8');
+      // All verbs
+      roundRect(svg,30,390,760,90,'#0a1020','#475569',8,1);
+      svgText(svg,410,412,'All K8s verbs:',10,700,'#94a3b8');
+      svgText(svg,410,432,'get · list · watch  ↔  READ',10,400,'#27AE60');
+      svgText(svg,410,450,'create · update · patch · delete · deletecollection  ↔  WRITE',10,400,'#E74C3C');
+    }
+  },
+  {
+    title: 'RoleBinding — connecting subject to role',
+    section: 'Kubernetes RBAC',
+    narration: 'RoleBinding links a Role to a Subject. Subjects: User (human), Group (set of users), ServiceAccount (pod identity). Alice gets the pod-reader Role in the default namespace only.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'RoleBinding — Connecting Subject to Role',12,700,'#818cf8');
+      // YAML
+      roundRect(svg,30,50,380,280,'#03050a','#818cf8',8,1.5);
+      svgText(svg,220,74,'RoleBinding YAML',11,700,'#818cf8');
+      const lines = [
+        'kind: RoleBinding',
+        'metadata:',
+        '  name: read-pods',
+        '  namespace: default',
+        'subjects:',
+        '  - kind: User',
+        '    name: alice',
+        '    apiGroup: rbac.authorization.k8s.io',
+        'roleRef:',
+        '  kind: Role',
+        '  name: pod-reader',
+        '  apiGroup: rbac.authorization.k8s.io',
+      ];
+      lines.forEach((l,i)=>svgText(svg,50,96+i*17,l,9.5,400,'#c5e478',{anchor:'start'}));
+      // Subject types
+      roundRect(svg,430,50,360,130,'#0a1020','#38bdf8',8,1.5);
+      svgText(svg,610,74,'Subject types',11,700,'#38bdf8');
+      const subjects = [
+        {kind:'User',  detail:'Human user (IAM mapped via aws-auth)', c:'#F39C12'},
+        {kind:'Group', detail:'Set of users (e.g. system:masters)', c:'#818cf8'},
+        {kind:'ServiceAccount', detail:'Pod identity (not a human)', c:'#27AE60'},
+      ];
+      subjects.forEach(({kind,detail,c},i)=>{
+        svgText(svg,450,98+i*27,`${kind}:`,9.5,700,c,{anchor:'start'});
+        svgText(svg,560,98+i*27,detail,9,400,'#94a3b8',{anchor:'start'});
+      });
+      // Result flow diagram
+      roundRect(svg,430,200,160,55,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,510,224,'alice',12,700,'#F39C12');
+      svgText(svg,510,240,'(User)',9,400,'#94a3b8');
+      arrowH(svg,592,227,660,227,'#818cf8');
+      roundRect(svg,662,200,128,55,'#1a0a2a','#818cf8',8,1.5);
+      svgText(svg,726,224,'pod-reader',10,700,'#818cf8');
+      svgText(svg,726,240,'Role',9,400,'#94a3b8');
+      // Result
+      roundRect(svg,430,285,360,55,'#0a1a0a','#27AE60',8,1);
+      svgText(svg,610,308,'Alice can get/watch/list pods',10,700,'#27AE60');
+      svgText(svg,610,324,'in "default" namespace ONLY',9.5,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'ClusterRole + ClusterRoleBinding — cluster-wide',
+    section: 'Kubernetes RBAC',
+    narration: 'ClusterRole + ClusterRoleBinding = access everywhere. Trick: bind a ClusterRole with a regular RoleBinding to scope it to one namespace only — useful for reusing ClusterRoles.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'ClusterRole — Two Binding Patterns',12,700,'#38bdf8');
+      // Pattern 1
+      roundRect(svg,30,50,360,200,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,210,74,'Pattern 1: Cluster-wide',12,700,'#38bdf8');
+      svgText(svg,210,94,'ClusterRole + ClusterRoleBinding',10,400,'#94a3b8');
+      roundRect(svg,50,108,320,40,'#0a1a0a','#27AE60',4,1);
+      svgText(svg,210,132,'ClusterRole: pod-reader',10,700,'#27AE60');
+      arrowV(svg,210,150,210,174,'#27AE60');
+      roundRect(svg,50,176,320,40,'#0a1a0a','#27AE60',4,1);
+      svgText(svg,210,200,'ClusterRoleBinding: alice → pod-reader',9.5,700,'#27AE60');
+      svgText(svg,210,228,'✓ Alice reads pods in ALL namespaces',9.5,700,'#27AE60');
+      // Pattern 2 (the trick)
+      roundRect(svg,420,50,370,200,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,605,74,'Pattern 2: Namespace trick',12,700,'#F39C12');
+      svgText(svg,605,94,'ClusterRole + RoleBinding (namespaced)',10,400,'#94a3b8');
+      roundRect(svg,440,108,330,40,'#1a0a00','#F39C12',4,1);
+      svgText(svg,605,132,'ClusterRole: pod-reader',10,700,'#F39C12');
+      arrowV(svg,605,150,605,174,'#F39C12');
+      roundRect(svg,440,176,330,40,'#1a0a00','#F39C12',4,1);
+      svgText(svg,605,196,'RoleBinding in ns "prod"',9.5,700,'#F39C12');
+      svgText(svg,605,200,'alice → pod-reader',9,400,'#94a3b8');
+      svgText(svg,605,228,'✓ Alice reads pods in "prod" ONLY',9.5,700,'#F39C12');
+      // Why trick is useful
+      roundRect(svg,30,278,760,80,'#0a1020','#818cf8',8,1);
+      svgText(svg,410,300,'Why use the trick?',11,700,'#818cf8');
+      svgText(svg,410,320,'Define the ClusterRole once. Reuse it across different namespaces via separate RoleBindings.',10,400,'#94a3b8');
+      svgText(svg,410,338,'No need to create identical Roles in each namespace.',10,400,'#64748b');
+      // Quick table
+      roundRect(svg,30,380,760,110,'#0a1020','#1f2738',8,1);
+      svgText(svg,410,402,'Quick Reference',10,700,'#94a3b8');
+      [
+        ['ClusterRole + ClusterRoleBinding','Access in ALL namespaces','#27AE60'],
+        ['ClusterRole + RoleBinding','Access in THAT namespace only (trick)','#F39C12'],
+        ['Role + RoleBinding','Access in THAT namespace only (normal)','#818cf8'],
+      ].forEach(([binding,result,c],i)=>{
+        roundRect(svg,40,416+i*24,360,20,'#11151c','#1f2738',3,1);
+        svgText(svg,220,430+i*24,binding,9,400,'#94a3b8');
+        roundRect(svg,410,416+i*24,370,20,'#11151c',c,3,1);
+        svgText(svg,595,430+i*24,result,9,700,c);
+      });
+    }
+  },
+  {
+    title: 'IAM vs RBAC — the analogy',
+    section: 'Kubernetes RBAC',
+    narration: 'IAM Policy = RBAC Role (allowed actions+resources). IAM Principal = K8s Subject (who). IAM Policy Attachment = RoleBinding (connect policy to principal). Memorize this mapping.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'IAM vs K8s RBAC — The Analogy',12,700,'#94a3b8');
+      // Header
+      [['AWS IAM','#F39C12',30],['Analogy','#475569',295],['K8s RBAC','#818cf8',560]].forEach(([h,c,x])=>{
+        roundRect(svg,x,55,240,48,'#0a1020',c,6,1.5);
+        svgText(svg,x+120,84,h,13,700,c);
+      });
+      const rows = [
+        {iam:'IAM Policy',         link:'defines allowed actions',  rbac:'Role / ClusterRole', iam_c:'#F39C12', rbac_c:'#818cf8'},
+        {iam:'IAM User / Role',    link:'who holds permissions',    rbac:'Subject (User/Group/SA)', iam_c:'#F39C12', rbac_c:'#818cf8'},
+        {iam:'Policy Attachment',  link:'connects policy to principal', rbac:'RoleBinding / CRB', iam_c:'#F39C12', rbac_c:'#818cf8'},
+        {iam:'IAM Condition',      link:'adds constraints',          rbac:'Rule verbs/resources', iam_c:'#F39C12', rbac_c:'#818cf8'},
+        {iam:'IAM Permission Boundary', link:'limits max permissions', rbac:'(no direct equiv.)', iam_c:'#F39C12', rbac_c:'#475569'},
+      ];
+      rows.forEach(({iam,link,rbac,iam_c,rbac_c},i)=>{
+        const y = 125+i*80;
+        roundRect(svg,30,y,240,60,'#1a0a00',iam_c,6,1.5);
+        svgText(svg,150,y+26,iam,11,700,iam_c);
+        svgText(svg,150,y+44,link,8.5,400,'#94a3b8');
+        svgText(svg,410,y+34,'≈',20,700,'#475569');
+        roundRect(svg,560,y,240,60,'#1a0a2a',rbac_c,6,1.5);
+        svgText(svg,680,y+34,rbac,11,700,rbac_c);
+      });
+    }
+  },
+  {
+    title: 'Default RBAC groups — system:masters warning',
+    section: 'Kubernetes RBAC',
+    narration: 'system:masters = cluster-admin (full access). The IAM entity that CREATES the cluster automatically gets system:masters. No other IAM entity has access until aws-auth is updated.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Default RBAC Groups — The system:masters Trap',12,700,'#818cf8');
+      const groups = [
+        {name:'system:masters',  role:'cluster-admin',   detail:'Full cluster access. Bound to cluster-admin ClusterRole.', c:'#E74C3C', fill:'#2a0505'},
+        {name:'system:nodes',    role:'system:node',     detail:'Node registration. Used by kubelet on each node.', c:'#F39C12', fill:'#2a1a0a'},
+        {name:'system:bootstrappers', role:'bootstrap-token', detail:'Bootstrap token auth for new nodes joining.', c:'#38bdf8', fill:'#0c2a3a'},
+      ];
+      groups.forEach(({name,role,detail,c,fill},i)=>{
+        roundRect(svg,30,65+i*115,760,100,fill,c,8,1.5);
+        svgText(svg,55,90+i*115,name,12,700,c,{anchor:'start'});
+        svgText(svg,410,90+i*115,'→',14,700,'#475569');
+        svgText(svg,590,90+i*115,role,12,700,c);
+        svgText(svg,410,112+i*115,detail,10,400,'#94a3b8');
+      });
+      // BIG warning box
+      roundRect(svg,30,420,760,140,'#2a0505','#E74C3C',10,2);
+      svgText(svg,410,446,'⚠ CRITICAL: The cluster creator problem',13,700,'#E74C3C');
+      svgText(svg,410,468,'The IAM entity (user or role) that creates the EKS cluster is',10,400,'#94a3b8');
+      svgText(svg,410,486,'automatically mapped to system:masters — full cluster admin.',10,400,'#f1f5f9');
+      svgText(svg,410,504,'NO OTHER IAM entity has any K8s access until you add them to aws-auth.',10,700,'#E74C3C');
+      svgText(svg,410,522,'If the creator role is deleted → you can still access via AWS Console only.',9.5,400,'#94a3b8');
+    }
+  },
+
+  // ── SECTION: aws-auth ConfigMap ──────────────────────────────
+  {
+    title: 'aws-auth ConfigMap — the IAM→RBAC bridge',
+    section: 'aws-auth ConfigMap',
+    narration: 'aws-auth lives in kube-system namespace. It maps IAM roles/users to K8s usernames/groups. After mapping, K8s RBAC handles permissions from there.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'aws-auth ConfigMap — The IAM→RBAC Bridge',12,700,'#F39C12');
+      // Flow diagram
+      const boxes = [
+        {x:30,  label:'IAM Role', sub:'arn:aws:iam::123\n:role/web-admins', c:'#F39C12', fill:'#2a1a0a'},
+        {x:200, label:'aws-auth', sub:'kube-system/\nconfigmap/aws-auth', c:'#38bdf8', fill:'#0c2a3a'},
+        {x:380, label:'K8s Group', sub:'"web-admins"\nK8s identity', c:'#818cf8', fill:'#1a0a2a'},
+        {x:560, label:'ClusterRoleBinding', sub:'web-admins →\ncluster-admin', c:'#27AE60', fill:'#0a1a0a'},
+        {x:720, label:'ClusterRole', sub:'cluster-admin:\nfull access', c:'#27AE60', fill:'#0a1a0a'},
+      ];
+      boxes.forEach(({x,label,sub,c,fill},i)=>{
+        roundRect(svg,x,80,150,110,fill,c,8,1.5);
+        svgText(svg,x+75,108,label,10,700,c);
+        sub.split('\n').forEach((l,j)=>svgText(svg,x+75,126+j*18,l,8.5,400,'#94a3b8'));
+        if(i<boxes.length-1) arrowH(svg,x+152,135,x+198,135,'#475569');
+      });
+      // Namespace note
+      roundRect(svg,30,220,760,55,'#0a1020','#38bdf8',8,1);
+      svgText(svg,410,242,'aws-auth lives in: kube-system namespace',11,700,'#38bdf8');
+      svgText(svg,410,258,'kubectl get configmap aws-auth -n kube-system -o yaml',9.5,400,'#c5e478');
+      // Two sections
+      roundRect(svg,30,295,370,200,'#0a1020','#F39C12',8,1);
+      svgText(svg,215,318,'mapRoles section',11,700,'#F39C12');
+      svgText(svg,215,338,'Map IAM roles to K8s groups.',9.5,400,'#94a3b8');
+      svgText(svg,215,356,'Used for: node groups, CI/CD,',9.5,400,'#94a3b8');
+      svgText(svg,215,372,'automation roles, teams.',9.5,400,'#94a3b8');
+      svgText(svg,215,392,'⭐ Preferred: roles > users',10,700,'#F39C12');
+      roundRect(svg,420,295,370,200,'#0a1020','#818cf8',8,1);
+      svgText(svg,605,318,'mapUsers section',11,700,'#818cf8');
+      svgText(svg,605,338,'Map IAM users to K8s groups.',9.5,400,'#94a3b8');
+      svgText(svg,605,356,'Used for: individual devs,',9.5,400,'#94a3b8');
+      svgText(svg,605,372,'break-glass accounts.',9.5,400,'#94a3b8');
+      svgText(svg,605,392,'⚠ Not recommended for teams',9.5,400,'#E74C3C');
+    }
+  },
+  {
+    title: 'aws-auth ConfigMap example',
+    section: 'aws-auth ConfigMap',
+    narration: 'mapRoles entry: rolearn → username → groups. mapUsers entry: userarn → username → groups. Then create ClusterRoleBinding to bind that K8s group to a ClusterRole.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'aws-auth ConfigMap — Full Example',12,700,'#F39C12');
+      roundRect(svg,30,50,500,380,'#03050a','#F39C12',8,1.5);
+      svgText(svg,280,74,'aws-auth ConfigMap YAML',11,700,'#F39C12');
+      const lines = [
+        'apiVersion: v1',
+        'kind: ConfigMap',
+        'metadata:',
+        '  name: aws-auth',
+        '  namespace: kube-system',
+        'data:',
+        '  mapRoles: |',
+        '    - rolearn: arn:aws:iam::123456789:role/web-admins',
+        '      username: web-admins',
+        '      groups:',
+        '        - web-admins',
+        '    - rolearn: arn:aws:iam::123456789:role/NodeInstanceRole',
+        '      username: system:node:{{EC2PrivateDNSName}}',
+        '      groups:',
+        '        - system:bootstrappers',
+        '        - system:nodes',
+        '  mapUsers: |',
+        '    - userarn: arn:aws:iam::123456789:user/alice',
+        '      username: alice',
+        '      groups:',
+        '        - dev-team',
+      ];
+      lines.forEach((l,i)=>svgText(svg,50,95+i*15,l,8.5,400,'#c5e478',{anchor:'start'}));
+      // Annotations
+      roundRect(svg,550,60,240,55,'#2a1a0a','#F39C12',6,1);
+      svgText(svg,670,82,'mapRoles',10,700,'#F39C12');
+      svgText(svg,670,98,'For IAM roles (recommended)',8.5,400,'#94a3b8');
+      roundRect(svg,550,130,240,55,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,670,152,'Node role entry',10,700,'#38bdf8');
+      svgText(svg,670,168,'Required for nodes to join',8.5,400,'#94a3b8');
+      roundRect(svg,550,200,240,55,'#1a0a2a','#818cf8',6,1);
+      svgText(svg,670,222,'mapUsers',10,700,'#818cf8');
+      svgText(svg,670,238,'For individual IAM users',8.5,400,'#94a3b8');
+      roundRect(svg,550,270,240,60,'#0a1a0a','#27AE60',6,1);
+      svgText(svg,670,292,'After aws-auth:',10,700,'#27AE60');
+      svgText(svg,670,308,'Create ClusterRoleBinding',8.5,400,'#94a3b8');
+      svgText(svg,670,322,'to grant actual permissions',8.5,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'Two-step grant process',
+    section: 'aws-auth ConfigMap',
+    narration: 'Step 1: Add IAM role to aws-auth (authentication). Step 2: Create ClusterRoleBinding binding K8s group to ClusterRole (authorization). BOTH steps required — miss one and things break.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Two-Step Grant Process',12,700,'#38bdf8');
+      // Step 1
+      roundRect(svg,30,65,350,200,'#0c2a3a','#38bdf8',10,2);
+      svgText(svg,205,92,'Step 1: Authentication',13,700,'#38bdf8');
+      svgText(svg,205,112,'Add IAM role to aws-auth ConfigMap',10,400,'#94a3b8');
+      roundRect(svg,50,128,310,80,'#03050a','#27AE60',6,1);
+      svgText(svg,65,148,'mapRoles:',9.5,400,'#c5e478',{anchor:'start'});
+      svgText(svg,65,165,'  - rolearn: arn:...role/web-admins',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,65,181,'    username: web-admins',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,65,197,'    groups: [web-admins]',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,205,230,'Result: IAM role is AUTHENTICATED',9,700,'#27AE60');
+      svgText(svg,205,248,'No permissions yet.',9,400,'#E74C3C');
+      // Arrow between steps
+      arrowH(svg,382,165,408,165,'#475569');
+      // Step 2
+      roundRect(svg,410,65,380,200,'#1a0a2a','#818cf8',10,2);
+      svgText(svg,600,92,'Step 2: Authorization',13,700,'#818cf8');
+      svgText(svg,600,112,'Create ClusterRoleBinding',10,400,'#94a3b8');
+      roundRect(svg,430,128,340,80,'#03050a','#27AE60',6,1);
+      svgText(svg,445,148,'kind: ClusterRoleBinding',9.5,400,'#c5e478',{anchor:'start'});
+      svgText(svg,445,165,'subjects:',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,445,181,'  - kind: Group',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,445,197,'    name: web-admins',9,400,'#c5e478',{anchor:'start'});
+      svgText(svg,600,230,'Result: web-admins group has PERMISSIONS',9,700,'#27AE60');
+      svgText(svg,600,248,'Now they can actually do things.',9,400,'#94a3b8');
+      // Miss Step 1 warning
+      roundRect(svg,30,295,370,90,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,215,318,'Miss Step 1:',11,700,'#E74C3C');
+      svgText(svg,215,338,'User cannot authenticate at all.',9.5,400,'#94a3b8');
+      svgText(svg,215,356,'"error: You must be logged in"',9,400,'#E74C3C');
+      svgText(svg,215,372,'→ Add to aws-auth first',9,700,'#F39C12');
+      // Miss Step 2 warning
+      roundRect(svg,420,295,370,90,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,605,318,'Miss Step 2:',11,700,'#E74C3C');
+      svgText(svg,605,338,'Authenticated but NO permissions.',9.5,400,'#94a3b8');
+      svgText(svg,605,356,'"Error from server (Forbidden)"',9,400,'#E74C3C');
+      svgText(svg,605,372,'→ Create the ClusterRoleBinding',9,700,'#F39C12');
+    }
+  },
+  {
+    title: '⚠ CRITICAL: Never delete aws-auth',
+    section: 'aws-auth ConfigMap',
+    narration: 'Deleting aws-auth locks EVERYONE out of the cluster except the original cluster creator via AWS Console. This is a catastrophic mistake — always edit, never delete.',
+    render(svg) {
+      clear(svg);
+      // Big red warning
+      roundRect(svg,30,40,760,120,'#2a0505','#E74C3C',12,3);
+      svgText(svg,410,72,'⚠ NEVER DELETE aws-auth ConfigMap',16,700,'#E74C3C');
+      svgText(svg,410,98,'This is the K8s authentication bridge. Deleting it breaks',12,400,'#f1f5f9');
+      svgText(svg,410,118,'ALL kubectl access for EVERYONE immediately.',12,700,'#E74C3C');
+      // What happens
+      roundRect(svg,30,180,760,130,'#1a0a0a','#E74C3C',8,1.5);
+      svgText(svg,410,204,'What happens when aws-auth is deleted:',11,700,'#E74C3C');
+      const effects = [
+        '1. All kubectl commands fail immediately: "Unauthorized"',
+        '2. No user, no role, no ServiceAccount can authenticate',
+        '3. Cluster continues running — workloads keep working',
+        '4. But you CANNOT deploy, scale, debug, or modify anything',
+      ];
+      effects.forEach((e,i)=>svgText(svg,410,226+i*22,e,9.5,400,'#94a3b8'));
+      // Recovery
+      roundRect(svg,30,330,370,140,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,215,354,'Recovery options:',11,700,'#27AE60');
+      ['AWS Console → EKS → Cluster','Add IAM identity in Access tab','Only cluster creator IAM role works','Re-create aws-auth ConfigMap'].forEach((t,i)=>svgText(svg,215,376+i*22,t,9.5,400,'#94a3b8'));
+      // Best practices
+      roundRect(svg,420,330,370,140,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,605,354,'Best practices:',11,700,'#38bdf8');
+      ['EDIT aws-auth — never kubectl delete','Store aws-auth in version control','Use eksctl create iamidentitymapping','Add break-glass IAM role FIRST'].forEach((t,i)=>svgText(svg,605,376+i*22,t,9.5,400,'#94a3b8'));
+    }
+  },
+
+  // ── SECTION: Service Accounts & IRSA ─────────────────────────
+  {
+    title: 'Kubernetes Service Accounts',
+    section: 'Service Accounts & IRSA',
+    narration: 'Service Accounts are K8s identities for pods. Every pod runs with a SA. The default SA has minimal permissions. Token is auto-mounted. Create custom SAs for workloads needing K8s API access.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Kubernetes Service Accounts — Pod Identity',12,700,'#27AE60');
+      // Pod + SA relationship
+      roundRect(svg,30,60,380,240,'#0a1020','#27AE60',10,1.5);
+      svgText(svg,220,85,'Every pod has a Service Account',11,700,'#27AE60');
+      roundRect(svg,50,100,340,80,'#0a1a0a','#27AE60',6,1.5);
+      svgText(svg,220,128,'Pod: my-app',12,700,'#f1f5f9');
+      svgText(svg,220,146,'serviceAccountName: my-sa',9.5,400,'#c5e478');
+      svgText(svg,220,162,'automountServiceAccountToken: true',9.5,400,'#c5e478');
+      arrowV(svg,220,182,220,224,'#27AE60');
+      roundRect(svg,50,226,340,50,'#0a2a0a','#27AE60',6,1);
+      svgText(svg,220,248,'ServiceAccount: my-sa',11,700,'#27AE60');
+      svgText(svg,220,262,'namespace: default',9,400,'#94a3b8');
+      // Token mount
+      roundRect(svg,430,60,360,240,'#0a1020','#38bdf8',10,1.5);
+      svgText(svg,610,85,'Token auto-mounted at:',11,700,'#38bdf8');
+      roundRect(svg,450,102,320,55,'#03050a','#27AE60',6,1);
+      svgText(svg,610,124,'/var/run/secrets/',9.5,400,'#c5e478');
+      svgText(svg,610,140,'kubernetes.io/serviceaccount/token',9,400,'#c5e478');
+      svgText(svg,610,178,'Token contents:',10,700,'#38bdf8');
+      ['JWT signed by K8s API server','Contains: SA name, namespace','Used for: K8s API calls from pod','Expires automatically (projected)'].forEach((t,i)=>svgText(svg,610,196+i*20,t,9,400,'#94a3b8'));
+      // Bottom
+      roundRect(svg,30,328,760,80,'#0a1020','#475569',8,1);
+      svgText(svg,410,350,'Create custom SA for workloads needing K8s API access:',10,700,'#94a3b8');
+      svgText(svg,410,368,'kubectl create serviceaccount my-app-sa -n production',9.5,400,'#c5e478');
+      svgText(svg,410,386,'Then bind it to a Role via RoleBinding.',9,400,'#64748b');
+    }
+  },
+  {
+    title: 'Default SA — the security risk',
+    section: 'Service Accounts & IRSA',
+    narration: 'Modern K8s: default SA has no RBAC permissions. BUT the token is still mounted. Best practice: set automountServiceAccountToken: false on pods that do not need K8s API access.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Default SA — Still a Security Risk',12,700,'#E74C3C');
+      // Risk box
+      roundRect(svg,30,60,760,100,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,410,84,'The Risk',12,700,'#E74C3C');
+      svgText(svg,410,104,'Default SA has no RBAC permissions in modern K8s (v1.24+).',10,400,'#94a3b8');
+      svgText(svg,410,122,'BUT: the SA token is still auto-mounted into every pod by default.',10,700,'#f1f5f9');
+      svgText(svg,410,140,'An attacker who compromises the pod can use this token to probe the K8s API.',10,400,'#E74C3C');
+      // Without mitigation
+      roundRect(svg,30,185,360,180,'#1a0a0a','#E74C3C',8,1.5);
+      svgText(svg,210,208,'Without mitigation',11,700,'#E74C3C');
+      const risk = ['Pod starts','Token mounted at /var/run/...','Even if no RBAC perms:','  - Token can be used to enumerate','  - Discover cluster info','  - Attempt privilege escalation'];
+      risk.forEach((t,i)=>svgText(svg,210,228+i*22,t,9.5,400,'#94a3b8'));
+      // With mitigation
+      roundRect(svg,420,185,370,180,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,605,208,'With mitigation',11,700,'#27AE60');
+      roundRect(svg,440,220,330,55,'#03050a','#27AE60',6,1);
+      svgText(svg,605,241,'spec:',9.5,400,'#c5e478');
+      svgText(svg,605,257,'  automountServiceAccountToken: false',9,400,'#c5e478');
+      svgText(svg,605,290,'No token = no K8s API access from pod',9.5,700,'#27AE60');
+      svgText(svg,605,308,'Apply to: web servers, batch jobs,',9.5,400,'#94a3b8');
+      svgText(svg,605,326,'anything not calling K8s API directly',9.5,400,'#94a3b8');
+      // Rule
+      roundRect(svg,30,388,760,55,'#0a1a0a','#27AE60',8,1);
+      svgText(svg,410,410,'Best Practice Rule',10,700,'#27AE60');
+      svgText(svg,410,428,'Disable auto-mount by default. Only enable for pods that genuinely call the K8s API.',10,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'The node IAM role problem',
+    section: 'Service Accounts & IRSA',
+    narration: 'Without IRSA: all pods on a node share the node IAM role. Pod A (harmless) and Pod B (needs S3) are on the same node → BOTH get S3 access. This violates least privilege.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'The Node IAM Role Problem — Shared Credentials',12,700,'#E74C3C');
+      // EC2 node
+      roundRect(svg,200,65,420,180,'#1a0a0a','#E74C3C',10,2);
+      svgText(svg,410,90,'EC2 Worker Node',12,700,'#E74C3C');
+      svgText(svg,410,108,'Node IAM Role: arn:...role/NodeRole',9.5,400,'#c5e478');
+      svgText(svg,410,122,'Attached policy: AmazonS3FullAccess',9.5,400,'#E74C3C');
+      // 3 pods on the node
+      const pods = [
+        {x:220, label:'Pod A', detail:'nginx\n(no S3 needed)', c:'#475569'},
+        {x:360, label:'Pod B', detail:'data-sync\n(needs S3)', c:'#F39C12'},
+        {x:500, label:'Pod C', detail:'redis\n(no S3 needed)', c:'#475569'},
+      ];
+      pods.forEach(({x,label,detail,c})=>{
+        roundRect(svg,x,138,110,92,c.replace('#','#0a')+'18',c,6,1.5);
+        svgText(svg,x+55,162,label,11,700,c);
+        detail.split('\n').forEach((l,i)=>svgText(svg,x+55,178+i*18,l,8.5,400,'#94a3b8'));
+      });
+      // All get S3 access
+      const arrows_y = 235;
+      [275,415,555].forEach(x=>arrowV(svg,x,arrows_y,x,285,'#E74C3C'));
+      roundRect(svg,130,285,560,60,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,410,311,'ALL 3 pods can call AWS S3!',13,700,'#E74C3C');
+      svgText(svg,410,327,'Even though only Pod B should have access.',10,400,'#94a3b8');
+      // Explanation
+      roundRect(svg,30,368,760,90,'#0a1020','#F39C12',8,1);
+      svgText(svg,410,390,'Why this happens:',10,700,'#F39C12');
+      svgText(svg,410,410,'Pods on a node share the node IAM role via the instance metadata service (IMDS).',9.5,400,'#94a3b8');
+      svgText(svg,410,428,'curl http://169.254.169.254/latest/meta-data/iam/security-credentials/',9,400,'#c5e478');
+      svgText(svg,410,446,'Any pod on the node can call this URL and get temporary credentials.',9.5,400,'#E74C3C');
+    }
+  },
+  {
+    title: 'IRSA — IAM Roles for Service Accounts',
+    section: 'Service Accounts & IRSA',
+    narration: 'IRSA gives each pod its OWN IAM role via SA annotation. Three-way trust: OIDC issuer → K8s SA → IAM role. Only the annotated pod gets those AWS permissions.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'IRSA — IAM Roles for Service Accounts',12,700,'#27AE60');
+      // Three-way trust
+      // OIDC
+      roundRect(svg,30,80,220,100,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,140,108,'OIDC Issuer',12,700,'#38bdf8');
+      svgText(svg,140,124,'EKS cluster IdP',9.5,400,'#94a3b8');
+      svgText(svg,140,140,'Signed JWT token',9.5,400,'#94a3b8');
+      // K8s SA
+      roundRect(svg,300,80,220,100,'#1a0a2a','#818cf8',8,1.5);
+      svgText(svg,410,108,'K8s ServiceAccount',12,700,'#818cf8');
+      svgText(svg,410,124,'name: my-s3-sa',9.5,400,'#c5e478');
+      svgText(svg,410,140,'eks.amazonaws.com/role-arn: ...',9,400,'#c5e478');
+      // IAM Role
+      roundRect(svg,570,80,220,100,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,680,108,'IAM Role',12,700,'#F39C12');
+      svgText(svg,680,124,'Trust policy: OIDC',9.5,400,'#94a3b8');
+      svgText(svg,680,140,'Policy: S3 read only',9.5,400,'#94a3b8');
+      // Trust arrows
+      arrowH(svg,252,130,298,130,'#38bdf8');
+      svgText(svg,275,122,'trusts',8,400,'#38bdf8');
+      arrowH(svg,522,130,568,130,'#818cf8');
+      svgText(svg,545,122,'bound to',8,400,'#818cf8');
+      // Annotation key
+      roundRect(svg,30,210,760,80,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,232,'The magic annotation on the ServiceAccount:',10,700,'#27AE60');
+      svgText(svg,410,252,'eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/my-s3-role',10,400,'#c5e478');
+      svgText(svg,410,270,'This single annotation triggers IRSA. K8s injects AWS credentials into the pod.',9,400,'#94a3b8');
+      // Comparison: before vs after
+      roundRect(svg,30,315,365,180,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,215,338,'Without IRSA',11,700,'#E74C3C');
+      ['All pods on node → shared node role','Pod A, B, C: all can call S3','Violates least privilege','One compromise = all AWS access exposed'].forEach((t,i)=>svgText(svg,215,360+i*26,t,9.5,400,'#94a3b8'));
+      roundRect(svg,425,315,365,180,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,607,338,'With IRSA',11,700,'#27AE60');
+      ['Each pod gets its own IAM role','Pod B: S3 role only','Pod A, C: no AWS permissions','Per-pod, per-namespace scope'].forEach((t,i)=>svgText(svg,607,360+i*26,t,9.5,400,'#94a3b8'));
+    }
+  },
+  {
+    title: 'IRSA trust policy — the exact condition',
+    section: 'Service Accounts & IRSA',
+    narration: 'IAM trust policy uses StringEquals condition on the OIDC sub claim. Format: system:serviceaccount:NAMESPACE:SA_NAME. This ties the IAM role to EXACTLY one SA in EXACTLY one namespace.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'IRSA — IAM Trust Policy Deep Dive',12,700,'#F39C12');
+      // Full trust policy YAML
+      roundRect(svg,30,50,500,340,'#03050a','#F39C12',8,1.5);
+      svgText(svg,265,74,'IAM Trust Policy JSON',11,700,'#F39C12');
+      const lines = [
+        '{',
+        '  "Version": "2012-10-17",',
+        '  "Statement": [{',
+        '    "Effect": "Allow",',
+        '    "Principal": {',
+        '      "Federated": "arn:aws:iam::123456789:',
+        '        oidc-provider/oidc.eks.us-east-1.',
+        '        amazonaws.com/id/CLUSTER_ID"',
+        '    },',
+        '    "Action": "sts:AssumeRoleWithWebIdentity",',
+        '    "Condition": {',
+        '      "StringEquals": {',
+        '        "oidc.eks.us-east-1.amazonaws.com/',
+        '         id/CLUSTER_ID:sub":',
+        '          "system:serviceaccount:',
+        '           NAMESPACE:SA_NAME"',
+        '      }',
+        '    }',
+        '  }]',
+        '}',
+      ];
+      lines.forEach((l,i)=>svgText(svg,50,95+i*14,l,8.5,400,'#c5e478',{anchor:'start'}));
+      // Annotations
+      roundRect(svg,550,60,240,60,'#1a0a00','#F39C12',6,1);
+      svgText(svg,670,82,'Federated principal',10,700,'#F39C12');
+      svgText(svg,670,96,'The OIDC provider ARN',8.5,400,'#94a3b8');
+      roundRect(svg,550,136,240,60,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,670,158,'AssumeRoleWithWebIdentity',10,700,'#38bdf8');
+      svgText(svg,670,172,'OIDC-based role assumption',8.5,400,'#94a3b8');
+      roundRect(svg,550,212,240,90,'#0a1a0a','#27AE60',6,1);
+      svgText(svg,670,234,'Condition: StringEquals',10,700,'#27AE60');
+      svgText(svg,670,250,'sub = system:serviceaccount:',8.5,400,'#94a3b8');
+      svgText(svg,670,264,'NAMESPACE:SA_NAME',8.5,700,'#27AE60');
+      svgText(svg,670,280,'ONE namespace + ONE SA!',8.5,700,'#F39C12');
+      // Key insight
+      roundRect(svg,30,410,760,80,'#0a1a0a','#27AE60',8,1);
+      svgText(svg,410,432,'The condition locks this IAM role to exactly one K8s SA in one namespace.',10,700,'#27AE60');
+      svgText(svg,410,450,'system:serviceaccount:production:data-sync',10,400,'#c5e478');
+      svgText(svg,410,468,'Only the "data-sync" SA in "production" namespace can assume this role.',9.5,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'IRSA setup — 4 steps',
+    section: 'Service Accounts & IRSA',
+    narration: 'Four steps: create IAM role with OIDC trust policy, create K8s SA with annotation, deploy pod with serviceAccountName, K8s injects AWS credentials via projected volume.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'IRSA Setup — 4 Steps',12,700,'#27AE60');
+      const steps = [
+        {n:'1',label:'Create IAM Role',detail:'With OIDC trust policy\n(Condition: sub = SA name)\nexctl create iamserviceaccount --name my-sa\n  --namespace prod --cluster mycluster\n  --attach-policy-arn arn:aws:iam::...AmazonS3ReadOnly',c:'#F39C12'},
+        {n:'2',label:'Create K8s ServiceAccount',detail:'With annotation pointing to IAM role:\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  annotations:\n    eks.amazonaws.com/role-arn: arn:...role/my-s3-role',c:'#818cf8'},
+        {n:'3',label:'Deploy Pod with SA',detail:'Reference the SA in pod spec:\nspec:\n  serviceAccountName: my-sa\n  containers:\n  - name: app\n    image: my-app:latest',c:'#38bdf8'},
+        {n:'4',label:'K8s Injects Credentials',detail:'Projected volume auto-added to pod:\n/var/run/secrets/eks.amazonaws.com/serviceaccount/token\nAWS SDK reads this automatically\nNo code changes needed!',c:'#27AE60'},
+      ];
+      steps.forEach(({n,label,detail,c},i)=>{
+        const x = (i%2)*390+30;
+        const y = Math.floor(i/2)*240+65;
+        roundRect(svg,x,y,360,210,c.replace('#','#0a')+'18',c,8,1.5);
+        svg.appendChild(el('circle',{cx:x+30,cy:y+32,r:16,fill:c.replace('#','#0a')+'40',stroke:c,'stroke-width':1.5}));
+        svgText(svg,x+30,y+38,n,12,700,c);
+        svgText(svg,x+185,y+34,label,12,700,c);
+        detail.split('\n').forEach((l,j)=>svgText(svg,x+185,y+58+j*16,l,8.5,j===0?700:400,j===0?'#f1f5f9':'#94a3b8'));
+      });
+    }
+  },
+
+  // ── SECTION: Review ──────────────────────────────────────────
+  {
+    title: 'Knowledge checks',
+    section: 'Review',
+    narration: 'Two knowledge checks. Q1: How does cluster creator get admin — automatic system:masters mapping. Q2: Most restrictive S3 access for a pod — IRSA with a custom minimal inline policy.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Module 09 — Knowledge Checks',12,700,'#94a3b8');
+      // KC1
+      roundRect(svg,30,50,760,130,'#0c1018','#38bdf8',8,1.5);
+      svgText(svg,410,74,'Q1: How does the cluster creator automatically get cluster-admin access?',11,700,'#38bdf8');
+      const kc1 = [
+        {l:'A. They create a ClusterRoleBinding manually', correct:false},
+        {l:'B. EKS auto-maps creator IAM identity to system:masters group', correct:true},
+        {l:'C. They add themselves to aws-auth ConfigMap', correct:false},
+        {l:'D. IAM AdministratorAccess policy grants K8s admin', correct:false},
+      ];
+      kc1.forEach(({l,correct},i)=>{
+        const c = correct ? '#27AE60' : '#475569';
+        svgText(svg,420,98+i*16,`${correct?'✓':' '} ${l}`,9.5,correct?700:400,c);
+      });
+      svgText(svg,410,170,'Answer: B — Creator is auto-mapped to system:masters. No aws-auth entry needed for creator.',10,700,'#27AE60');
+      // KC2
+      roundRect(svg,30,200,760,130,'#0c1018','#818cf8',8,1.5);
+      svgText(svg,410,224,'Q2: Most restrictive way to give a pod S3 read access:',11,700,'#818cf8');
+      const kc2 = [
+        {l:'A. Attach AmazonS3ReadOnlyAccess to the node IAM role', correct:false},
+        {l:'B. Use IRSA with a custom minimal S3 policy on a dedicated SA', correct:true},
+        {l:'C. Set AWS_ACCESS_KEY_ID env var in the pod spec', correct:false},
+        {l:'D. Add S3 policy to the default ServiceAccount', correct:false},
+      ];
+      kc2.forEach(({l,correct},i)=>{
+        const c = correct ? '#27AE60' : '#475569';
+        svgText(svg,420,248+i*16,`${correct?'✓':' '} ${l}`,9.5,correct?700:400,c);
+      });
+      svgText(svg,410,322,'Answer: B — IRSA + minimal policy = pod-specific, bucket-specific, least privilege S3 access.',10,700,'#27AE60');
+      // exam traps
+      roundRect(svg,30,350,760,150,'#0a1020','#E74C3C',8,1);
+      svgText(svg,410,372,'Common Exam Traps',11,700,'#E74C3C');
+      const traps = [
+        '⚠ aws-auth deletion = full lockout — always EDIT, never delete',
+        '⚠ aws-auth maps IAM → K8s identity; RBAC ClusterRoleBinding grants permissions (2 steps!)',
+        '⚠ IRSA requires OIDC provider to be associated first (eksctl utils associate-iam-oidc-provider)',
+        '⚠ automountServiceAccountToken: false on pods that don\'t need K8s API',
+        '⚠ ClusterRole + RoleBinding = scoped to ONE namespace (the trick)',
+      ];
+      traps.forEach((t,i)=>svgText(svg,410,396+i*20,t,9,400,'#f1f5f9'));
+    }
+  },
+  {
+    title: 'Module summary + exam traps',
+    section: 'Review',
+    narration: '4Cs = defense in depth. IAM = AWS API, RBAC = K8s API. aws-auth bridges them. Never delete aws-auth. IRSA = pod-specific IAM role. ClusterRole + RoleBinding = namespace-scoped trick. OIDC required for IRSA.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Module 09 — Key Takeaways',13,700,'#f1f5f9');
+      const pts = [
+        {c:'#38bdf8', title:'4Cs = defense in depth', detail:'Cloud → Cluster → Container → Code. Breach at outer layer compromises inner layers.'},
+        {c:'#F39C12', title:'IAM = AWS API · RBAC = K8s API', detail:'Separate systems, bridged by aws-auth. IAM Policy ≈ Role. IAM Principal ≈ Subject. Attachment ≈ Binding.'},
+        {c:'#818cf8', title:'aws-auth: 2-step grant', detail:'Step 1: add IAM role to aws-auth (auth). Step 2: create ClusterRoleBinding (authz). Miss either = broken.'},
+        {c:'#E74C3C', title:'Never delete aws-auth', detail:'Deletes locks everyone out. Only cluster creator + AWS Console for recovery. Always edit, never delete.'},
+        {c:'#27AE60', title:'IRSA = pod-level IAM role (preferred)', detail:'OIDC trust + SA annotation + projected token. Per-pod, per-namespace IAM scope. Beats node role sharing.'},
+        {c:'#F39C12', title:'ClusterRole + RoleBinding trick', detail:'ClusterRole defines rules once. Regular RoleBinding scopes it to one namespace. Reusable, DRY RBAC.'},
+        {c:'#818cf8', title:'OIDC provider = IRSA prerequisite', detail:'eksctl utils associate-iam-oidc-provider. Without it, IRSA tokens cannot be validated by IAM.'},
+      ];
+      pts.forEach(({c,title,detail},i)=>{
+        roundRect(svg,30,50+i*78,760,66,c.replace('#','#06')+'08',c,8,1.5);
+        svgText(svg,55,74+i*78,title,11,700,c,{anchor:'start'});
+        svgText(svg,55,92+i*78,detail,9.5,400,'#94a3b8',{anchor:'start'});
+      });
+    }
+  },
+];
+
+// ============================================================
+// SVG HELPERS
+// ============================================================
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag,attrs){
+  const e = document.createElementNS(NS,tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function roundRect(svg,x,y,w,h,fill,stroke,rx=8,sw=1.5){
+  svg.appendChild(el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':sw}));
+}
+function svgText(svg,x,y,txt,size=11,weight=400,fill='#f1f5f9',opts={}){
+  const t = el('text',{x,y,'font-size':size,'font-weight':weight,fill,
+    'font-family':'system-ui,sans-serif','text-anchor':opts.anchor||'middle'});
+  t.textContent=txt; svg.appendChild(t); return t;
+}
+function line(svg,x1,y1,x2,y2,stroke='#475569'){
+  svg.appendChild(el('line',{x1,y1,x2,y2,stroke,'stroke-width':1.5}));
+}
+function arrow(svg,x1,y1,x2,y2,color='#38bdf8'){
+  const id='a'+Math.random().toString(36).slice(2);
+  let defs=svg.querySelector('defs');
+  if(!defs){defs=el('defs');svg.insertBefore(defs,svg.firstChild);}
+  const mk=el('marker',{id,markerWidth:7,markerHeight:7,refX:5,refY:3,orient:'auto'});
+  const p=el('polygon',{points:'0 0,7 3,0 6',fill:color}); mk.appendChild(p); defs.appendChild(mk);
+  svg.appendChild(el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,'marker-end':`url(#${id})`}));
+}
+function arrowH(svg,x1,y1,x2,y2,c='#38bdf8'){ arrow(svg,x1,y1,x2-4,y2,c); }
+function arrowV(svg,x1,y1,x2,y2,c='#38bdf8'){ arrow(svg,x1,y1,x2,y2-4,c); }
+
+// ============================================================
+// STATE + RENDER
+// ============================================================
+let current = 0;
+let playing = false;
+let timer = null;
+const TOTAL = STEPS.length;
+const svg = document.getElementById('main-svg');
+
+function go(idx){
+  current = Math.max(0, Math.min(TOTAL-1, idx));
+  render();
+}
+function render(){
+  const s = STEPS[current];
+  document.getElementById('nav-title').textContent = s.title;
+  document.getElementById('nav-narration').textContent = s.narration;
+  document.getElementById('counter').textContent = `${current+1} / ${TOTAL}`;
+  document.getElementById('progress-fill').style.width = `${((current+1)/TOTAL)*100}%`;
+  document.getElementById('btn-prev').disabled = current === 0;
+  document.getElementById('btn-next').disabled = current === TOTAL-1;
+  document.querySelectorAll('.step-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===current);
+    el.classList.toggle('done', i<current);
+  });
+  const activeEl = document.querySelector('.step-item.active');
+  if(activeEl) activeEl.scrollIntoView({block:'nearest',behavior:'smooth'});
+  s.render(svg);
+}
+function togglePlay(){
+  playing=!playing;
+  const btn=document.getElementById('btn-play');
+  btn.textContent = playing ? '⏸ Pause' : '▶ Auto-play';
+  if(playing) tick(); else clearTimeout(timer);
+}
+function tick(){
+  clearTimeout(timer);
+  if(!playing) return;
+  if(current >= TOTAL-1){ playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; return; }
+  timer = setTimeout(()=>{ go(current+1); if(playing) tick(); }, 3500);
+}
+
+// ============================================================
+// STEP LIST
+// ============================================================
+function buildStepList(){
+  const container = document.getElementById('step-list');
+  let lastSection = '';
+  STEPS.forEach((s,i)=>{
+    if(s.section !== lastSection){
+      const h = document.createElement('div');
+      h.style.cssText='font-size:0.68em;color:#475569;text-transform:uppercase;letter-spacing:.08em;padding:8px 10px 2px;';
+      h.textContent = s.section;
+      container.appendChild(h);
+      lastSection = s.section;
+    }
+    const item = document.createElement('div');
+    item.className = 'step-item';
+    item.innerHTML = `<div class="step-num">${i+1}</div><div class="step-label">${s.title}</div>`;
+    item.addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(i); });
+    container.appendChild(item);
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.getElementById('btn-prev').addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current-1); });
+document.getElementById('btn-next').addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current+1); });
+document.getElementById('btn-play').addEventListener('click',togglePlay);
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='l'){ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current+1); }
+  else if(e.key==='ArrowLeft'||e.key==='h'){ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current-1); }
+  else if(e.key===' '){ e.preventDefault(); togglePlay(); }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+buildStepList();
+render();
+</script>
+<script src="../course-flashcards/ask-ai.js" data-module=""></script>
+</body>
+</html>

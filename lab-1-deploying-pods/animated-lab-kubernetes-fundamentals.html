@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Kubernetes Fundamentals — Animated Lab</title>
+</head>
+<body>
+<script>
+window.LAB_CONFIG = {
+  badge: 'MODULE 01', icon: '📦', title: 'Kubernetes Fundamentals',
+  subtitle: '22-step walkthrough · containers · pods · services · control plane · scheduling · kubectl · workloads',
+  color1: 'rgba(74,144,226,.85)', color2: 'rgba(39,174,96,.85)',
+  railLinks: [
+    {href:'index.html',icon:'🏠',title:'Dashboard'},
+    {href:'animated-lab.html',icon:'📚',title:'K8s Core Concepts',active:true},
+    {href:'animated-lab-eks-fundamentals.html',icon:'🔶',title:'EKS Fundamentals'},
+    {href:'../course-flashcards/module-01/index.html',icon:'🃏',title:'Flashcards'},
+  ],
+  bottomLinks:[
+    {href:'../course-flashcards/module-01/index.html',label:'🃏 Module 01 Flashcards'},
+    {href:'animated-lab-eks-fundamentals.html',label:'🔶 EKS Fundamentals'},
+    {href:'../course-flashcards/index.html',label:'📖 All Modules'},
+  ]
+};
+
+window.LAB_STEPS = [
+  // ── CONTAINERS ──────────────────────────────────────────────────
+  { section:'Containers', title:'Why containers? 5 properties',
+    narration:'Containers are portable, cloud deployable, scalable, continuously deployable, and declarative. These 5 properties make them ideal for modern cloud applications.',
+    render(s){clearSVG(s);
+      tx(s,410,30,'5 Container Properties',13,700,'#4A90E2');
+      const ps=[['Portable','Runs on any OS with container runtime'],['Cloud deployable','EC2 · Lambda · ECS · EKS · App Runner'],['Scalable','Add/remove replicas without rebuilding'],['Continuously deployable','Same image in dev, staging, prod'],['Declarative','Describe result, not steps']];
+      ps.forEach(([h,d],i)=>{rr(s,60,50+i*100,700,80,'#0a1a2a','#4A90E2',8,1.5);tx(s,410,80+i*100,h,13,700,'#4A90E2');tx(s,410,98+i*100,d,10,400,'#94a3b8');});
+    }
+  },
+  { section:'Containers', title:'Monolith vs Microservices',
+    narration:'A monolith bundles everything into one deployable. Microservices split the app into independent services — each deployable and scalable on its own. Containers are the perfect unit for microservices.',
+    render(s){clearSVG(s);
+      tx(s,210,30,'Monolith',13,700,'#E74C3C');rr(s,60,50,300,320,'#1a0505','#E74C3C',10,2);
+      ['UI Layer','Business Logic','Order Service','User Service','Database Layer'].forEach((l,i)=>{ rr(s,80,70+i*56,260,44,'#2a0808','#E74C3C',6,1);tx(s,210,95+i*56,l,10,700,'#f1f5f9');});
+      tx(s,600,30,'Microservices',13,700,'#27AE60');
+      [['API Gateway','edge'],['Auth Svc','auth'],['Orders Svc','orders'],['Products Svc','products'],['Notify Svc','notify']].forEach(([l,_],i)=>{rr(s,460,50+i*56,280,44,'#0a1a0a','#27AE60',6,1);tx(s,600,75+i*56,l,10,700,'#86efac');});
+      rr(s,160,400,200,40,'#0a1020','#4A90E2',6,1);tx(s,260,424,'Containers enable this →',9,700,'#4A90E2');
+    }
+  },
+  { section:'Containers', title:'Container orchestration — the scale problem',
+    narration:'1 container on 1 host is easy. 1000 containers on 100 hosts requires automation for scheduling, networking, health, scaling, and recovery. That is what Kubernetes provides.',
+    render(s){clearSVG(s);
+      tx(s,180,30,'1 Host (easy)',12,700,'#27AE60');rr(s,60,50,240,120,'#0a1a0a','#27AE60',8,1.5);
+      [0,1,2].forEach(i=>{rr(s,80+i*70,70,56,80,'#1a3a1a','#27AE60',4,1);tx(s,108+i*70,115,'📦',13,400,'#f1f5f9');});
+      tx(s,600,30,'100 Hosts (needs orchestration)',12,700,'#E74C3C');
+      rr(s,420,50,360,420,'#1a0505','#E74C3C',8,1.5);
+      for(let r=0;r<6;r++)for(let c=0;c<5;c++){rr(s,432+c*64,62+r*62,52,50,'#2a0808','#E74C3C',3,1);tx(s,458+c*64,90+r*62,'?',10,700,'#E74C3C');}
+      rr(s,300,320,160,50,'#0a1020','#4A90E2',8,1.5);tx(s,380,340,'Kubernetes',12,700,'#4A90E2');tx(s,380,358,'solves this',10,400,'#94a3b8');
+    }
+  },
+  // ── PODS & SERVICES ─────────────────────────────────────────────
+  { section:'Pods & Services', title:'What is a Pod?',
+    narration:'A Pod is the smallest deployable unit in Kubernetes. One or more containers share the same network namespace and can share volumes. Every Pod gets a unique IP.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'Pod — smallest deployable unit',13,700,'#4A90E2');
+      rr(s,100,50,620,300,'#0a1020','#4A90E2',12,2);tx(s,410,78,'Pod  (ip: 10.0.1.42)',12,700,'#4A90E2');
+      rr(s,130,100,250,180,'#0c2a0a','#27AE60',8,1.5);tx(s,255,130,'Container A',11,700,'#27AE60');tx(s,255,148,'nginx:1.25',9,400,'#94a3b8');tx(s,255,166,'port: 80',9,400,'#64748b');
+      rr(s,440,100,250,180,'#0c2a0a','#27AE60',8,1.5);tx(s,565,130,'Container B',11,700,'#27AE60');tx(s,565,148,'logging-agent',9,400,'#94a3b8');tx(s,565,166,'shares /logs volume',9,400,'#64748b');
+      rr(s,130,300,560,40,'#0a1a3a','#4A90E2',6,1);tx(s,410,323,'Shared network namespace · localhost communication · optional shared volumes',9,400,'#94a3b8');
+      tx(s,410,380,'YAML: kind: Pod → spec.containers: [{name, image, ports}]',10,700,'#64748b');
+    }
+  },
+  { section:'Pods & Services', title:'Services — stable endpoints for Pods',
+    narration:'Pods are ephemeral — they restart with new IPs. A Service gives a stable ClusterIP and DNS name. kube-proxy uses iptables to route traffic to healthy matching Pods.',
+    render(s){clearSVG(s);
+      rr(s,50,60,200,80,'#0c2a3a','#38bdf8',8,1.5);tx(s,150,92,'Service',12,700,'#38bdf8');tx(s,150,108,'app: backend',9,400,'#94a3b8');tx(s,150,122,'ClusterIP: 10.100.0.26',9,400,'#64748b');
+      arrH(s,252,100,310,'#38bdf8');
+      ['10.0.1.5','10.0.1.6','10.0.1.7'].forEach((ip,i)=>{rr(s,312,50+i*100,220,80,'#0a1a0a','#27AE60',8,1.5);tx(s,422,82+i*100,'Pod — app: backend',10,700,'#27AE60');tx(s,422,98+i*100,ip,9,400,'#94a3b8');});
+      tx(s,410,370,'kube-proxy sets iptables rules to load-balance across matching Pods',10,400,'#94a3b8');
+      tx(s,410,388,'Pod crashes → restarted with new IP → Service still works ✓',10,700,'#27AE60');
+    }
+  },
+  // ── INTERNALS ───────────────────────────────────────────────────
+  { section:'K8s Internals', title:'Cluster anatomy — control plane vs data plane',
+    narration:'The control plane runs Kubernetes itself (API server, etcd, scheduler, controller manager). Worker nodes run your workloads. EKS manages the control plane for you.',
+    render(s){clearSVG(s);
+      rr(s,30,40,360,390,'#0c1018','#4A90E2',10,2);tx(s,210,65,'Control Plane',12,700,'#4A90E2');
+      [['kube-apiserver','Front door — all requests go here'],['etcd','Cluster state store (key-value)'],['kube-scheduler','Assigns pods to nodes'],['kube-controller-manager','Reconciles desired vs actual']].forEach(([n,d],i)=>{rr(s,50,80+i*82,300,68,'#0c2a3a','#4A90E2',6,1);tx(s,200,108+i*82,n,11,700,'#4A90E2');tx(s,200,124+i*82,d,9,400,'#94a3b8');});
+      rr(s,430,40,360,390,'#0a1018','#27AE60',10,2);tx(s,610,65,'Worker Nodes',12,700,'#27AE60');
+      [['kubelet','Runs containers per PodSpec'],['kube-proxy','iptables rules for Services'],['Container runtime','containerd / Docker'],['Your Pods','Application workloads']].forEach(([n,d],i)=>{rr(s,450,80+i*82,320,68,'#0a1a0a','#27AE60',6,1);tx(s,610,108+i*82,n,11,700,'#27AE60');tx(s,610,124+i*82,d,9,400,'#94a3b8');});
+    }
+  },
+  { section:'K8s Internals', title:'Control loop — reconciliation',
+    narration:'Kubernetes controllers watch for drift between desired state (your manifest) and actual state (what is running). When they differ, the controller acts to reconcile them. This loop never stops.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'Kubernetes Control Loop',13,700,'#818cf8');
+      const steps=[{x:260,y:80,l:'Desired State',sub:'Your manifest: replicas: 3',c:'#4A90E2'},{x:560,y:200,l:'Observe',sub:'kubectl get pods → 2 running',c:'#818cf8'},{x:560,y:350,l:'Diff',sub:'want 3, have 2 → need 1 more',c:'#F39C12'},{x:260,y:450,l:'Act',sub:'Create 1 new Pod',c:'#27AE60'},{x:60,y:280,l:'Actual State',sub:'Running pods in cluster',c:'#94a3b8'}];
+      steps.forEach(({x,y,l,sub,c})=>{rr(s,x-100,y-30,200,72,c+'08',c,8,1.5);tx(s,x,y-4,l,12,700,c);tx(s,x,y+14,sub,9,400,'#94a3b8');});
+      arrH(s,162,116,158,'#4A90E2');arrV(s,562,132,198,'#818cf8');arrV(s,562,272,318,'#F39C12');arrH(s,458,366,362,'#27AE60');arrV(s,158,422,312,'#94a3b8');
+      tx(s,410,540,'If desired = actual → no action. If drift detected → reconcile.',10,700,'#27AE60');
+    }
+  },
+  { section:'K8s Internals', title:'kube-scheduler — placing Pods',
+    narration:'The scheduler filters nodes that cannot fit a Pod (predicates), then scores remaining nodes (priorities), and picks the best. Key predicates: resource fit, taints, affinity, volume availability.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'Pod Scheduling — Filter then Score',12,700,'#F39C12');
+      rr(s,30,60,160,80,'#0c2a0a','#27AE60',8,1.5);tx(s,110,92,'Pending Pod',11,700,'#27AE60');tx(s,110,108,'cpu: 1, mem: 512Mi',9,400,'#94a3b8');
+      arrH(s,192,100,230,'#F39C12');
+      tx(s,330,55,'Filter (predicates)',10,700,'#E74C3C');
+      const nodes=[{n:'Node A',cpu:'8 CPU free',ok:true},{n:'Node B',cpu:'0.5 CPU free',ok:false},{n:'Node C',cpu:'4 CPU free',ok:true},{n:'Node D',cpu:'tainted: gpu',ok:false},{n:'Node E',cpu:'2 CPU free',ok:true}];
+      nodes.forEach(({n,cpu,ok},i)=>{const c=ok?'#27AE60':'#E74C3C';rr(s,240,68+i*88,160,72,ok?'#0a1a0a':'#1a0505',c,6,1);tx(s,320,96+i*88,n,10,700,c);tx(s,320,112+i*88,cpu,8,400,'#94a3b8');tx(s,320,126+i*88,ok?'✓ passes':'✗ filtered',8,700,c);});
+      arrH(s,402,130,450,'#27AE60');
+      tx(s,560,55,'Score & pick',10,700,'#27AE60');
+      [[580,90,'Node A','score: 82','#27AE60'],[580,175,'Node C','score: 71','#4A90E2'],[580,260,'Node E','score: 55','#94a3b8']].forEach(([x,y,n,sc,c])=>{rr(s,480,y-20,200,64,c+'08',c,6,1);tx(s,580,y+4,n,11,700,c);tx(s,580,y+20,sc,9,400,'#94a3b8');});
+      arrV(s,580,154,170,'#F39C12');
+      rr(s,480,280,200,50,'#0a2a0a','#27AE60',8,2);tx(s,580,308,'→ Schedule on Node A',10,700,'#27AE60');
+    }
+  },
+  // ── KUBECTL ─────────────────────────────────────────────────────
+  { section:'kubectl', title:'kubectl — 5 essential commands',
+    narration:'kubectl is the primary CLI for Kubernetes. get shows resources, apply creates/updates from manifests, describe shows details, logs streams container output, exec runs commands inside a container.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'kubectl — Essential Commands',13,700,'#94a3b8');
+      [['kubectl get pods -n prod','Lists all Pods in the prod namespace with status'],['kubectl apply -f deploy.yaml','Creates or updates resources from a YAML manifest'],['kubectl describe pod nginx-xyz','Shows events, conditions, and config for a Pod'],['kubectl logs nginx-xyz -f','Streams log output from the container in real time'],['kubectl exec -it nginx-xyz -- bash','Opens an interactive shell inside a running container']].forEach(([cmd,desc],i)=>{rr(s,40,50+i*96,740,82,'#03050a','#27AE60',6,1.5);tx(s,50,70+i*96,'$ '+cmd,10.5,700,'#c5e478','start');tx(s,50,90+i*96,desc,9.5,400,'#94a3b8','start');});
+    }
+  },
+  { section:'kubectl', title:'Namespaces — logical isolation',
+    narration:'Namespaces divide a cluster into virtual sub-clusters. Resources in different namespaces are isolated by default. Use namespaces for: environment separation (dev/staging/prod) or team separation.',
+    render(s){clearSVG(s);
+      rr(s,30,30,760,480,'#0a0f18','#1f2738',12,1.5);tx(s,410,55,'EKS Cluster',12,700,'#94a3b8');
+      [[80,'default','#38bdf8'],[300,'kube-system','#818cf8'],[520,'prod','#27AE60']].forEach(([x,name,c])=>{rr(s,x,70,200,380,c+'08',c,8,1.5);tx(s,x+100,95,name,11,700,c);[1,2].forEach(j=>{rr(s,x+20,110+j*80,160,60,'#0a1020',c,5,1);tx(s,x+100,145+j*80,'Pod',10,700,c);});});
+      tx(s,410,495,'kubectl create namespace my-ns   |   kubectl config set-context --current --namespace=prod',9,400,'#475569');
+    }
+  },
+  { section:'kubectl', title:'kubectl apply workflow — end to end',
+    narration:'kubectl apply sends the manifest to the API server. The API server validates and persists it to etcd. The controller creates a ReplicaSet. The scheduler places Pods. kubelet starts containers.',
+    render(s){clearSVG(s);
+      tx(s,410,20,'kubectl apply -f deploy.yaml → running Pod',12,700,'#27AE60');
+      const steps=[{x:60,l:'kubectl',sub:'sends YAML',c:'#38bdf8'},{x:215,l:'API Server',sub:'validates + stores',c:'#818cf8'},{x:370,l:'etcd',sub:'persists state',c:'#F39C12'},{x:520,l:'Controller',sub:'creates ReplicaSet',c:'#27AE60'},{x:660,l:'Scheduler',sub:'picks node',c:'#94a3b8'}];
+      steps.forEach(({x,l,sub,c},i)=>{rr(s,x,50,130,80,c+'08',c,8,1.5);tx(s,x+65,84,l,11,700,c);tx(s,x+65,100,sub,8.5,400,'#94a3b8');if(i<steps.length-1)arrH(s,x+132,90,x+213,c);});
+      arrV(s,725,132,165,'#94a3b8');
+      rr(s,500,170,200,80,'#0a1a0a','#27AE60',8,1.5);tx(s,600,200,'kubelet',11,700,'#27AE60');tx(s,600,216,'starts container',9,400,'#94a3b8');
+      arrV(s,600,252,285,'#27AE60');
+      rr(s,480,290,240,80,'#0a2a0a','#27AE60',10,2);tx(s,600,322,'Pod: Running ✓',13,700,'#27AE60');tx(s,600,340,'app is live',9,400,'#94a3b8');
+    }
+  },
+  // ── K8S OBJECTS ──────────────────────────────────────────────────
+  { section:'K8s Objects', title:'ConfigMaps and Secrets',
+    narration:'ConfigMap stores non-sensitive config (feature flags, database URLs, config files). Secret stores sensitive data (passwords, tokens, keys) — base64 encoded in etcd. Both are injectable as env vars or volume mounts.',
+    render(s){clearSVG(s);
+      tx(s,230,25,'ConfigMap',13,700,'#38bdf8');rr(s,30,45,400,200,'#0c2a3a','#38bdf8',10,1.5);
+      tx(s,230,70,'Non-sensitive configuration',10,400,'#94a3b8');
+      [['DB_HOST','postgres.prod.svc.cluster.local'],['LOG_LEVEL','info'],['FEATURE_X','enabled']].forEach(([k,v],i)=>{rr(s,50,90+i*44,360,36,'#0a1a2a','#38bdf8',4,1);tx(s,240,111+i*44,`${k} = ${v}`,9.5,400,'#f1f5f9');});
+      tx(s,600,25,'Secret',13,700,'#E74C3C');rr(s,450,45,340,200,'#2a0505','#E74C3C',10,1.5);
+      tx(s,620,70,'Sensitive data — base64 encoded',10,400,'#94a3b8');
+      [['DB_PASSWORD','cEBzc3cwcmQ= (p@ssw0rd)'],['API_KEY','c2VjcmV0a2V5'],['TLS_CERT','LS0tLS1CRU...']].forEach(([k,v],i)=>{rr(s,470,90+i*44,300,36,'#1a0505','#E74C3C',4,1);tx(s,620,111+i*44,`${k}`,9.5,700,'#E74C3C');});
+      rr(s,200,280,420,90,'#0a1020','#27AE60',8,1.5);tx(s,410,305,'Pod consumes both:',10,700,'#27AE60');
+      tx(s,410,322,'env.valueFrom.configMapKeyRef  OR  envFrom.configMapRef',9,400,'#94a3b8');
+      tx(s,410,338,'env.valueFrom.secretKeyRef     OR  volumes.secret',9,400,'#94a3b8');
+    }
+  },
+  { section:'K8s Objects', title:'Deployments and rolling updates',
+    narration:'A Deployment manages ReplicaSets and enables rolling updates. When you update the image, it creates a new ReplicaSet and gradually shifts pods from old to new — zero downtime.',
+    render(s){clearSVG(s);
+      tx(s,410,20,'Rolling Update: webapp v1 → v2',12,700,'#4A90E2');
+      const stages=[{label:'Before',rs1:3,rs2:0},{label:'Step 1',rs1:2,rs2:1},{label:'Step 2',rs1:1,rs2:2},{label:'Done',rs1:0,rs2:3}];
+      stages.forEach(({label,rs1,rs2},si)=>{
+        const bx=60+si*185;
+        tx(s,bx+80,50,label,10,700,'#94a3b8');
+        if(rs1>0){rr(s,bx,65,160,30+rs1*44,'#1a0a0a','#E74C3C',6,1);tx(s,bx+80,82,'RS-v1 (old)',9,700,'#E74C3C');for(let p=0;p<rs1;p++){rr(s,bx+20,95+p*40,120,32,'#2a0808','#E74C3C',4,1);tx(s,bx+80,114+p*40,'pod v1',8.5,400,'#fca5a5');}}
+        if(rs2>0){const oy=70+rs1*44+(rs1>0?20:0);rr(s,bx,oy,160,30+rs2*44,'#0a1a0a','#27AE60',6,1);tx(s,bx+80,oy+17,'RS-v2 (new)',9,700,'#27AE60');for(let p=0;p<rs2;p++){rr(s,bx+20,oy+30+p*40,120,32,'#0a2a0a','#27AE60',4,1);tx(s,bx+80,oy+49+p*40,'pod v2',8.5,400,'#86efac');}}
+        if(si<3)arrH(s,bx+162,200,bx+183,'#4A90E2');
+      });
+      tx(s,410,490,'kubectl rollout undo deployment webapp  →  instant rollback to previous version',10,700,'#F39C12');
+    }
+  },
+  { section:'K8s Objects', title:'DaemonSet — one Pod per node',
+    narration:'A DaemonSet ensures exactly one Pod runs on every node. Used for node-level agents: Fluent Bit (log collection), node-exporter (metrics), aws-node (VPC CNI). Not supported on Fargate.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'DaemonSet — agent on every node',13,700,'#818cf8');
+      [['Node 1','us-east-1a',120],['Node 2','us-east-1b',360],['Node 3','us-east-1c',600]].forEach(([n,az,x])=>{rr(s,x-100,50,200,300,'#0a1020','#27AE60',10,1.5);tx(s,x,75,n,11,700,'#27AE60');tx(s,x,91,az,8.5,400,'#64748b');rr(s,x-80,110,160,60,'#1a0a2a','#818cf8',6,1);tx(s,x,134,'DaemonSet Pod',9,700,'#818cf8');tx(s,x,150,'fluent-bit',8.5,400,'#94a3b8');rr(s,x-80,185,160,44,'#0a1a0a','#27AE60',4,1);tx(s,x,210,'App Pod',9,400,'#86efac');rr(s,x-80,240,160,44,'#0a1a0a','#27AE60',4,1);tx(s,x,265,'App Pod',9,400,'#86efac');});
+      rr(s,160,390,500,50,'#1a0505','#E74C3C',8,1.5);tx(s,410,412,'⚠ DaemonSets are NOT supported on AWS Fargate',11,700,'#E74C3C');tx(s,410,428,'Use node groups if you need DaemonSets',9,400,'#94a3b8');
+    }
+  },
+  { section:'K8s Objects', title:'StatefulSet — stable identity pods',
+    narration:'StatefulSets give each Pod a persistent, ordered identity (mysql-0, mysql-1). They start in order and terminate in reverse order. Each Pod gets its own PersistentVolumeClaim that survives restarts.',
+    render(s){clearSVG(s);
+      tx(s,220,25,'Deployment',12,700,'#38bdf8');rr(s,30,45,380,380,'#0c1a2a','#38bdf8',10,1.5);tx(s,220,68,'Interchangeable pods, any can replace any',9,400,'#94a3b8');
+      ['pod-7f9d2','pod-3k8m1','pod-2p5x6'].forEach((n,i)=>{rr(s,60,85+i*88,320,72,'#0a1a2a','#38bdf8',6,1);tx(s,220,116+i*88,n,10,700,'#38bdf8');tx(s,220,132+i*88,'random hash name',8.5,400,'#64748b');});
+      tx(s,600,25,'StatefulSet',12,700,'#818cf8');rr(s,440,45,340,380,'#0a1020','#818cf8',10,1.5);tx(s,610,68,'Stable ordered names + persistent storage',9,400,'#94a3b8');
+      ['mysql-0','mysql-1','mysql-2'].forEach((n,i)=>{rr(s,460,85+i*88,300,72,'#0a0a1a','#818cf8',6,1);tx(s,610,116+i*88,n,10,700,'#818cf8');tx(s,610,132+i*88,'PVC: data-'+n,8.5,400,'#94a3b8');});
+    }
+  },
+  // ── KNOWLEDGE CHECKS ────────────────────────────────────────────
+  { section:'Knowledge Checks', title:'KC1 & KC2 — official course answers',
+    narration:'KC1: basic unit of scaling and resiliency = Pod (answer B). KC2: a Kubernetes Service is a stable endpoint that routes traffic to matching Pods (answer A).',
+    render(s){clearSVG(s);
+      rr(s,30,30,760,210,'#0c1018','#38bdf8',10,1.5);tx(s,410,58,'KC1: What is the basic unit of scaling resiliency in Kubernetes?',11,700,'#38bdf8');
+      [['A. Deployment','Manages ReplicaSets','#475569',''],['B. Pod','Single or multi-container unit — CORRECT ✓','#27AE60','✓'],['C. Service','Network endpoint, not scaling unit','#475569',''],['D. Namespace','Logical isolation, not scaling unit','#475569','']].forEach(([l,d,c,m],i)=>{rr(s,50,78+i*36,700,30,c+'08',c,4,1);tx(s,60,97+i*36,l,10,700,c,'start');tx(s,230,97+i*36,d,9.5,400,'#94a3b8','start');tx(s,720,97+i*36,m,11,700,c);});
+      rr(s,30,260,760,200,'#0c1018','#818cf8',10,1.5);tx(s,410,288,'KC2: What is a Kubernetes Service?',11,700,'#818cf8');
+      [['A. Stable endpoint routing to matching pods — CORRECT ✓','#27AE60'],['B. A running container','#475569'],['C. A configuration file','#475569'],['D. A network namespace','#475569']].forEach(([l,c],i)=>{rr(s,50,308+i*32,700,26,c+'08',c,4,1);tx(s,60,326+i*32,l,9.5,i===0?700:400,c,'start');});
+    }
+  },
+  { section:'Summary', title:'Module 01 — key takeaways',
+    narration:'Containers → Pods → Services → Control Plane → Scheduling → kubectl → Objects. Every piece builds on the one before it. EKS manages the control plane so you can focus on the application layer.',
+    render(s){clearSVG(s);
+      tx(s,410,25,'Module 01 — Kubernetes Fundamentals: Summary',13,700,'#f1f5f9');
+      [['📦 Containers','Portable, scalable, declarative units. Ideal for microservices.','#4A90E2'],['🫛 Pods','Smallest deployable unit. Share network + optional volumes. Unique IP.','#27AE60'],['🔗 Services','Stable ClusterIP + DNS. kube-proxy routes to healthy Pods via labels.','#38bdf8'],['⚙️ Control Plane','API server · etcd · scheduler · controller manager. EKS manages this.','#818cf8'],['📋 Scheduling','Filter (predicates) then score (priorities). Resource fit, taints, affinity.','#F39C12'],['🔧 kubectl','get · apply · describe · logs · exec. Your primary interface.','#94a3b8'],['📁 Objects','Deployment + RS (rolling updates), DaemonSet (per-node), StatefulSet (ordered).','#ED7100']].forEach(([icon,desc,c],i)=>{rr(s,40,45+i*68,740,58,c+'08',c,6,1.5);tx(s,60,72+i*68,icon,11,700,c,'start');tx(s,240,72+i*68,desc,10,400,'#94a3b8','start');});
+    }
+  },
+];
+</script>
+<script src="animated-lab-engine.js"></script>
+<script src="../course-flashcards/ask-ai.js" data-module=""></script>
+</body>
+</html>
