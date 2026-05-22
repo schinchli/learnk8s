@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards and explainers covering every module of the AWS Running Containers on Amazon EKS course.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../lab-1-deploying-pods/learn-visually.html" class="rail-link" title="Visual Reference">📘</a>
+  <a href="index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <h1>🃏 EKS Course Flashcards</h1>
+  <p>Every concept from the AWS <em>Running Containers on Amazon EKS</em> course — animated explainers + spaced-repetition cards.</p>
+</header>
+
+<main>
+  <div class="module-cards">
+    <a class="module-card" href="module-01/index.html">
+      <div class="num">MODULE 01</div>
+      <h3>Kubernetes Fundamentals</h3>
+      <p>Containers, orchestration, Pods, Services, control plane, data plane, scheduling, kubectl, namespaces, workloads, CRDs.</p>
+      <div class="meta">
+        <span class="badge ready">Ready</span>
+        <span class="badge">~50 cards</span>
+        <span class="badge">6 animations</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 02</div>
+      <h3>Amazon EKS Fundamentals</h3>
+      <p>What EKS gives you on top of upstream Kubernetes, control-plane management, EKS pricing model, cluster lifecycle.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 03</div>
+      <h3>Building &amp; Maintaining an EKS Cluster</h3>
+      <p>Provisioning clusters, eksctl, node groups vs Fargate, upgrades, add-ons.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 04</div>
+      <h3>Deploying Applications to EKS</h3>
+      <p>Manifests, Helm, application packaging, ECR, deployment strategies.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 05</div>
+      <h3>Managing Applications at Scale</h3>
+      <p>HPA, VPA, Cluster Autoscaler, Karpenter, scheduling at scale.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 06</div>
+      <h3>Managing Networking in EKS</h3>
+      <p>VPC CNI, Services, Ingress, ALB / NLB controllers, network policies.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 07</div>
+      <h3>Configuring Observability</h3>
+      <p>CloudWatch Container Insights, Fluent Bit, Prometheus, traces, logs, metrics.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 08</div>
+      <h3>Managing Storage in EKS</h3>
+      <p>CSI drivers, EBS, EFS, FSx, PV / PVC, storage classes, StatefulSets.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 09</div>
+      <h3>Managing Security in EKS</h3>
+      <p>IAM, IRSA, Pod Identity, RBAC, secrets, network policy, image scanning.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+    <a class="module-card disabled">
+      <div class="num">MODULE 10</div>
+      <h3>Course Wrap-up</h3>
+      <p>Module recap, certification path, references and further reading.</p>
+      <div class="meta">
+        <span class="badge soon">Coming soon</span>
+      </div>
+    </a>
+  </div>
+</main>
+
+<script>
+// Keyboard nav shortcut: '0' returns to lab dashboard
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === '0') location.href = '../lab-1-deploying-pods/index.html';
+});
+</script>
+</body>
+</html>

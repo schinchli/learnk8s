@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 01 — Kubernetes Fundamentals · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 01 of the AWS Running Containers on Amazon EKS course: containers, orchestration, Pods, control plane, scheduling, kubectl, objects.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/learn-visually.html" class="rail-link" title="Visual Reference">📘</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 01
+  </div>
+  <h1>📦 Module 01 — Kubernetes Fundamentals</h1>
+  <p>Containers · orchestration · Pods · control plane · data plane · scheduling · kubectl · Kubernetes objects · workloads.</p>
+</header>
+
+<main>
+
+  <!-- ============ TOC ============ -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Container benefits</a></li>
+      <li><a href="#topic-2">Microservices &amp; orchestration</a></li>
+      <li><a href="#topic-3">Pods &amp; Services</a></li>
+      <li><a href="#topic-4">Cluster anatomy</a></li>
+      <li><a href="#topic-5">Pod scheduling</a></li>
+      <li><a href="#topic-6">kubectl</a></li>
+      <li><a href="#topic-7">Kubernetes objects</a></li>
+      <li><a href="#topic-8">Workloads</a></li>
+      <li><a href="#topic-9">Knowledge check</a></li>
+    </ol>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 1 — Container benefits                            -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Container benefits</h2>
+    <p class="lede">
+      Before EKS, before Kubernetes, before orchestration — there are containers. The course frames their value through five Twelve-Factor-style properties: <strong>portable</strong>, <strong>cloud deployable</strong>, <strong>scalable</strong>, <strong>continuously deployable</strong>, and <strong>declarative</strong>. Each property is what makes containers a good substrate for microservices.
+    </p>
+
+    <!-- Animation: scale out / scale in -->
+    <div class="anim-player" data-anim-id="scale">
+      <div class="anim-title">Animation · Scale out and scale in</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-scale" viewBox="0 0 640 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 28px;">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does it mean that containers are <em>portable</em>?</div>
+          <div class="footer"><span class="tag">portability</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Containers run on <strong>any OS</strong> that supports the containerization platform. You can also run <strong>multiple versions</strong> of the same app, each with its own dependencies, side-by-side. Analogy: shipping containers ride on trucks, trains and ships unchanged.</div>
+          <div class="footer"><span class="tag">Twelve-Factor</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What makes containers <em>cloud deployable</em>?</div>
+          <div class="footer"><span class="tag">cloud</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Containers are lightweight and self-contained, so they fit naturally into managed cloud platforms. On AWS that means <code>Amazon EC2</code>, <code>AWS Lambda</code>, <code>Amazon ECS</code>, <code>Amazon EKS</code>, and <code>AWS App Runner</code> — each runs containerized apps with a different operational model.</div>
+          <div class="footer"><span class="tag">AWS services</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <em>scalable</em> mean for containers?</div>
+          <div class="footer"><span class="tag">scale</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Because containers are small and start fast, you can <strong>scale out</strong> by adding more copies and <strong>scale in</strong> by removing them — without changing your build tools, architecture, or development workflow. Scaling is just "add another instance," not "rebuild the app."</div>
+          <div class="footer"><span class="tag">elasticity</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why are containers good for <em>continuous deployment</em>?</div>
+          <div class="footer"><span class="tag">CD</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A container image is <strong>identical</strong> in dev, QA, and prod — only the host OS and infrastructure change. That minimises divergence between environments and integrates cleanly with automated <code>build → test → deploy</code> pipelines.</div>
+          <div class="footer"><span class="tag">CI/CD</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <em>declarative format</em>?</div>
+          <div class="footer"><span class="tag">declarative</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">You describe <strong>the result you want</strong>, not the steps to produce it. Drawing a rectangle imperatively means <code>drawLine</code>×4; declaratively it's <code>{ shape: "rect", w: 300, h: 100 }</code>. Kubernetes manifests are declarative — you say "I want 4 replicas" and let the controller reconcile.</div>
+          <div class="footer"><span class="tag">contrast</span></div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 2 — Microservices & orchestration                 -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> Microservices &amp; container orchestration</h2>
+    <p class="lede">
+      The five properties above make containers a natural fit for microservices: each service ships independently, scales independently, and uses only what it needs. But once you have tens or hundreds of containers across many hosts, you need <strong>orchestration</strong> — automated scheduling, networking, scaling, health, and recovery.
+    </p>
+
+    <div class="cards">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Monolith vs microservices — what's the structural difference?</div>
+          <div class="footer"><span class="tag">architecture</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>monolith</strong> is one program that does everything: UI, business logic, data. Each app duplicates shared concerns (order history, mailing). A <strong>microservice</strong> architecture splits the app into many small, independently-deployable services — e.g., one ordering service, one reporting service — each owning its own concerns.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why are containers a good fit for microservices?</div>
+          <div class="footer"><span class="tag">fit</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Microservices need to be <strong>independently deployable</strong>, <strong>independently scalable</strong>, and <strong>portable</strong> across environments. Those are exactly the properties containers give you out of the box.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">When do containers stop being simple to manage?</div>
+          <div class="footer"><span class="tag">scale problem</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Running 1–2 containers on one host is trivial. Once you move to <strong>dozens of hosts and hundreds of containers</strong> — let alone production with thousands — you can no longer place, monitor, or restart them manually. That's the problem orchestration solves.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does a container orchestration tool automate?</div>
+          <div class="footer"><span class="tag">orchestration</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Scheduling &amp; placement · cloud integration · networking · load balancing · storage · security · monitoring · logging. You declare desired state; the orchestrator makes the cluster match it.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does Kubernetes add on top of containers?</div>
+          <div class="footer"><span class="tag">kubernetes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">All the orchestration concerns — scheduling, scaling, load balancing, deployments — plus a <strong>strong community</strong> and a declarative API. Kubernetes is the substrate; EKS is the AWS-managed flavour.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 3 — Pods & Services                               -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Pods &amp; Services</h2>
+    <p class="lede">
+      Pods are Kubernetes' smallest deployable unit — a group of one or more containers that share the same IP and storage. Pods are <strong>ephemeral</strong> (their IPs change), so apps don't talk to Pods directly — they talk to <strong>Services</strong>, which give a stable address that routes to whichever Pods are currently alive.
+    </p>
+
+    <!-- Animation: Pods communicate via Service -->
+    <div class="anim-player" data-anim-id="service">
+      <div class="anim-title">Animation · Pods communicate through a Service</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-service" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 28px;">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Pod?</div>
+          <div class="footer"><span class="tag">core</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>group of one or more containers</strong> that share the same network namespace (IP, port space) and can share storage. The smallest deployable unit in Kubernetes — and the basic building block for deployment, scaling and replication.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What's a PodSpec?</div>
+          <div class="footer"><span class="tag">manifest</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The YAML specification that describes <em>how</em> to run the containers in a Pod — image, ports, env, volumes. Stored declaratively and submitted to the API server.</div>
+          <div class="footer"><span class="tag">YAML</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do containers <em>inside</em> the same Pod talk to each other?</div>
+          <div class="footer"><span class="tag">intra-pod</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">They share a network namespace, so they can talk via <code>localhost</code> and shared volumes. They're co-scheduled to the same node and live and die together.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do containers in <em>different</em> Pods talk to each other?</div>
+          <div class="footer"><span class="tag">inter-pod</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Each Pod gets its own cluster IP. Pods <em>can</em> hit each other directly by IP — but those IPs change when Pods restart, so you almost always go through a <strong>Service</strong> instead.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Kubernetes Service?</div>
+          <div class="footer"><span class="tag">service</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>logical collection of Pods</strong> plus a stable way to reach them. The Service has its own IP and port; it's continuously updated with the set of Pod IPs that currently match its selector, so callers never need to track individual Pods.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why can't apps just call Pods by IP?</div>
+          <div class="footer"><span class="tag">why-service</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Pod IPs are <strong>ephemeral</strong>. A Pod crashes → it gets recreated with a new IP. A Service IP is stable and load-balances across whichever Pods currently match its label selector.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What's a node? How does it relate to a Pod?</div>
+          <div class="footer"><span class="tag">node</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>node</strong> is a machine (VM or physical) that runs Pods. A Kubernetes <strong>cluster</strong> is the set of nodes. Pods are always scheduled to exactly one node — containers within a Pod cannot be split across nodes.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do nodes relate to Availability Zones?</div>
+          <div class="footer"><span class="tag">AZ</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">In EKS, nodes live in AWS subnets, which live in specific AZs (e.g., <code>us-east-1a</code>, <code>us-east-1b</code>). Spreading nodes across multiple AZs is how you survive an AZ failure. The scheduler can place Pods AZ-aware via topology spread &amp; affinity rules.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 4 — Cluster anatomy (control plane / data plane)  -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Cluster anatomy — control plane &amp; data plane</h2>
+    <p class="lede">
+      A Kubernetes cluster splits into two roles. The <strong>control plane</strong> makes global decisions (what should run, where, when). The <strong>data plane</strong> actually runs your containers. They talk via the API server, and every controller is a tiny loop comparing <em>current state</em> to <em>desired state</em>.
+    </p>
+
+    <!-- Animation: Control loop -->
+    <div class="anim-player" data-anim-id="controlloop">
+      <div class="anim-title">Animation · The controller control loop</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-controlloop" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <!-- Animation: Control plane <-> Data plane -->
+    <div class="anim-player" data-anim-id="planes" style="margin-top: 24px;">
+      <div class="anim-title">Animation · Control plane &amp; data plane working together</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-planes" viewBox="0 0 720 380" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 28px;">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the <em>control plane</em>?</div>
+          <div class="footer"><span class="tag">control</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The set of components that <strong>manage the cluster</strong>: schedule Pods, detect failures, react to events. Components: <code>API server</code>, <code>etcd</code>, <code>scheduler</code>, <code>controller manager</code>, <code>cloud controller</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the <em>data plane</em>?</div>
+          <div class="footer"><span class="tag">data</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The set of <strong>worker nodes</strong> that actually run your containerized applications. Each node runs a container runtime, <code>kubelet</code>, and <code>kube-proxy</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <em>controller</em>?</div>
+          <div class="footer"><span class="tag">controller</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A loop that compares <strong>desired state</strong> (from your manifests) to <strong>current state</strong> (what's actually running). If they differ, the controller acts to make them match. If they match, it does nothing.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the <em>API server</em> do?</div>
+          <div class="footer"><span class="tag">api-server</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It's the <strong>front door</strong> of the cluster. Everything — kubectl, kubelet, controllers — talks to the API server. It validates and persists cluster state to etcd, and is the only component that reads/writes etcd.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is <em>etcd</em>?</div>
+          <div class="footer"><span class="tag">etcd</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A consistent, distributed <strong>key-value store</strong>. It holds the entire cluster state — every Pod spec, every config, every secret. Lose etcd and you lose the cluster's memory.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the <em>scheduler</em> do?</div>
+          <div class="footer"><span class="tag">scheduler</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When a new Pod is created without a node assignment, the scheduler picks one. It uses <strong>predicates</strong> to filter ineligible nodes and <strong>priorities</strong> to score the survivors. The highest-scoring node wins.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the <em>controller manager</em> do?</div>
+          <div class="footer"><span class="tag">controllers</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It runs <strong>many built-in controllers</strong> in one process — Deployment controller, ReplicaSet controller, Node controller, Endpoint controller, Job controller, and others. Each runs its own control loop.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the <em>cloud controller</em> do?</div>
+          <div class="footer"><span class="tag">cloud</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A controller that integrates with the underlying <strong>cloud provider</strong>: it manages cloud-specific resources like load balancers, routes, and volumes (on AWS: ELB, EBS attachments, route tables) on behalf of the cluster.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the <em>kubelet</em>?</div>
+          <div class="footer"><span class="tag">kubelet</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The primary <strong>node agent</strong>. It watches the API server for Pods assigned to its node, then asks the container runtime to start them. It also reports node and Pod health back to the control plane.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is <em>kube-proxy</em>?</div>
+          <div class="footer"><span class="tag">kube-proxy</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A small per-node process that programs <strong>networking rules</strong> (iptables / IPVS) so that traffic to a Service IP gets routed to one of its backing Pods. Without it, Services wouldn't actually route traffic.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the <em>container runtime</em>?</div>
+          <div class="footer"><span class="tag">runtime</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The software that actually starts, stops, and isolates containers on a node. Kubernetes supports several via the CRI interface; <strong>EKS uses <code>containerd</code></strong> by default since Kubernetes v1.24 (Docker Engine is deprecated).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does the control plane talk to the data plane?</div>
+          <div class="footer"><span class="tag">comms</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Through the API server. The kubelet on each node <strong>watches the API server</strong> for Pods assigned to its node. There is no direct controller→kubelet channel — everything is mediated by the API server, which is the cluster's single source of truth.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 5 — Pod scheduling                                -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Pod scheduling — predicates &amp; priorities</h2>
+    <p class="lede">
+      Scheduling is a two-phase process. <strong>Predicates</strong> are <em>filters</em> that exclude nodes a Pod cannot run on (not enough CPU, wrong AZ, missing volume). <strong>Priorities</strong> are <em>scores</em> that rank the surviving nodes (most free capacity, best topology spread). The highest-scoring node wins.
+    </p>
+
+    <!-- Animation: Scheduling with taints/tolerations -->
+    <div class="anim-player" data-anim-id="schedule">
+      <div class="anim-title">Animation · Taints and tolerations — scheduling repulsion</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-schedule" viewBox="0 0 720 340" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 28px;">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Predicates vs priorities — what's the difference?</div>
+          <div class="footer"><span class="tag">core</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Predicates</strong> are filters: "can this Pod possibly run here?" If no, the node is excluded. <strong>Priorities</strong> are scores: "of the survivors, which is the best home?" Highest score wins.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>requests</code> setting on a container?</div>
+          <div class="footer"><span class="tag">resources</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>minimum guaranteed</strong> CPU and memory a container will get. The scheduler uses requests to pick a node with enough free capacity. Example: <code>cpu: 400m, memory: 600Mi</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>limits</code> setting on a container?</div>
+          <div class="footer"><span class="tag">resources</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>maximum</strong> a container is allowed to use. CPU above the limit is throttled; memory above the limit gets the container <strong>OOMKilled</strong>. Limits are enforced at runtime; requests influence scheduling.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <em>taint</em>?</div>
+          <div class="footer"><span class="tag">taint</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A property of a <strong>node</strong> that <em>repels</em> Pods. Only Pods that explicitly <em>tolerate</em> the taint can be scheduled there. Example taint: <code>spot=true:NoSchedule</code> means "don't schedule unless you tolerate spot instances."</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <em>toleration</em>?</div>
+          <div class="footer"><span class="tag">toleration</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A property of a <strong>Pod</strong> that lets it ignore matching taints. Tolerations <em>don't force</em> placement — they only <em>permit</em> it. Pairs with affinity to actually attract.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is <em>node affinity</em>?</div>
+          <div class="footer"><span class="tag">affinity</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A Pod rule that <strong>attracts</strong> the Pod to nodes matching labels. <code>requiredDuringScheduling…</code> is a hard filter (no match → no schedule). <code>preferredDuringScheduling…</code> is a soft score (boost matching nodes but don't require them).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How is a <em>volume requirement</em> a predicate?</div>
+          <div class="footer"><span class="tag">volumes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An <strong>EBS volume in <code>us-east-1a</code> can't attach to a node in <code>us-east-1b</code></strong>. So the volume binding effectively constrains which nodes are even eligible for the Pod. Similarly, a Pod needing a volume already mounted on node X must go to node X.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">When you combine taints/tolerations with affinity — what do you get?</div>
+          <div class="footer"><span class="tag">combo</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Dedicated nodes.</strong> Taint a node so generic workloads avoid it; add a matching toleration + affinity to specific Pods so only they land there. Classic use: GPU nodes, spot pools, system add-ons.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 6 — kubectl                                       -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> kubectl — the CLI</h2>
+    <p class="lede">
+      <code>kubectl</code> is just an HTTP client for the API server. Every command becomes an HTTP request the API server validates against RBAC. The same tool can talk to <em>any</em> cluster — you select which one via a kubeconfig context.
+    </p>
+
+    <div class="cards">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is <code>kubectl</code>?</div>
+          <div class="footer"><span class="tag">cli</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>command-line interface</strong> for communicating with the Kubernetes API server. It runs on your laptop, your CI agent, anywhere — it just needs network access to a cluster and a kubeconfig.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does <code>kubectl</code> know which cluster to talk to?</div>
+          <div class="footer"><span class="tag">kubeconfig</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Through a <strong>kubeconfig file</strong>, by default at <code>~/.kube/config</code>. Override the path with the <code>KUBECONFIG</code> env var. Within a file, multiple <strong>contexts</strong> let you switch clusters with <code>kubectl config use-context</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <code>kubectl get pods</code> do?</div>
+          <div class="footer"><span class="tag">get</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Lists Pods in the <strong>current namespace</strong> (default: <code>default</code>). Add <code>-n my-ns</code> to target a different namespace, or <code>-A</code> to see Pods across all namespaces.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <code>kubectl apply -f file.yaml</code> do?</div>
+          <div class="footer"><span class="tag">apply</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Sends the manifest to the API server, which creates or <em>updates</em> the matching object to match the file. Idempotent: running it twice is safe; controllers reconcile to the new desired state.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you create a namespace from the CLI?</div>
+          <div class="footer"><span class="tag">ns</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>kubectl create namespace my-ns</code><br>Imperative shortcut. The declarative equivalent is a one-line YAML manifest applied with <code>kubectl apply</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">If you deploy into <code>my-ns</code> but run <code>kubectl get pods</code>, what happens?</div>
+          <div class="footer"><span class="tag">gotcha</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">You'll see "<strong>No resources found in default namespace</strong>" — because <code>get pods</code> defaults to <code>default</code>. Run <code>kubectl get pods -n my-ns</code> instead, or set the context's namespace.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 7 — Kubernetes objects                            -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Kubernetes objects — Namespaces, ConfigMaps, Secrets</h2>
+    <p class="lede">
+      A Kubernetes object is a record of intent in etcd. The cluster works continuously to make reality match those records. The most basic objects beyond Pods are <strong>Namespaces</strong> (logical isolation), <strong>ConfigMaps</strong> (non-secret config), and <strong>Secrets</strong> (sensitive data).
+    </p>
+
+    <div class="cards">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Namespace?</div>
+          <div class="footer"><span class="tag">namespace</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>virtual cluster</strong> inside a physical cluster. Names must be unique <em>within</em> a namespace, but the same name can exist in different namespaces. Combined with RBAC, namespaces give multi-tenant isolation.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">When are Namespaces especially useful?</div>
+          <div class="footer"><span class="tag">use case</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When <strong>multiple teams or projects share a cluster</strong>. Each team gets its own namespace; RBAC controls who can read/write it. Resource quotas can also be applied per namespace.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a ConfigMap?</div>
+          <div class="footer"><span class="tag">configmap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An API object storing <strong>non-confidential configuration</strong> as key-value pairs. Pods mount it as files or read it as env vars. Lets the same container image run in dev and prod with different config.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Secret?</div>
+          <div class="footer"><span class="tag">secret</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Same shape as a ConfigMap but for <strong>sensitive data</strong> (passwords, tokens, keys). Values are stored <strong>base64-encoded</strong> in the <code>data</code> field — note that base64 is encoding, not encryption. At-rest encryption requires enabling etcd encryption.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why separate config from the container image?</div>
+          <div class="footer"><span class="tag">12-factor</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">So the same image runs unchanged from dev to prod. The <strong>image is the artifact</strong>; <strong>ConfigMaps and Secrets are the environment-specific overlay</strong>. This is the Twelve-Factor "config in the environment" principle.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does a Pod consume a ConfigMap?</div>
+          <div class="footer"><span class="tag">how</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Two common ways: (1) mounted as files in a <strong>read-only volume</strong> (each key becomes a file); (2) injected as <strong>environment variables</strong> via <code>envFrom.configMapRef</code>. The Pod's container code reads them like any other file or env var.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Custom Resource (CR)?</div>
+          <div class="footer"><span class="tag">CRD</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A user-defined object type, declared via a <strong>Custom Resource Definition (CRD)</strong>. Extends the Kubernetes API. With a custom controller watching it, you get the same reconcile-loop pattern for your own domain — e.g., a <code>Database</code> CR that provisions RDS.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 8 — Workloads                                     -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Workloads — the higher-level Pod managers</h2>
+    <p class="lede">
+      You rarely create bare Pods. Instead you create a <strong>workload</strong> — Deployment, StatefulSet, DaemonSet, Job, CronJob — and let its controller create and manage Pods for you. Each workload type encodes a different lifecycle pattern.
+    </p>
+
+    <!-- Animation: Deployment rolling update -->
+    <div class="anim-player" data-anim-id="rolling">
+      <div class="anim-title">Animation · Deployment rolling update (Deployment → ReplicaSet → Pods)</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-rolling" viewBox="0 0 720 380" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 28px;">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why use a workload instead of a bare Pod?</div>
+          <div class="footer"><span class="tag">why</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A bare Pod that dies <strong>stays dead</strong>. A workload controller re-creates Pods to match the desired count or schedule. Workloads also add features bare Pods don't have — rolling updates, fixed identity, scheduled execution.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>Job</code>?</div>
+          <div class="footer"><span class="tag">job</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload that runs a Pod <strong>once to completion</strong>. Good for batch tasks (DB migration, one-shot data processing). The Job tracks success/failure and will retry failed Pods up to a limit.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>CronJob</code>?</div>
+          <div class="footer"><span class="tag">cronjob</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload that creates Jobs <strong>on a schedule</strong>, using cron syntax (<code>*/1 * * * *</code> = every minute). It's just a Job factory — each scheduled tick produces a fresh Job which produces a Pod.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>DaemonSet</code>?</div>
+          <div class="footer"><span class="tag">daemonset</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload that runs <strong>one Pod on every node</strong> (or every matching node). Used for node-level agents: log collector (Fluent Bit), metrics agent, CSI node plugin, kube-proxy itself. <strong>Not supported on AWS Fargate</strong> (Fargate has no notion of a shared node).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>ReplicaSet</code>?</div>
+          <div class="footer"><span class="tag">replicaset</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload that keeps a <strong>specific number of Pod replicas</strong> running. If a Pod dies, the ReplicaSet creates a new one. You rarely manage ReplicaSets directly — Deployments do it for you.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>Deployment</code>?</div>
+          <div class="footer"><span class="tag">deployment</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload that <strong>owns and manages ReplicaSets</strong>. You declare a desired state — image version, replica count — and the Deployment controller rolls out changes at a controlled rate. The standard way to run stateless apps.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does a Deployment perform a rolling update?</div>
+          <div class="footer"><span class="tag">rolling</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When you change the Pod template, the Deployment creates a <strong>new ReplicaSet</strong> for the new version. It scales the new RS up and the old RS down in lockstep, respecting <code>maxSurge</code> and <code>maxUnavailable</code> — never both at once. Old RS sticks around for rollback.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a <code>StatefulSet</code>?</div>
+          <div class="footer"><span class="tag">statefulset</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A workload for <strong>stateful</strong> apps. Pods get <strong>stable, ordered identities</strong> (<code>mysql-0</code>, <code>mysql-1</code>, …) and stable PersistentVolume bindings. Pods are created, scaled, and updated in order. Pairs with <strong>PersistentVolumes</strong> for databases, queues, leader-elected systems.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does a Deployment know which Pods it owns?</div>
+          <div class="footer"><span class="tag">labels</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Through the <code>selector</code> field, which matches labels on Pods. The Deployment's <code>template.metadata.labels</code> must match its <code>selector.matchLabels</code> — otherwise the Deployment can't manage the Pods it just created.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Deployment vs StatefulSet — when to pick which?</div>
+          <div class="footer"><span class="tag">choose</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Deployment</strong>: stateless, interchangeable Pods — web frontends, API servers, workers reading from a queue. <strong>StatefulSet</strong>: each Pod has identity that matters — databases, Kafka brokers, Zookeeper ensembles, anything that does leader election or stores local data.</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TOPIC 9 — Knowledge check                               -->
+  <!-- ====================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> Knowledge check</h2>
+    <p class="lede">The two questions the course asks you, in flashcard form.</p>
+
+    <div class="cards">
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the basic unit of scaling and resiliency in Kubernetes?</div>
+          <div class="footer"><span class="tag">Q1</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Pods.</strong> Not containers (those live inside Pods), not Tasks (that's ECS terminology), not ReplicaSets (those manage Pods). Pods are the basic building block for deployment, scaling, and replication.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Kubernetes Service?</div>
+          <div class="footer"><span class="tag">Q2</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>logical collection of Pods plus a means to access them</strong>. The Service is continuously updated with the current Pod IPs, so callers don't need to track individual Pods. (Not scheduling — that's the scheduler's job. Not DaemonSet — that's per-node. Not ReplicaSet — that's replica count.)</div>
+        </div>
+      </div></div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ====================================================== -->
+<!-- Animation step definitions                              -->
+<!-- ====================================================== -->
+<script>
+window.ANIMATIONS = {};
+
+// Shared SVG helpers ------------------------------------------------------
+function svgEl(svg, tag, attrs = {}, parent = null) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  (parent || svg).appendChild(el);
+  return el;
+}
+function clearSvg(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function addArrowhead(svg, id = 'arrowhead', color = '#94a3b8') {
+  const defs = svgEl(svg, 'defs');
+  const marker = svgEl(svg, 'marker', {
+    id, markerWidth: 8, markerHeight: 8,
+    refX: 6, refY: 4, orient: 'auto', markerUnits: 'strokeWidth'
+  }, defs);
+  svgEl(svg, 'path', { d: 'M0,0 L0,8 L8,4 z', fill: color }, marker);
+}
+
+// ============================================================
+// ANIMATION 1 — Scale out / scale in
+// ============================================================
+(function () {
+  function buildContainer(svg, x, y, label, opacity = 1) {
+    const g = svgEl(svg, 'g', {
+      transform: `translate(${x}, ${y})`, opacity,
+      class: 'container-box svg-fade in'
+    });
+    svgEl(svg, 'rect', {
+      x: -38, y: -34, width: 76, height: 68, rx: 8,
+      class: 'box active'
+    }, g);
+    svgEl(svg, 'text', { x: 0, y: 4, class: 'label' }, g).textContent = '📦';
+    svgEl(svg, 'text', { x: 0, y: 22, class: 'label small muted' }, g).textContent = label;
+    return g;
+  }
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+    // baseline: 3 containers
+    const xs = [180, 320, 460];
+    xs.forEach((x, i) => buildContainer(svg, x, 110, `container ${i+1}`));
+    // status text
+    const status = svgEl(svg, 'text', {
+      x: 320, y: 50, class: 'label accent',
+      style: 'font-size: 14px; font-weight: 700;'
+    });
+    status.textContent = '3 containers running';
+    status.setAttribute('id', 'scale-status');
+  }
+  function setStatus(svg, text) {
+    const s = svg.querySelector('#scale-status');
+    if (s) s.textContent = text;
+  }
+  function addContainer(svg, x, label) {
+    buildContainer(svg, x, 110, label);
+  }
+  function removeLastContainer(svg) {
+    const all = svg.querySelectorAll('.container-box');
+    if (all.length) all[all.length - 1].remove();
+  }
+  window.ANIMATIONS.scale = [
+    {
+      narration: 'A small app starts with 3 container instances. Each is identical — same image, same config — running side-by-side.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'Traffic spikes. We scale out by adding another container — no rebuild, no architecture change. Just one more.',
+      apply: (svg) => {
+        addContainer(svg, 600, 'container 4');
+        setStatus(svg, '4 containers running · scaled out');
+      }
+    },
+    {
+      narration: 'Traffic drops back to normal. We scale in by removing one. Containers are cheap to start and stop, so this happens dozens of times a day in real systems.',
+      apply: (svg) => {
+        removeLastContainer(svg);
+        setStatus(svg, '3 containers running · scaled in');
+      }
+    },
+  ];
+})();
+
+// ============================================================
+// ANIMATION 2 — Pods communicate via a Service
+// ============================================================
+(function () {
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+    addArrowhead(svg, 'arrowhead-accent', '#38bdf8');
+
+    // Title
+    svgEl(svg, 'text', { x: 360, y: 24, class: 'label muted', style: 'font-size: 12px;' })
+      .textContent = 'Service decouples callers from ephemeral Pod IPs';
+
+    // Left: 3 webapp Pods
+    const webIPs = ['192.168.0.41', '192.168.0.42', '192.168.0.55'];
+    webIPs.forEach((ip, i) => {
+      const y = 80 + i * 70;
+      const g = svgEl(svg, 'g', { transform: `translate(90, ${y})` });
+      svgEl(svg, 'rect', { x: -50, y: -22, width: 100, height: 44, rx: 8, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: -2, class: 'label' }, g).textContent = 'webapp';
+      svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted' }, g).textContent = ip;
+    });
+
+    // Right: 3 backend Pods
+    const backIPs = ['192.168.64.7', '192.168.64.33', '192.168.64.9'];
+    backIPs.forEach((ip, i) => {
+      const y = 80 + i * 70;
+      const g = svgEl(svg, 'g', { transform: `translate(610, ${y})`, id: `back-pod-${i}` });
+      svgEl(svg, 'rect', { x: -50, y: -22, width: 100, height: 44, rx: 8, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: -2, class: 'label' }, g).textContent = 'backend';
+      svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted' }, g).textContent = ip;
+    });
+
+    // Middle: Service (initially hidden)
+    const svc = svgEl(svg, 'g', { id: 'svc', transform: 'translate(360, 160)', opacity: 0, class: 'svg-fade' });
+    svgEl(svg, 'rect', { x: -75, y: -38, width: 150, height: 76, rx: 12, class: 'box good' }, svc);
+    svgEl(svg, 'text', { x: 0, y: -16, class: 'label good', style: 'font-weight: 800;' }, svc).textContent = 'Service';
+    svgEl(svg, 'text', { x: 0, y: 2, class: 'label small muted' }, svc).textContent = 'app: backend';
+    svgEl(svg, 'text', { x: 0, y: 16, class: 'label small muted' }, svc).textContent = 'ip: 10.100.0.26';
+    svgEl(svg, 'text', { x: 0, y: 30, class: 'label small muted' }, svc).textContent = 'port: 80';
+  }
+  function showService(svg) {
+    svg.querySelector('#svc').setAttribute('opacity', 1);
+  }
+  function drawArrowsToService(svg) {
+    for (let i = 0; i < 3; i++) {
+      const y = 80 + i * 70;
+      svgEl(svg, 'line', {
+        x1: 140, y1: y, x2: 285, y2: 160,
+        class: 'arrow show active'
+      });
+    }
+  }
+  function drawArrowsFromService(svg) {
+    for (let i = 0; i < 3; i++) {
+      const y = 80 + i * 70;
+      svgEl(svg, 'line', {
+        x1: 435, y1: 160, x2: 560, y2: y,
+        class: 'arrow show active'
+      });
+    }
+  }
+  function addNewBackend(svg) {
+    const y = 80 + 3 * 70;
+    const g = svgEl(svg, 'g', { transform: `translate(610, ${y})`, class: 'svg-fade in' });
+    svgEl(svg, 'rect', { x: -50, y: -22, width: 100, height: 44, rx: 8, class: 'box good' }, g);
+    svgEl(svg, 'text', { x: 0, y: -2, class: 'label' }, g).textContent = 'backend';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label small good' }, g).textContent = '192.168.64.42';
+    // Arrow from service to new pod
+    svgEl(svg, 'line', {
+      x1: 435, y1: 160, x2: 560, y2: y,
+      class: 'arrow show good'
+    }, svg).style.stroke = 'var(--good)';
+  }
+  function killBackend(svg) {
+    const pod = svg.querySelector('#back-pod-1');
+    if (pod) {
+      pod.style.transition = 'opacity 0.5s';
+      pod.style.opacity = '0.18';
+      pod.querySelector('rect').setAttribute('class', 'box bad');
+      // 'X' over it
+      svgEl(svg, 'text', {
+        x: 610, y: 154, class: 'label bad', style: 'font-size: 22px; font-weight: 800;'
+      }).textContent = '✕';
+    }
+  }
+  window.ANIMATIONS.service = [
+    {
+      narration: 'Three webapp Pods on the left want to call three backend Pods on the right. Each Pod has its own IP address.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'Calling Pods directly by IP works — until a Pod restarts and gets a new IP. So Kubernetes adds a Service: a stable virtual IP that fronts the backend Pods.',
+      apply: showService
+    },
+    {
+      narration: 'Each webapp Pod talks to the Service IP — never to backend Pod IPs. The Service uses its label selector (app=backend) to know which Pods to forward to.',
+      apply: drawArrowsToService
+    },
+    {
+      narration: 'The Service load-balances each request across the backend Pods that currently match. Any one of them might handle a given call.',
+      apply: drawArrowsFromService
+    },
+    {
+      narration: 'A backend Pod crashes. The Service notices (via its endpoint list) and stops sending traffic to it — webapp callers don\'t need to know.',
+      apply: killBackend
+    },
+    {
+      narration: 'A replacement Pod starts with a new IP. The Service picks it up automatically. The webapp side never changed its target — it still talks to the Service IP.',
+      apply: addNewBackend
+    },
+  ];
+})();
+
+// ============================================================
+// ANIMATION 3 — The controller control loop
+// ============================================================
+(function () {
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+
+    // Desired state box (left)
+    const desired = svgEl(svg, 'g', { transform: 'translate(100, 120)' });
+    svgEl(svg, 'rect', { x: -80, y: -50, width: 160, height: 100, rx: 12, class: 'box good' }, desired);
+    svgEl(svg, 'text', { x: 0, y: -28, class: 'label good', style: 'font-weight: 800;' }, desired).textContent = 'Desired';
+    svgEl(svg, 'text', { x: 0, y: -10, class: 'label small muted' }, desired).textContent = 'from your manifest';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label' }, desired).textContent = 'replicas: 3';
+    svgEl(svg, 'text', { x: 0, y: 30, class: 'label small muted' }, desired).textContent = '"want 3 webapp pods"';
+
+    // Controller (middle)
+    const ctrl = svgEl(svg, 'g', { transform: 'translate(320, 120)', id: 'ctrl' });
+    svgEl(svg, 'circle', { r: 56, class: 'box active pulse' }, ctrl);
+    svgEl(svg, 'text', { x: 0, y: -8, class: 'label', style: 'font-weight: 800;' }, ctrl).textContent = 'Controller';
+    svgEl(svg, 'text', { x: 0, y: 10, class: 'label small muted' }, ctrl).textContent = 'are they';
+    svgEl(svg, 'text', { x: 0, y: 24, class: 'label small muted' }, ctrl).textContent = 'equal?';
+
+    // Current state box (right)
+    const current = svgEl(svg, 'g', { transform: 'translate(540, 120)', id: 'current' });
+    svgEl(svg, 'rect', { x: -80, y: -50, width: 160, height: 100, rx: 12, class: 'box' }, current);
+    svgEl(svg, 'text', { x: 0, y: -28, class: 'label muted', style: 'font-weight: 800;' }, current).textContent = 'Current';
+    svgEl(svg, 'text', { x: 0, y: -10, class: 'label small muted' }, current).textContent = 'from etcd';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label', id: 'current-val' }, current).textContent = 'replicas: 2';
+    svgEl(svg, 'text', { x: 0, y: 30, class: 'label small muted' }, current).textContent = '"have 2 webapp pods"';
+
+    // Arrows
+    svgEl(svg, 'line', { x1: 180, y1: 120, x2: 260, y2: 120, class: 'arrow show' });
+    svgEl(svg, 'line', { x1: 460, y1: 120, x2: 380, y2: 120, class: 'arrow show' });
+
+    // Action arrow (initially hidden)
+    const action = svgEl(svg, 'g', { id: 'action', opacity: 0, class: 'svg-fade' });
+    svgEl(svg, 'path', {
+      d: 'M 380 80 C 460 30, 540 30, 540 70',
+      class: 'arrow show active', fill: 'none',
+      style: 'stroke: var(--accent); stroke-width: 2;'
+    }, action);
+    svgEl(svg, 'text', {
+      x: 460, y: 30, class: 'label accent', style: 'font-weight: 700;'
+    }, action).textContent = 'create 1 pod';
+
+    // Verdict text
+    svgEl(svg, 'text', { x: 320, y: 230, class: 'label muted', id: 'verdict', style: 'font-size: 12px;' })
+      .textContent = '';
+  }
+  function setVerdict(svg, t, color) {
+    const v = svg.querySelector('#verdict');
+    v.textContent = t;
+    v.style.fill = color || 'var(--muted)';
+  }
+  window.ANIMATIONS.controlloop = [
+    {
+      narration: 'A controller is a loop. On one side it has your desired state — what your manifest asked for. On the other, the current state — what\'s actually running in the cluster.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'In this example you want 3 webapp Pods, but only 2 exist. The controller asks the question every loop: "are they equal?"',
+      apply: (svg) => setVerdict(svg, 'desired (3) ≠ current (2) → act', '#fbbf24')
+    },
+    {
+      narration: 'They\'re not equal. So the controller acts — it creates one more Pod to bring current up to desired.',
+      apply: (svg) => {
+        svg.querySelector('#action').setAttribute('opacity', 1);
+      }
+    },
+    {
+      narration: 'Now current state matches desired. The controller still loops — it never stops checking — but with nothing to fix, it takes no action. This is the heartbeat of every Kubernetes controller.',
+      apply: (svg) => {
+        svg.querySelector('#current-val').textContent = 'replicas: 3';
+        svg.querySelector('#current rect').setAttribute('class', 'box good');
+        svg.querySelector('#action').setAttribute('opacity', 0);
+        setVerdict(svg, 'desired (3) = current (3) → no action', 'var(--good)');
+      }
+    },
+  ];
+})();
+
+// ============================================================
+// ANIMATION 4 — Control plane <-> data plane working together
+// ============================================================
+(function () {
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+
+    // Control plane card (top)
+    const cp = svgEl(svg, 'g', { transform: 'translate(360, 90)' });
+    svgEl(svg, 'rect', { x: -310, y: -55, width: 620, height: 110, rx: 14, class: 'box' }, cp);
+    svgEl(svg, 'text', {
+      x: -290, y: -30, class: 'label accent',
+      style: 'font-weight: 800; text-anchor: start;'
+    }, cp).textContent = 'CONTROL PLANE';
+
+    const cpItems = [
+      ['Controller', 'manager'],
+      ['Cloud', 'controller'],
+      ['Scheduler', ''],
+      ['API server', ''],
+      ['etcd', 'key: value'],
+    ];
+    cpItems.forEach(([a, b], i) => {
+      const x = -240 + i * 110;
+      const g = svgEl(svg, 'g', { transform: `translate(${x}, 0)`, id: `cp-${i}` });
+      svgEl(svg, 'rect', { x: -45, y: -18, width: 90, height: 50, rx: 8, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: -2, class: 'label small' }, g).textContent = a;
+      if (b) svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted' }, g).textContent = b;
+    });
+
+    // Data plane card (bottom)
+    const dp = svgEl(svg, 'g', { transform: 'translate(360, 290)' });
+    svgEl(svg, 'rect', { x: -310, y: -65, width: 620, height: 130, rx: 14, class: 'box' }, dp);
+    svgEl(svg, 'text', {
+      x: -290, y: -42, class: 'label accent',
+      style: 'font-weight: 800; text-anchor: start;'
+    }, dp).textContent = 'DATA PLANE — node';
+
+    // Three pods
+    [-150, -50, 50].forEach((x, i) => {
+      const g = svgEl(svg, 'g', { transform: `translate(${x}, -8)`, id: `pod-${i}` });
+      svgEl(svg, 'rect', { x: -34, y: -18, width: 68, height: 36, rx: 6, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: 4, class: 'label small' }, g).textContent = 'Pod';
+    });
+
+    // kubelet, kube-proxy, runtime
+    [['kubelet', 160], ['kube-proxy', 240], ['runtime', 0]].forEach(([t, x]) => {
+      const g = svgEl(svg, 'g', { transform: `translate(${x}, 38)`, id: `agent-${t}` });
+      svgEl(svg, 'rect', { x: -50, y: -14, width: 100, height: 28, rx: 6, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: 4, class: 'label small' }, g).textContent = t;
+    });
+
+    // Communication arrow between planes (initially hidden)
+    const arrow = svgEl(svg, 'g', { id: 'comm', opacity: 0, class: 'svg-fade' });
+    svgEl(svg, 'line', { x1: 360, y1: 148, x2: 360, y2: 232, class: 'arrow show active' }, arrow);
+    svgEl(svg, 'text', { x: 380, y: 195, class: 'label accent small', style: 'text-anchor: start;' }, arrow)
+      .textContent = 'API server ↔ kubelet';
+  }
+  function highlight(svg, sel, on = true) {
+    svg.querySelectorAll(sel).forEach((el) => {
+      const r = el.querySelector('rect');
+      if (r) r.setAttribute('class', on ? 'box active' : 'box');
+    });
+  }
+  window.ANIMATIONS.planes = [
+    {
+      narration: 'A Kubernetes cluster splits into two roles. The control plane decides what should happen. The data plane runs it. They communicate exclusively through the API server.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'Control plane components: API server (front door), etcd (memory), scheduler (where to place new Pods), controller manager (reconcile loops), cloud controller (talks to AWS).',
+      apply: (svg) => highlight(svg, '[id^="cp-"]')
+    },
+    {
+      narration: 'On every worker node, three small processes do the actual work: container runtime (containerd) starts containers; kubelet watches the API server for Pods to run; kube-proxy programs networking rules.',
+      apply: (svg) => {
+        highlight(svg, '[id^="cp-"]', false);
+        highlight(svg, '[id^="agent-"]');
+      }
+    },
+    {
+      narration: 'When the scheduler assigns a Pod to a node, the kubelet on that node sees the assignment via the API server and tells the runtime to start the containers. There is no direct controller-to-kubelet channel — everything goes through the API server.',
+      apply: (svg) => {
+        highlight(svg, '[id^="cp-"]', true);
+        svg.querySelector('#comm').setAttribute('opacity', 1);
+      }
+    },
+  ];
+})();
+
+// ============================================================
+// ANIMATION 5 — Scheduling: taints & tolerations
+// ============================================================
+(function () {
+  function buildNode(svg, x, y, label, tainted = false) {
+    const g = svgEl(svg, 'g', { transform: `translate(${x}, ${y})` });
+    svgEl(svg, 'rect', { x: -80, y: -50, width: 160, height: 100, rx: 12, class: tainted ? 'box bad' : 'box' }, g);
+    svgEl(svg, 'text', { x: 0, y: -28, class: 'label', style: 'font-weight: 700;' }, g).textContent = label;
+    if (tainted) {
+      svgEl(svg, 'text', { x: 0, y: -8, class: 'label bad small' }, g).textContent = 'TAINT';
+      svgEl(svg, 'text', { x: 0, y: 8, class: 'label small muted' }, g).textContent = 'spot=true';
+      svgEl(svg, 'text', { x: 0, y: 22, class: 'label small muted' }, g).textContent = 'NoSchedule';
+    } else {
+      svgEl(svg, 'text', { x: 0, y: 0, class: 'label small muted' }, g).textContent = 'untainted';
+    }
+    return g;
+  }
+  function buildPod(svg, x, y, label, tolerant) {
+    const g = svgEl(svg, 'g', { transform: `translate(${x}, ${y})`, id: `pod-${label}` });
+    svgEl(svg, 'rect', { x: -52, y: -28, width: 104, height: 56, rx: 8,
+      class: tolerant ? 'box good' : 'box' }, g);
+    svgEl(svg, 'text', { x: 0, y: -8, class: 'label', style: 'font-weight: 700;' }, g).textContent = label;
+    svgEl(svg, 'text', { x: 0, y: 8, class: 'label small muted' }, g)
+      .textContent = tolerant ? 'tolerates spot' : 'no toleration';
+    svgEl(svg, 'text', { x: 0, y: 22, class: 'label small muted' }, g)
+      .textContent = tolerant ? 'effect: NoSchedule' : '';
+    return g;
+  }
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+    buildNode(svg, 540, 230, 'Node (spot)', true);
+    svgEl(svg, 'text', { x: 360, y: 30, class: 'label accent', style: 'font-size: 13px; font-weight: 700;' })
+      .textContent = 'Taints repel — tolerations permit';
+  }
+  window.ANIMATIONS.schedule = [
+    {
+      narration: 'A spot-instance node has a taint applied: spot=true:NoSchedule. By default, the scheduler will refuse to place any Pod on this node.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'A regular Pod arrives. It has no toleration for the spot taint, so the scheduler filters this node out of its candidate list. The Pod is repelled.',
+      apply: (svg) => {
+        buildPod(svg, 180, 230, 'pod-A', false);
+        svgEl(svg, 'line', { x1: 232, y1: 230, x2: 460, y2: 230, class: 'arrow show bad', style: 'stroke: var(--bad); stroke-dasharray: 6 4;' });
+        svgEl(svg, 'text', { x: 346, y: 218, class: 'label bad small', style: 'font-weight: 700;' }).textContent = '✕ repelled';
+      }
+    },
+    {
+      narration: 'A second Pod arrives, this one carrying a toleration that matches the taint (key: spot, value: true, effect: NoSchedule). The scheduler now considers this node a valid candidate.',
+      apply: (svg) => {
+        buildPod(svg, 180, 120, 'pod-B', true);
+        svgEl(svg, 'line', { x1: 232, y1: 120, x2: 460, y2: 195, class: 'arrow show active' });
+        svgEl(svg, 'text', { x: 346, y: 140, class: 'label good small', style: 'font-weight: 700;' }).textContent = '✓ schedulable';
+      }
+    },
+    {
+      narration: 'Tolerations permit placement — they don\'t force it. To actually attract a Pod to a specific node, combine the toleration with node affinity. That pattern is how you build dedicated GPU pools, spot pools, or system-only nodes.',
+      apply: (svg) => {
+        svgEl(svg, 'text', { x: 360, y: 310, class: 'label muted', style: 'font-size: 12px;' })
+          .textContent = 'taint + affinity = dedicated node pool';
+      }
+    },
+  ];
+})();
+
+// ============================================================
+// ANIMATION 6 — Deployment rolling update
+// ============================================================
+(function () {
+  function setup(svg) {
+    clearSvg(svg);
+    addArrowhead(svg);
+
+    // Deployment box
+    const dep = svgEl(svg, 'g', { transform: 'translate(360, 40)' });
+    svgEl(svg, 'rect', { x: -110, y: -22, width: 220, height: 44, rx: 8, class: 'box active' }, dep);
+    svgEl(svg, 'text', { x: 0, y: -2, class: 'label', style: 'font-weight: 800;' }, dep).textContent = 'Deployment: webapp';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted' }, dep).textContent = 'replicas: 4 · image: webapp:v2';
+
+    // Old ReplicaSet (left)
+    const old = svgEl(svg, 'g', { transform: 'translate(180, 160)', id: 'rs-old' });
+    svgEl(svg, 'rect', { x: -110, y: -22, width: 220, height: 44, rx: 8, class: 'box' }, old);
+    svgEl(svg, 'text', { x: 0, y: -2, class: 'label' }, old).textContent = 'ReplicaSet v1';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted' }, old).textContent = 'desired: 4';
+
+    // New ReplicaSet (right) — hidden initially
+    const newRS = svgEl(svg, 'g', { transform: 'translate(540, 160)', id: 'rs-new', opacity: 0, class: 'svg-fade' });
+    svgEl(svg, 'rect', { x: -110, y: -22, width: 220, height: 44, rx: 8, class: 'box good' }, newRS);
+    svgEl(svg, 'text', { x: 0, y: -2, class: 'label' }, newRS).textContent = 'ReplicaSet v2';
+    svgEl(svg, 'text', { x: 0, y: 14, class: 'label small muted', id: 'rs-new-count' }, newRS).textContent = 'desired: 0';
+
+    // Lines: deployment -> RS
+    svgEl(svg, 'line', { x1: 320, y1: 62, x2: 200, y2: 138, class: 'arrow show' });
+    svgEl(svg, 'line', { x1: 400, y1: 62, x2: 520, y2: 138, class: 'arrow show', id: 'arrow-new', opacity: 0 });
+
+    // Pod rows
+    // Old pods (v1): four pods at y=270
+    for (let i = 0; i < 4; i++) {
+      const x = 80 + i * 64;
+      const g = svgEl(svg, 'g', { transform: `translate(${x}, 270)`, id: `pod-old-${i}` });
+      svgEl(svg, 'rect', { x: -22, y: -18, width: 44, height: 36, rx: 6, class: 'box' }, g);
+      svgEl(svg, 'text', { x: 0, y: -2, class: 'label small' }, g).textContent = 'v1';
+      svgEl(svg, 'text', { x: 0, y: 12, class: 'label small muted' }, g).textContent = '🟢';
+    }
+    // New pods (v2): placeholders at y=270 right side
+    for (let i = 0; i < 4; i++) {
+      const x = 440 + i * 64;
+      const g = svgEl(svg, 'g', { transform: `translate(${x}, 270)`, id: `pod-new-${i}`, opacity: 0, class: 'svg-fade' });
+      svgEl(svg, 'rect', { x: -22, y: -18, width: 44, height: 36, rx: 6, class: 'box good' }, g);
+      svgEl(svg, 'text', { x: 0, y: -2, class: 'label small good' }, g).textContent = 'v2';
+      svgEl(svg, 'text', { x: 0, y: 12, class: 'label small muted' }, g).textContent = '🟢';
+    }
+
+    // Status
+    svgEl(svg, 'text', { x: 360, y: 340, class: 'label accent', id: 'roll-status', style: 'font-size: 12px;' })
+      .textContent = 'steady state: 4 × v1';
+  }
+  function setStatus(svg, t) { svg.querySelector('#roll-status').textContent = t; }
+  function setNewCount(svg, n) { svg.querySelector('#rs-new-count').textContent = `desired: ${n}`; }
+  function showNewRS(svg) {
+    svg.querySelector('#rs-new').setAttribute('opacity', 1);
+    svg.querySelector('#arrow-new').setAttribute('opacity', 1);
+  }
+  function bringUpNew(svg, n) {
+    for (let i = 0; i < n; i++) {
+      svg.querySelector(`#pod-new-${i}`).setAttribute('opacity', 1);
+    }
+    setNewCount(svg, n);
+  }
+  function tearDownOld(svg, n) {
+    for (let i = 0; i < n; i++) {
+      svg.querySelector(`#pod-old-${i}`).setAttribute('opacity', 0.15);
+      svg.querySelector(`#pod-old-${i} rect`).setAttribute('class', 'box bad');
+    }
+  }
+  window.ANIMATIONS.rolling = [
+    {
+      narration: 'Starting state: a Deployment named webapp at version v1. The Deployment owns one ReplicaSet, which keeps four v1 Pods running.',
+      reset: setup, apply: () => {}
+    },
+    {
+      narration: 'You update the Deployment image from v1 to v2 and apply. The Deployment controller creates a second ReplicaSet for v2, sitting next to the v1 ReplicaSet.',
+      apply: (svg) => {
+        showNewRS(svg);
+        setStatus(svg, 'new ReplicaSet v2 created · still 0 pods');
+      }
+    },
+    {
+      narration: 'The Deployment scales the new ReplicaSet up by one and the old one down by one — controlled by maxSurge and maxUnavailable. Never both at once. The cluster always has roughly 4 healthy Pods.',
+      apply: (svg) => {
+        bringUpNew(svg, 1);
+        tearDownOld(svg, 1);
+        setStatus(svg, 'rolling: 3 × v1 + 1 × v2');
+      }
+    },
+    {
+      narration: 'Another tick — one more v2 comes up, one more v1 goes away. The Service in front of these Pods sees both versions while the roll is in progress.',
+      apply: (svg) => {
+        bringUpNew(svg, 2);
+        tearDownOld(svg, 2);
+        setStatus(svg, 'rolling: 2 × v1 + 2 × v2');
+      }
+    },
+    {
+      narration: 'The roll continues. By the time only one v1 is left, the bulk of traffic is already going to v2.',
+      apply: (svg) => {
+        bringUpNew(svg, 3);
+        tearDownOld(svg, 3);
+        setStatus(svg, 'rolling: 1 × v1 + 3 × v2');
+      }
+    },
+    {
+      narration: 'Done. The new ReplicaSet has all 4 desired Pods; the old ReplicaSet is scaled to zero but kept around — that\'s what lets you rollback with one command if v2 turns out to be broken.',
+      apply: (svg) => {
+        bringUpNew(svg, 4);
+        tearDownOld(svg, 4);
+        svg.querySelector('#rs-old rect').setAttribute('class', 'box');
+        // dim old RS
+        svg.querySelector('#rs-old').style.opacity = '0.5';
+        setStatus(svg, 'complete: 4 × v2 · v1 ReplicaSet retained for rollback');
+      }
+    },
+  ];
+})();
+</script>
+
+<!-- Shared interactions: flipping + animation player -->
+<script src="../shared.js"></script>
+
+<script>
+// Keyboard shortcuts on this page
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === '0') location.href = '../../lab-1-deploying-pods/index.html';
+  if (e.key === 'b') history.back();
+});
+</script>
+
+</body>
+</html>
