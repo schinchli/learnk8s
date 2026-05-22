@@ -15,3 +15,11 @@ node_modules/
 
 # Local-only video work
 *.webm
+
+# Environment — never commit
+.env.local
+.env.*.local
+.env
+
+# Vercel
+.vercel/

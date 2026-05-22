@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EKS Course AI — Ask anything</title>
+<style>
+:root {
+  --bg: #06080d; --panel: #11151c; --panel2: #1f2738;
+  --text: #f1f5f9; --muted: #94a3b8; --accent: #38bdf8;
+  --good: #27AE60; --bad: #E74C3C; --orange: #F39C12;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: radial-gradient(ellipse at top, rgba(56,189,248,.06), transparent 60%), var(--bg);
+  color: var(--text); font-family: -apple-system, system-ui, Roboto, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  padding: 24px 16px 80px;
+}
+header {
+  text-align: center; margin-bottom: 28px; max-width: 680px;
+}
+header h1 { font-size: 1.6em; font-weight: 800; }
+header h1 span { background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+header p { color: var(--muted); margin-top: 6px; font-size: 0.9em; }
+
+.chat-box {
+  width: 100%; max-width: 760px;
+  background: var(--panel); border: 1px solid var(--panel2);
+  border-radius: 16px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.messages {
+  flex: 1; padding: 20px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 16px;
+  min-height: 360px; max-height: 520px;
+}
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg.user { flex-direction: row-reverse; }
+.bubble {
+  max-width: 80%; padding: 10px 14px; border-radius: 12px;
+  font-size: 0.9em; line-height: 1.6;
+}
+.msg.user .bubble { background: rgba(56,189,248,.15); border: 1px solid rgba(56,189,248,.3); color: var(--text); border-radius: 12px 12px 0 12px; }
+.msg.bot  .bubble { background: var(--panel2); border: 1px solid #2a3347; color: var(--text); border-radius: 12px 12px 12px 0; white-space: pre-wrap; }
+.msg.bot .bubble.error { border-color: var(--bad); color: var(--bad); }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85em; font-weight: 700; flex-shrink: 0;
+  margin-top: 2px;
+}
+.msg.user .avatar { background: rgba(56,189,248,.2); color: var(--accent); }
+.msg.bot  .avatar { background: rgba(129,196,248,.15); color: #818cf8; }
+
+.sources {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--panel2); display: flex; flex-wrap: wrap; gap: 6px;
+}
+.source-chip {
+  font-size: 0.72em; background: var(--panel); border: 1px solid var(--panel2);
+  border-radius: 20px; padding: 3px 10px; color: var(--muted);
+  display: flex; align-items: center; gap: 5px;
+}
+.source-chip .type-dot { width: 7px; height: 7px; border-radius: 50%; }
+.slide-dot { background: #38bdf8; }
+.flashcard-dot { background: #818cf8; }
+.notes-dot { background: #27AE60; }
+
+.input-row {
+  padding: 14px 16px;
+  border-top: 1px solid var(--panel2);
+  display: flex; gap: 10px; align-items: flex-end;
+}
+.filters {
+  padding: 10px 16px 0;
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+select, input {
+  background: var(--panel2); color: var(--text);
+  border: 1px solid #334155; border-radius: 8px;
+  padding: 8px 12px; font-size: 0.85em; outline: none;
+}
+select:focus, input:focus { border-color: var(--accent); }
+textarea {
+  flex: 1; background: var(--panel2); color: var(--text);
+  border: 1px solid #334155; border-radius: 10px;
+  padding: 10px 14px; font-size: 0.9em; resize: none;
+  outline: none; font-family: inherit; min-height: 44px; max-height: 140px;
+  line-height: 1.5;
+}
+textarea:focus { border-color: var(--accent); }
+button#send {
+  background: var(--accent); color: #06080d;
+  border: none; border-radius: 10px;
+  padding: 10px 18px; font-size: 0.9em;
+  font-weight: 700; cursor: pointer;
+  transition: background .15s; white-space: nowrap;
+}
+button#send:hover { background: #7dd3fc; }
+button#send:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
+
+.typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.typing span { width: 8px; height: 8px; background: var(--muted); border-radius: 50%; animation: bounce 1s infinite; }
+.typing span:nth-child(2) { animation-delay: .15s; }
+.typing span:nth-child(3) { animation-delay: .30s; }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+.welcome {
+  text-align: center; color: var(--muted); padding: 40px 20px;
+  font-size: 0.9em;
+}
+.welcome .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+.chip {
+  background: var(--panel2); border: 1px solid #334155; border-radius: 20px;
+  padding: 6px 14px; font-size: 0.82em; cursor: pointer; color: var(--text);
+  transition: background .12s, border-color .12s;
+}
+.chip:hover { background: rgba(56,189,248,.1); border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔶 <span>EKS Course AI</span></h1>
+  <p>Ask anything about the <em>Running Containers on Amazon EKS</em> course — grounded in slides, notes and flashcards.</p>
+</header>
+
+<div class="chat-box">
+  <div class="filters">
+    <select id="sel-module">
+      <option value="">All modules</option>
+      <option value="02">Module 02 — EKS Fundamentals</option>
+      <option value="03">Module 03 — Building Clusters</option>
+      <option value="04">Module 04 — Deploying Apps</option>
+      <option value="05">Module 05 — Scale &amp; GitOps</option>
+      <option value="06">Module 06 — Networking</option>
+      <option value="07">Module 07 — Observability</option>
+      <option value="08">Module 08 — Storage</option>
+      <option value="09">Module 09 — Security</option>
+    </select>
+    <select id="sel-source">
+      <option value="">All sources</option>
+      <option value="slide">Slides only</option>
+      <option value="flashcard">Flashcards only</option>
+      <option value="notes">Notes only</option>
+    </select>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div>What would you like to know?</div>
+      <div class="chips">
+        <span class="chip" onclick="ask(this)">What does EKS manage vs what do I manage?</span>
+        <span class="chip" onclick="ask(this)">When should I use Fargate over node groups?</span>
+        <span class="chip" onclick="ask(this)">Explain IRSA and why it's better than node IAM roles</span>
+        <span class="chip" onclick="ask(this)">What are the 8 steps in a Kubernetes version upgrade?</span>
+        <span class="chip" onclick="ask(this)">HPA vs VPA vs Cluster Autoscaler vs Karpenter</span>
+        <span class="chip" onclick="ask(this)">How does EBS differ from EFS in EKS?</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <textarea id="input" rows="1" placeholder="Ask a question about the EKS course…"
+      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button id="send" onclick="sendQuestion()">Send</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin  // same origin on Vercel
+
+function ask(el) {
+  document.getElementById('input').value = el.textContent
+  sendQuestion()
+}
+
+function autoResize(el) {
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px'
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion() }
+}
+
+function typeColor(t) {
+  return t === 'slide' ? 'slide-dot' : t === 'flashcard' ? 'flashcard-dot' : 'notes-dot'
+}
+
+function addMessage(role, html, sources) {
+  const welcome = document.getElementById('welcome')
+  if (welcome) welcome.remove()
+
+  const msgs = document.getElementById('messages')
+  const div = document.createElement('div')
+  div.className = `msg ${role}`
+
+  const avatar = document.createElement('div')
+  avatar.className = 'avatar'
+  avatar.textContent = role === 'user' ? 'You' : 'AI'
+
+  const bubble = document.createElement('div')
+  bubble.className = 'bubble'
+  bubble.innerHTML = html
+
+  if (sources?.length) {
+    const src = document.createElement('div')
+    src.className = 'sources'
+    sources.forEach(s => {
+      const chip = document.createElement('span')
+      chip.className = 'source-chip'
+      chip.innerHTML = `<span class="type-dot ${typeColor(s.source_type)}"></span>M${s.module} · ${s.source_type} · ${(s.similarity*100).toFixed(0)}%`
+      src.appendChild(chip)
+    })
+    bubble.appendChild(src)
+  }
+
+  div.appendChild(avatar)
+  div.appendChild(bubble)
+  msgs.appendChild(div)
+  msgs.scrollTop = msgs.scrollHeight
+  return bubble
+}
+
+function addTyping() {
+  const msgs = document.getElementById('messages')
+  const div = document.createElement('div')
+  div.className = 'msg bot'
+  div.id = 'typing-indicator'
+  div.innerHTML = `<div class="avatar">AI</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`
+  msgs.appendChild(div)
+  msgs.scrollTop = msgs.scrollHeight
+}
+
+function removeTyping() {
+  document.getElementById('typing-indicator')?.remove()
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function formatAnswer(text) {
+  // minimal markdown: bold, code, newlines
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code style="background:#1f2738;padding:1px 5px;border-radius:3px;font-size:.88em">$1</code>')
+    .replace(/\n/g, '<br>')
+}
+
+async function sendQuestion() {
+  const input = document.getElementById('input')
+  const q = input.value.trim()
+  if (!q) return
+
+  const btn = document.getElementById('send')
+  btn.disabled = true
+  input.value = ''
+  input.style.height = 'auto'
+
+  addMessage('user', escapeHtml(q))
+  addTyping()
+
+  const module = document.getElementById('sel-module').value || undefined
+  const source = document.getElementById('sel-source').value || undefined
+
+  try {
+    const res = await fetch(`${API_BASE}/api/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, module, source }),
+    })
+    const data = await res.json()
+    removeTyping()
+
+    if (data.error) {
+      addMessage('bot', `<span style="color:var(--bad)">Error: ${escapeHtml(data.error)}</span>`)
+    } else {
+      addMessage('bot', formatAnswer(data.answer), data.sources)
+    }
+  } catch (e) {
+    removeTyping()
+    addMessage('bot', `<span style="color:var(--bad)">Network error: ${escapeHtml(e.message)}</span>`)
+  }
+
+  btn.disabled = false
+  input.focus()
+}
+</script>
+</body>
+</html>

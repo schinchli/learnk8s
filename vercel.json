@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "functions": {
+    "api/search.js": { "maxDuration": 15 },
+    "api/ask.js":    { "maxDuration": 30 }
+  },
+  "routes": [
+    { "src": "/api/demo", "dest": "/api/demo.html" },
+    { "src": "/chat",     "dest": "/api/demo.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ]
+}
