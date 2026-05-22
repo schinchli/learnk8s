@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 09 — Managing Security in Amazon EKS · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 09: 4Cs of cloud-native security, IAM vs RBAC, aws-auth ConfigMap, IRSA, service accounts, GuardDuty for EKS.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-09 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+
+.four-cs-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px;
+}
+.cs-card {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:16px 14px; text-align:center; position:relative;
+}
+.cs-card .cs-letter {
+  font-size:2.2em; font-weight:900; margin-bottom:4px;
+}
+.cs-card .cs-title { font-size:0.85em; font-weight:700; color:var(--text); margin-bottom:6px; }
+.cs-card .cs-desc { font-size:0.78em; color:var(--muted); line-height:1.5; }
+.cs-card.c1 .cs-letter { color:#ef4444; }
+.cs-card.c2 .cs-letter { color:#f97316; }
+.cs-card.c3 .cs-letter { color:#eab308; }
+.cs-card.c4 .cs-letter { color:#22c55e; }
+.cs-card.c1 { border-color:rgba(239,68,68,0.3); }
+.cs-card.c2 { border-color:rgba(249,115,22,0.3); }
+.cs-card.c3 { border-color:rgba(234,179,8,0.3); }
+.cs-card.c4 { border-color:rgba(34,197,94,0.3); }
+
+.decision-table { width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:24px; }
+.decision-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:8px 12px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.decision-table td {
+  padding:8px 12px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.decision-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+
+.codeblock {
+  background:#0a0e16; border:1px solid var(--panel-light);
+  border-radius:8px; padding:14px 16px;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;
+  font-size:0.82em; color:#e2e8f0; line-height:1.6;
+  overflow-x:auto; white-space:pre; margin-bottom:20px;
+}
+.codeblock .k { color:#38bdf8; }
+.codeblock .v { color:#fbbf24; }
+.codeblock .c { color:#64748b; font-style:italic; }
+
+.steps-list {
+  counter-reset:steps; padding:0; list-style:none; margin-bottom:20px;
+}
+.steps-list li {
+  counter-increment:steps; display:flex; gap:14px; align-items:flex-start;
+  padding:10px 14px; margin-bottom:8px;
+  background:var(--panel); border:1px solid var(--panel-light); border-radius:8px;
+}
+.steps-list li::before {
+  content:counter(steps); min-width:26px; height:26px;
+  background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4);
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:0.8em; font-weight:700; color:var(--accent); flex-shrink:0;
+}
+.steps-list li p { margin:0; font-size:0.88em; color:var(--muted); line-height:1.5; }
+.steps-list li p strong { color:var(--text); }
+
+.info-pill {
+  display:inline-block; padding:4px 12px; border-radius:999px;
+  font-size:0.78em; font-weight:700; margin-right:6px; margin-bottom:6px;
+}
+.ip-blue { background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); }
+.ip-red  { background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.3); }
+.ip-green{ background:rgba(34,197,94,0.12); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
+.ip-orange{ background:rgba(249,115,22,0.12); color:#f97316; border:1px solid rgba(249,115,22,0.3); }
+
+.warning-box {
+  background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.3);
+  border-radius:10px; padding:14px 18px; margin-bottom:18px;
+  font-size:0.88em; color:#fed7aa; line-height:1.5;
+}
+.warning-box strong { color:#f97316; }
+.tip-box {
+  background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.25);
+  border-radius:10px; padding:14px 18px; margin-bottom:18px;
+  font-size:0.88em; color:#bae6fd; line-height:1.5;
+}
+.tip-box strong { color:#38bdf8; }
+
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .four-cs-grid{ grid-template-columns:1fr 1fr; }
+}
+@media(max-width:400px){
+  .four-cs-grid{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 09
+  </div>
+  <h1>🔐 Module 09 — Managing Security in Amazon EKS</h1>
+  <p>4Cs of cloud-native security · shared responsibility · GuardDuty · IAM vs RBAC · aws-auth ConfigMap · service accounts · IRSA</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">4Cs of cloud-native security</a></li>
+      <li><a href="#topic-2">Shared responsibility model</a></li>
+      <li><a href="#topic-3">GuardDuty for EKS</a></li>
+      <li><a href="#topic-4">Authentication &amp; authorization overview</a></li>
+      <li><a href="#topic-5">Kubernetes RBAC</a></li>
+      <li><a href="#topic-6">IAM → RBAC: aws-auth ConfigMap</a></li>
+      <li><a href="#topic-7">Service accounts &amp; pod permissions</a></li>
+      <li><a href="#topic-8">IAM Roles for Service Accounts (IRSA)</a></li>
+      <li><a href="#topic-9">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — 4Cs of cloud-native security              -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> 4Cs of cloud-native security</h2>
+    <p class="lede">
+      The 4Cs model is a <strong>defense-in-depth framework</strong> for cloud-native security. Each layer wraps the next — a weakness in an outer layer can expose the inner layers. You must secure all four simultaneously; no single layer is sufficient on its own.
+    </p>
+
+    <!-- Animation: 4Cs concentric rings -->
+    <div class="anim-player" data-anim-id="four-cs">
+      <div class="anim-title">Animation · 4Cs — defense in depth model</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-four-cs" viewBox="0 0 700 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="four-cs-grid">
+      <div class="cs-card c1">
+        <div class="cs-letter">C</div>
+        <div class="cs-title">Cloud</div>
+        <div class="cs-desc">AWS infrastructure: VPC, IAM, account boundaries, physical security</div>
+      </div>
+      <div class="cs-card c2">
+        <div class="cs-letter">C</div>
+        <div class="cs-title">Cluster</div>
+        <div class="cs-desc">K8s layer: RBAC, admission controllers, network policies, secrets encryption</div>
+      </div>
+      <div class="cs-card c3">
+        <div class="cs-letter">C</div>
+        <div class="cs-title">Container</div>
+        <div class="cs-desc">Image security: scanning, least privilege, read-only root FS, non-root user</div>
+      </div>
+      <div class="cs-card c4">
+        <div class="cs-letter">C</div>
+        <div class="cs-title">Code</div>
+        <div class="cs-desc">Application code: SAST, dependency scanning, input validation, secrets in env vars</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the 4Cs of cloud-native security?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Cloud, Cluster, Container, Code</strong> — a defense-in-depth model where each C wraps the one inside it. A vulnerability in an outer layer can expose inner layers. All four must be secured independently.</div>
+          <div class="footer"><span class="tag">4Cs framework</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the "Cloud" layer of the 4Cs cover?</div>
+          <div class="footer"><span class="tag">Cloud C</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS infrastructure security</strong>: VPC configuration, IAM policies, account-level guardrails, physical security of data centers. This is partly shared with AWS (physical/hypervisor) and partly your responsibility (VPC design, IAM).</div>
+          <div class="footer"><span class="tag">infrastructure</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the "Cluster" layer of the 4Cs cover?</div>
+          <div class="footer"><span class="tag">Cluster C</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Kubernetes cluster security</strong>: RBAC (who can call the K8s API), admission controllers (enforce policies at creation time), network policies (pod-to-pod traffic), secrets encryption at rest in etcd, audit logging.</div>
+          <div class="footer"><span class="tag">K8s security</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the "Container" layer of the 4Cs cover?</div>
+          <div class="footer"><span class="tag">Container C</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Container image security</strong>: scanning images for CVEs (ECR image scanning), using minimal base images, running as non-root, setting <code>readOnlyRootFilesystem: true</code>, dropping Linux capabilities, avoiding privileged containers.</div>
+          <div class="footer"><span class="tag">image security</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the "Code" layer of the 4Cs cover?</div>
+          <div class="footer"><span class="tag">Code C</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Application code security</strong>: SAST (static analysis), dependency scanning (Dependabot, Snyk), input validation to prevent injection attacks, avoiding hardcoded secrets, secure communication (mTLS between services).</div>
+          <div class="footer"><span class="tag">AppSec</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why is the 4Cs model called "defense in depth"?</div>
+          <div class="footer"><span class="tag">concept</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Because each layer provides an independent security boundary. An attacker who breaches the Cloud layer still faces Cluster controls. A container escape still faces Code-level protections. No single layer failure should compromise everything. Security comes from <strong>multiple overlapping controls</strong>.</div>
+          <div class="footer"><span class="tag">defense in depth</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — Shared responsibility model               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> Shared responsibility model</h2>
+    <p class="lede">
+      EKS extends the AWS shared responsibility model. The boundary shifts depending on which data plane option you choose. Understanding <em>who owns what</em> for each option is critical for both the exam and real security planning.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Responsibility</th>
+          <th>Default EKS (self-managed nodes)</th>
+          <th>Managed Node Groups</th>
+          <th>Fargate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>K8s control plane</td>
+          <td><span class="good-badge">✓ AWS</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+        </tr>
+        <tr>
+          <td>Node OS patching</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+        </tr>
+        <tr>
+          <td>Node provisioning &amp; replacement</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+        </tr>
+        <tr>
+          <td>Container runtime</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You choose</span></td>
+          <td><span class="good-badge">✓ AWS</span></td>
+        </tr>
+        <tr>
+          <td>Network config, IAM, RBAC</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+        </tr>
+        <tr>
+          <td>Application workloads</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+        </tr>
+        <tr>
+          <td>Pod security context</td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+          <td><span class="warn-badge">You</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What extra responsibility does AWS take on with managed node groups vs self-managed?</div>
+          <div class="footer"><span class="tag">managed NG</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">With managed node groups, AWS additionally manages <strong>node OS patching</strong>, rolling node replacements, and joining/removing nodes from the cluster. With self-managed nodes, all of that is your responsibility.</div>
+          <div class="footer"><span class="tag">shared responsibility</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does AWS manage for you when using Fargate?</div>
+          <div class="footer"><span class="tag">Fargate responsibility</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">On Fargate, AWS manages the <strong>entire node layer</strong>: provisioning, OS patching, container runtime, node replacement. You only manage <strong>pod security context, app code, RBAC, IAM, and network config</strong>. The node is completely abstracted.</div>
+          <div class="footer"><span class="tag">serverless security</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What security responsibilities ALWAYS remain yours regardless of data plane option?</div>
+          <div class="footer"><span class="tag">always yours</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Regardless of data plane choice, you always own: <strong>RBAC configuration, IAM policies, network config (VPC/security groups), pod security context, application code, secrets management, and logging/monitoring setup</strong>. AWS never owns these.</div>
+          <div class="footer"><span class="tag">shared responsibility</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why does Fargate reduce your attack surface compared to EC2 nodes?</div>
+          <div class="footer"><span class="tag">Fargate security</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Fargate provides <strong>1 pod per micro-VM isolation</strong>, OS patching by AWS, no shared kernel between pods, and no SSH access to worry about. You cannot misconfigure node security groups, patch timing, or container runtime versions — those risks don't exist for you.</div>
+          <div class="footer"><span class="tag">attack surface</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — GuardDuty for EKS                         -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> GuardDuty for EKS</h2>
+    <p class="lede">
+      Amazon GuardDuty provides <strong>threat detection</strong> for EKS clusters. It analyzes EKS audit logs and runtime activity to surface suspicious behavior without requiring you to write detection rules or manage infrastructure.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>What GuardDuty monitors</h4>
+        <ul>
+          <li>EKS control plane audit logs</li>
+          <li>Runtime activity on nodes (with Runtime Monitoring add-on)</li>
+          <li>Container image pulls and process execution</li>
+          <li>Network connections from pods</li>
+          <li>Anomalous API calls to K8s API server</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Threat types detected</h4>
+        <ul>
+          <li>Privilege escalation (e.g., creating a ClusterRoleBinding to system:masters)</li>
+          <li>Credential theft (service account token misuse)</li>
+          <li>Container breakouts / host path traversal</li>
+          <li>Cryptomining (unusual CPU + network patterns)</li>
+          <li>Unusual Kubernetes API calls from unexpected principals</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What data source does GuardDuty use for EKS threat detection?</div>
+          <div class="footer"><span class="tag">GuardDuty</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">GuardDuty analyzes <strong>EKS audit logs</strong> (control plane API server logs) and, with Runtime Monitoring enabled, <strong>runtime activity</strong> on nodes (process executions, file access, network connections). It does not require you to ship logs to a SIEM first.</div>
+          <div class="footer"><span class="tag">threat detection</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Give two examples of EKS threats that GuardDuty can detect.</div>
+          <div class="footer"><span class="tag">threat examples</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">1. <strong>Privilege escalation</strong> — an attacker binding themselves to <code>system:masters</code> to gain cluster-admin.<br>2. <strong>Credential theft</strong> — a service account token being used from an unexpected IP or region outside normal cluster traffic.</div>
+          <div class="footer"><span class="tag">GuardDuty threats</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Does GuardDuty require you to configure rules or write detections?</div>
+          <div class="footer"><span class="tag">managed detection</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>No.</strong> GuardDuty is a managed threat detection service. AWS maintains the threat intelligence and detection logic. You enable it and receive findings — you do not write rules. This is the key contrast with a self-managed SIEM or custom audit log analysis.</div>
+          <div class="footer"><span class="tag">managed service</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — Authentication & authorization overview   -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Authentication &amp; authorization overview</h2>
+    <p class="lede">
+      EKS uses <strong>two separate permission systems</strong> that work in tandem. You must understand both, and more importantly, when each one applies. Confusing IAM and RBAC is the single most common EKS security mistake.
+    </p>
+
+    <!-- Animation: authentication flow -->
+    <div class="anim-player" data-anim-id="authn-flow">
+      <div class="anim-title">Animation · EKS authentication flow — IAM → RBAC</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-authn-flow" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr><th>Dimension</th><th>IAM</th><th>Kubernetes RBAC</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Controls access to</strong></td>
+          <td>AWS APIs (create cluster, create node group, ECR, S3…)</td>
+          <td>Kubernetes API (create Pod, list Services, get Secrets…)</td>
+        </tr>
+        <tr>
+          <td><strong>Scope</strong></td>
+          <td>AWS account &amp; resources</td>
+          <td>Kubernetes cluster resources</td>
+        </tr>
+        <tr>
+          <td><strong>Subject types</strong></td>
+          <td>IAM user, IAM role, AWS service</td>
+          <td>User, Group, ServiceAccount</td>
+        </tr>
+        <tr>
+          <td><strong>Policy object</strong></td>
+          <td>IAM Policy</td>
+          <td>Role / ClusterRole</td>
+        </tr>
+        <tr>
+          <td><strong>Binding object</strong></td>
+          <td>Policy attachment to principal</td>
+          <td>RoleBinding / ClusterRoleBinding</td>
+        </tr>
+        <tr>
+          <td><strong>Used for</strong></td>
+          <td>Authentication (who you are)</td>
+          <td>Authorization (what you can do in K8s)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tip-box">
+      <strong>Bridge:</strong> The <code>aws-auth</code> ConfigMap (or EKS Access Entries) maps IAM principals to K8s RBAC subjects. IAM handles <em>authentication</em>; RBAC handles <em>authorization</em> inside the cluster.
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the two separate permission systems in EKS and what does each control?</div>
+          <div class="footer"><span class="tag">two systems</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>IAM</strong> controls access to <em>AWS APIs</em> — creating clusters, managing node groups, reading ECR, S3, etc.<br><strong>Kubernetes RBAC</strong> controls access to the <em>K8s API</em> — creating pods, listing services, reading secrets within the cluster.</div>
+          <div class="footer"><span class="tag">IAM vs RBAC</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does authentication work when a developer runs kubectl against EKS?</div>
+          <div class="footer"><span class="tag">authn flow</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">1. <code>kubectl</code> calls <code>aws eks get-token</code> to get a bearer token using IAM credentials.<br>2. Token sent to K8s API server.<br>3. API server validates token via <strong>AWS IAM Authenticator</strong>.<br>4. Validated identity looked up in <code>aws-auth</code> ConfigMap → K8s username/groups assigned.<br>5. RBAC evaluates what those groups can do.</div>
+          <div class="footer"><span class="tag">kubectl auth flow</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is an EKS OIDC issuer and why does it matter for security?</div>
+          <div class="footer"><span class="tag">OIDC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Each EKS cluster has an <strong>OIDC issuer URL</strong>. It allows AWS IAM to trust tokens issued by the cluster's K8s API server. This is the cryptographic foundation that enables <strong>IRSA</strong> — pods can prove their identity to AWS STS without needing static credentials.</div>
+          <div class="footer"><span class="tag">OIDC foundation</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can you have full IAM permissions but still be blocked by RBAC?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes.</strong> IAM controls AWS API access; RBAC controls K8s API access. Even if your IAM policy allows <code>eks:*</code>, you still need the appropriate RBAC bindings to run kubectl commands. Both systems must grant access — they operate independently.</div>
+          <div class="footer"><span class="tag">dual gates</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — Kubernetes RBAC                           -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Kubernetes RBAC</h2>
+    <p class="lede">
+      Kubernetes Role-Based Access Control (RBAC) is the mechanism that controls who can do what to which Kubernetes resources. It has four object types: two for defining permissions, and two for binding those permissions to subjects.
+    </p>
+
+    <!-- Animation: RBAC objects -->
+    <div class="anim-player" data-anim-id="rbac-objects">
+      <div class="anim-title">Animation · RBAC object relationships</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-rbac-objects" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr><th>Object</th><th>Scope</th><th>Purpose</th><th>Bound by</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Role</strong></td>
+          <td>Namespaced</td>
+          <td>Defines allowed verbs + resources within one namespace</td>
+          <td>RoleBinding</td>
+        </tr>
+        <tr>
+          <td><strong>ClusterRole</strong></td>
+          <td>Cluster-wide</td>
+          <td>Defines allowed verbs + resources across all namespaces</td>
+          <td>ClusterRoleBinding or RoleBinding</td>
+        </tr>
+        <tr>
+          <td><strong>RoleBinding</strong></td>
+          <td>Namespaced</td>
+          <td>Binds Role <em>or</em> ClusterRole to subject within one namespace</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>ClusterRoleBinding</strong></td>
+          <td>Cluster-wide</td>
+          <td>Binds ClusterRole to subject across all namespaces</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="lede" style="margin-top:0">
+      <strong>RBAC subjects</strong> are the "who" — they can be a <code>User</code>, <code>Group</code>, or <code>ServiceAccount</code>. Verbs include: <code>get, list, watch, create, update, patch, delete</code>.
+    </p>
+
+    <div class="codeblock"><span class="c"># Example: Role in "default" namespace — pod-reader</span>
+<span class="k">kind</span>: <span class="v">Role</span>
+<span class="k">apiVersion</span>: <span class="v">rbac.authorization.k8s.io/v1</span>
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="v">pod-reader</span>
+  <span class="k">namespace</span>: <span class="v">default</span>
+<span class="k">rules</span>:
+- <span class="k">apiGroups</span>: <span class="v">[""]</span>          <span class="c"># "" = core API group</span>
+  <span class="k">resources</span>: <span class="v">["pods"]</span>
+  <span class="k">verbs</span>: <span class="v">["get", "watch", "list"]</span>
+---
+<span class="c"># Bind the Role to a user</span>
+<span class="k">kind</span>: <span class="v">RoleBinding</span>
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="v">read-pods</span>
+  <span class="k">namespace</span>: <span class="v">default</span>
+<span class="k">subjects</span>:
+- <span class="k">kind</span>: <span class="v">User</span>
+  <span class="k">name</span>: <span class="v">jane</span>
+  <span class="k">apiGroup</span>: <span class="v">rbac.authorization.k8s.io</span>
+<span class="k">roleRef</span>:
+  <span class="k">kind</span>: <span class="v">Role</span>
+  <span class="k">name</span>: <span class="v">pod-reader</span>
+  <span class="k">apiGroup</span>: <span class="v">rbac.authorization.k8s.io</span></div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between a Role and a ClusterRole?</div>
+          <div class="footer"><span class="tag">RBAC basics</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Role</strong> is namespaced — it grants permissions within one namespace only. <strong>ClusterRole</strong> is cluster-wide — it grants permissions across all namespaces, or to non-namespaced resources like nodes. A ClusterRole can be bound into a namespace using a RoleBinding.</div>
+          <div class="footer"><span class="tag">scope</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between RoleBinding and ClusterRoleBinding?</div>
+          <div class="footer"><span class="tag">bindings</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>RoleBinding</strong> is namespace-scoped — applies in one namespace. It can bind a Role OR a ClusterRole (which limits the ClusterRole to that namespace).<br><strong>ClusterRoleBinding</strong> is cluster-wide — applies across all namespaces. Can only bind a ClusterRole.</div>
+          <div class="footer"><span class="tag">binding scope</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can you use a RoleBinding to bind a ClusterRole?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes.</strong> A RoleBinding can reference a ClusterRole as its <code>roleRef</code>. The effect is that the ClusterRole's permissions apply only within the RoleBinding's namespace — not cluster-wide. This is useful for reusing a ClusterRole definition with namespace-limited scope.</div>
+          <div class="footer"><span class="tag">binding trick</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the RBAC analogy to IAM? Map each component.</div>
+          <div class="footer"><span class="tag">IAM↔RBAC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            IAM Policy &nbsp;≈&nbsp; <strong>RBAC Role/ClusterRole</strong> (list of allowed actions + resources)<br>
+            IAM Principal (user/role) &nbsp;≈&nbsp; <strong>K8s Subject</strong> (User/Group/ServiceAccount)<br>
+            IAM Policy Attachment &nbsp;≈&nbsp; <strong>RoleBinding/ClusterRoleBinding</strong>
+          </div>
+          <div class="footer"><span class="tag">analogy</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the cluster-admin ClusterRole and who should have it?</div>
+          <div class="footer"><span class="tag">cluster-admin</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>cluster-admin</code> is the default ClusterRole granting <strong>full access to all K8s resources</strong>. By default, only the IAM entity that <em>created</em> the EKS cluster has it. It should be tightly controlled — do not routinely grant it. Use least-privilege roles instead.</div>
+          <div class="footer"><span class="tag">least privilege</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the three default RBAC groups in EKS and what do they map to?</div>
+          <div class="footer"><span class="tag">default groups</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <code>system:masters</code> → <strong>cluster-admin</strong> ClusterRole (full access)<br>
+            <code>system:nodes</code> → <strong>system:node</strong> ClusterRole (node operations)<br>
+            <code>system:bootstrappers</code> → bootstrap token role (node join only)
+          </div>
+          <div class="footer"><span class="tag">system groups</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What RBAC verbs exist and what do they map to in HTTP?</div>
+          <div class="footer"><span class="tag">verbs</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <code>get</code> → GET single resource<br>
+            <code>list</code> → GET collection<br>
+            <code>watch</code> → GET with watch stream<br>
+            <code>create</code> → POST<br>
+            <code>update</code> → PUT<br>
+            <code>patch</code> → PATCH<br>
+            <code>delete</code> → DELETE<br>
+            <code>deletecollection</code> → DELETE collection
+          </div>
+          <div class="footer"><span class="tag">verbs reference</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — aws-auth ConfigMap                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> IAM → RBAC: aws-auth ConfigMap</h2>
+    <p class="lede">
+      The <strong>aws-auth ConfigMap</strong> in the <code>kube-system</code> namespace is the bridge between IAM identity and Kubernetes RBAC. It maps IAM roles/users to K8s usernames and groups. Without an entry here, an IAM principal cannot interact with the K8s API even if they have full IAM permissions.
+    </p>
+
+    <!-- Animation: aws-auth flow -->
+    <div class="anim-player" data-anim-id="aws-auth-flow">
+      <div class="anim-title">Animation · aws-auth ConfigMap: bridging IAM and RBAC</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-aws-auth-flow" viewBox="0 0 700 250" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="codeblock"><span class="c"># aws-auth ConfigMap — kube-system namespace</span>
+<span class="k">apiVersion</span>: <span class="v">v1</span>
+<span class="k">kind</span>: <span class="v">ConfigMap</span>
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="v">aws-auth</span>
+  <span class="k">namespace</span>: <span class="v">kube-system</span>
+<span class="k">data</span>:
+  <span class="k">mapRoles</span>: |
+    - <span class="k">rolearn</span>: <span class="v">arn:aws:iam::123456789012:role/web-admins</span>
+      <span class="k">username</span>: <span class="v">web-admins</span>        <span class="c"># K8s username assigned</span>
+      <span class="k">groups</span>:
+        - <span class="v">web-admins</span>               <span class="c"># K8s group — bind RBAC to this</span>
+    - <span class="k">rolearn</span>: <span class="v">arn:aws:iam::123456789012:role/eks-node-role</span>
+      <span class="k">username</span>: <span class="v">system:node:{{EC2PrivateDNSName}}</span>
+      <span class="k">groups</span>:
+        - <span class="v">system:bootstrappers</span>
+        - <span class="v">system:nodes</span>
+  <span class="k">mapUsers</span>: |
+    - <span class="k">userarn</span>: <span class="v">arn:aws:iam::123456789012:user/alice</span>
+      <span class="k">username</span>: <span class="v">alice</span>
+      <span class="k">groups</span>:
+        - <span class="v">system:masters</span>            <span class="c"># full cluster-admin access</span></div>
+
+    <div class="warning-box">
+      <strong>Critical:</strong> The IAM entity that <em>created</em> the EKS cluster is the only principal that automatically gets cluster-admin access. All other IAM principals (including your own admin role in a different session) must be explicitly added to <code>aws-auth</code>.
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the aws-auth ConfigMap and where does it live?</div>
+          <div class="footer"><span class="tag">aws-auth</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <code>aws-auth</code> ConfigMap lives in the <strong>kube-system</strong> namespace. It maps IAM roles/users (AWS identities) to Kubernetes usernames and groups (K8s RBAC subjects). It is the bridge between IAM authentication and RBAC authorization.</div>
+          <div class="footer"><span class="tag">bridge</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the two-step process to grant an IAM role K8s permissions?</div>
+          <div class="footer"><span class="tag">grant access</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Step 1:</strong> Add entry to <code>aws-auth</code> ConfigMap: map IAM role ARN → K8s username + groups.<br>
+            <strong>Step 2:</strong> Create a ClusterRoleBinding (or RoleBinding) that binds the K8s group to a ClusterRole (or Role).<br>
+            Now: IAM role → K8s group → RBAC permissions.
+          </div>
+          <div class="footer"><span class="tag">two steps</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why must node IAM roles be in aws-auth?</div>
+          <div class="footer"><span class="tag">node registration</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Worker nodes use an IAM role for AWS API calls, but they also need K8s API access so <code>kubelet</code> can register as a node and report status. The node IAM role must be in <code>aws-auth</code> mapped to <code>system:nodes</code> group so the K8s API server trusts the node's identity.</div>
+          <div class="footer"><span class="tag">node join</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What happens if you accidentally delete the aws-auth ConfigMap?</div>
+          <div class="footer"><span class="tag">disaster scenario</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Only the cluster creator's IAM entity retains cluster-admin access (it's hardcoded). <strong>All other users lose K8s API access</strong> — including your admin roles. Nodes will also lose their K8s identity. You must recreate the ConfigMap immediately using the creator's credentials.</div>
+          <div class="footer"><span class="tag">recovery</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you grant a new IAM role cluster-admin in aws-auth?</div>
+          <div class="footer"><span class="tag">admin access</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Add to the <code>mapRoles</code> section of aws-auth:
+<br><code>rolearn: &lt;IAM-role-ARN&gt;</code>
+<br><code>username: cluster-admin</code>
+<br><code>groups: [system:masters]</code>
+<br>
+The <code>system:masters</code> group is pre-bound to the cluster-admin ClusterRole, giving full access.</div>
+          <div class="footer"><span class="tag">system:masters</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — Service accounts & pod permissions        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Service accounts &amp; pod permissions</h2>
+    <p class="lede">
+      A <strong>service account</strong> is the Kubernetes identity for <em>pods</em> (not humans). Every pod runs with a service account. By default, all pods in a namespace run with the <code>default</code> service account, which has minimal permissions and no AWS access.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>The default SA problem</h4>
+        <ul>
+          <li>Every namespace has a "default" service account</li>
+          <li>All pods use it unless you specify otherwise</li>
+          <li>Has no special K8s RBAC permissions by default</li>
+          <li>Has NO AWS credentials by default</li>
+          <li>If you bind a powerful role to "default" SA — <em>all pods in namespace inherit it</em></li>
+          <li>Solution: always create purpose-specific SAs</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Custom service account pattern</h4>
+        <ul>
+          <li>Create SA with specific name per application</li>
+          <li>Create a Role with only needed verbs + resources</li>
+          <li>Bind Role to SA with RoleBinding</li>
+          <li>Set <code>serviceAccountName</code> in pod spec</li>
+          <li>Token automatically projected into pod at <code>/var/run/secrets/kubernetes.io/serviceaccount/</code></li>
+          <li>Pod can now call K8s API with those permissions</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="codeblock"><span class="c"># Create a service account</span>
+<span class="k">apiVersion</span>: <span class="v">v1</span>
+<span class="k">kind</span>: <span class="v">ServiceAccount</span>
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="v">my-app-sa</span>
+  <span class="k">namespace</span>: <span class="v">production</span>
+---
+<span class="c"># Use it in a pod</span>
+<span class="k">spec</span>:
+  <span class="k">serviceAccountName</span>: <span class="v">my-app-sa</span>
+  <span class="k">containers</span>:
+  - <span class="k">name</span>: <span class="v">my-app</span>
+    <span class="k">image</span>: <span class="v">my-app:latest</span></div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Kubernetes service account?</div>
+          <div class="footer"><span class="tag">service account</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>Kubernetes identity for pods</strong> (not humans). When a pod calls the K8s API, it authenticates using its service account's token. Service accounts are namespace-scoped and their RBAC bindings define what K8s operations the pod can perform.</div>
+          <div class="footer"><span class="tag">pod identity</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the "default" service account risk?</div>
+          <div class="footer"><span class="tag">security risk</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Every namespace has a <code>default</code> SA. All pods without an explicit SA use it. If you grant the default SA elevated permissions, <strong>all pods in that namespace inherit those permissions</strong> — including ones that shouldn't have them. Always create purpose-specific service accounts.</div>
+          <div class="footer"><span class="tag">least privilege</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Where is the service account token automatically mounted in a pod?</div>
+          <div class="footer"><span class="tag">token location</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Kubernetes automatically projects the token to: <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code><br>Also mounted: <code>ca.crt</code> (cluster CA) and <code>namespace</code>. Applications use this token to authenticate to the K8s API. You can also disable auto-mounting with <code>automountServiceAccountToken: false</code>.</div>
+          <div class="footer"><span class="tag">token mount</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can a service account call AWS APIs directly (without IRSA)?</div>
+          <div class="footer"><span class="tag">SA vs IRSA</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Not with proper scoping.</strong> Without IRSA, a pod would inherit the <em>node's</em> IAM role — meaning all pods on the same node share the same AWS permissions. This is a security anti-pattern. IRSA solves this by letting each service account have its own scoped IAM role.</div>
+          <div class="footer"><span class="tag">node role problem</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — IRSA                                      -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> IAM Roles for Service Accounts (IRSA)</h2>
+    <p class="lede">
+      IRSA allows pods to call AWS APIs using <strong>scoped IAM roles</strong> — without static credentials and without sharing the node's IAM role. It is the recommended way to give pods AWS permissions. Built on a three-way trust between IAM, the cluster's OIDC provider, and the K8s service account.
+    </p>
+
+    <!-- Animation: IRSA flow -->
+    <div class="anim-player" data-anim-id="irsa-flow">
+      <div class="anim-title">Animation · IRSA three-way trust — how a pod gets AWS credentials</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-irsa-flow" viewBox="0 0 700 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="tip-box">
+      <strong>Why IRSA beats node IAM roles:</strong> With a node IAM role, every pod on that node shares the same permissions. If one pod is compromised, attackers get node-level AWS access. IRSA scopes credentials per service account — a compromised pod can only access what that specific SA is permitted.
+    </div>
+
+    <h3 style="font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px">IRSA Setup Steps</h3>
+    <ol class="steps-list">
+      <li><p><strong>Enable OIDC provider:</strong> Associate your cluster's OIDC issuer URL with AWS IAM — <code>eksctl utils associate-iam-oidc-provider --cluster &lt;name&gt;</code></p></li>
+      <li><p><strong>Create IAM role:</strong> Write a trust policy that allows <code>sts:AssumeRoleWithWebIdentity</code> for the specific OIDC issuer URL + <code>system:serviceaccount:&lt;namespace&gt;:&lt;sa-name&gt;</code></p></li>
+      <li><p><strong>Attach permissions policy:</strong> Attach the IAM policy defining the AWS permissions the pod needs (e.g., S3 read-only for specific bucket)</p></li>
+      <li><p><strong>Create annotated K8s service account:</strong> <code>eks.amazonaws.com/role-arn: &lt;IAM-role-ARN&gt;</code> on the service account</p></li>
+      <li><p><strong>Deploy pod using that SA:</strong> Set <code>serviceAccountName</code> in pod spec. Kubelet automatically injects AWS credentials via a <strong>projected volume</strong></p></li>
+    </ol>
+
+    <div class="codeblock"><span class="c"># 1. Annotate the K8s Service Account</span>
+<span class="k">apiVersion</span>: <span class="v">v1</span>
+<span class="k">kind</span>: <span class="v">ServiceAccount</span>
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="v">s3-reader-sa</span>
+  <span class="k">namespace</span>: <span class="v">production</span>
+  <span class="k">annotations</span>:
+    <span class="k">eks.amazonaws.com/role-arn</span>: <span class="v">arn:aws:iam::123456789012:role/s3-reader-role</span>
+
+<span class="c"># 2. IAM Trust Policy (key section)</span>
+{
+  <span class="k">"Effect"</span>: <span class="v">"Allow"</span>,
+  <span class="k">"Principal"</span>: {
+    <span class="k">"Federated"</span>: <span class="v">"arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPL"</span>
+  },
+  <span class="k">"Action"</span>: <span class="v">"sts:AssumeRoleWithWebIdentity"</span>,
+  <span class="k">"Condition"</span>: {
+    <span class="k">"StringEquals"</span>: {
+      <span class="v">"oidc.eks.../id/EXAMPL:sub"</span>: <span class="v">"system:serviceaccount:production:s3-reader-sa"</span>
+    }
+  }
+}</div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What problem does IRSA solve?</div>
+          <div class="footer"><span class="tag">IRSA purpose</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Without IRSA, pods use the <strong>node's IAM role</strong> — all pods on a node share the same AWS permissions (over-permissioned). IRSA lets each pod use a <strong>scoped IAM role</strong> specific to its service account, following the principle of least privilege.</div>
+          <div class="footer"><span class="tag">least privilege</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the "three-way trust" in IRSA?</div>
+          <div class="footer"><span class="tag">three-way trust</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>EKS OIDC issuer</strong> — issues signed JWT tokens for service accounts<br>
+            2. <strong>IAM</strong> — trusts the OIDC issuer (configured via OIDC identity provider)<br>
+            3. <strong>K8s service account</strong> — annotated with the IAM role ARN<br>
+            These three form the chain that allows AWS STS to issue temporary credentials to the pod.
+          </div>
+          <div class="footer"><span class="tag">OIDC + IAM + SA</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does a pod actually receive AWS credentials via IRSA?</div>
+          <div class="footer"><span class="tag">credential injection</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The Pod Mutating Admission Webhook automatically injects the OIDC token as a <strong>projected volume</strong> and sets environment variables <code>AWS_WEB_IDENTITY_TOKEN_FILE</code> and <code>AWS_ROLE_ARN</code>. The AWS SDK reads these automatically and calls <code>sts:AssumeRoleWithWebIdentity</code> to get temporary credentials.</div>
+          <div class="footer"><span class="tag">projected volume</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What annotation do you add to a K8s service account to enable IRSA?</div>
+          <div class="footer"><span class="tag">SA annotation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>eks.amazonaws.com/role-arn: arn:aws:iam::&lt;account-id&gt;:role/&lt;role-name&gt;</code><br><br>This tells EKS which IAM role to assume when pods using this service account call AWS APIs. The IAM role's trust policy must reference this specific namespace and SA name.</div>
+          <div class="footer"><span class="tag">annotation</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What condition must the IAM trust policy have for IRSA to be secure?</div>
+          <div class="footer"><span class="tag">trust policy</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The trust policy <code>StringEquals</code> condition must specify the exact <strong>OIDC issuer URL + SA subject</strong>: <code>"system:serviceaccount:&lt;namespace&gt;:&lt;sa-name&gt;"</code>. Without this, any SA in the cluster could assume the role. The specificity of the subject claim is what makes IRSA secure.</div>
+          <div class="footer"><span class="tag">trust policy scope</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the first step to enable IRSA on an existing EKS cluster?</div>
+          <div class="footer"><span class="tag">IRSA setup</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Associate the cluster's OIDC issuer URL with IAM:<br><code>eksctl utils associate-iam-oidc-provider --cluster &lt;name&gt; --approve</code><br><br>Or via Console: EKS cluster → Configuration → Authentication → Add OIDC. This creates the IAM OIDC identity provider that allows IAM to trust the cluster's service account tokens.</div>
+          <div class="footer"><span class="tag">OIDC associate</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 9 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> Knowledge checks (from the course)</h2>
+    <p class="lede">Official course knowledge-check questions formatted as flashcards. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 1 — How does the EKS cluster creator get cluster-admin access? (Select 2)<br><em>A. Auto system:masters &nbsp; B. Default RBAC policy &nbsp; C. Modify aws-auth &nbsp; D. Auto cluster-admin CRB</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ A &amp; C</span><br><br><strong>A:</strong> The IAM entity that creates the cluster is automatically added to <code>system:masters</code> (no aws-auth entry needed for them).<br><strong>C:</strong> Additional users get access by modifying the aws-auth ConfigMap to map their IAM role/user to a K8s group, then adding a ClusterRoleBinding.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — Which is the MOST restrictive policy allowing a pod to read from S3?<br><em>A. Admin IAM policy on node &nbsp; B. S3ReadOnly on node &nbsp; C. Admin IAM via IRSA &nbsp; D. Custom S3 role via IRSA</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ D — Custom IAM role with only required S3 permissions via IRSA</span><br><br>IRSA with a purpose-built, minimally scoped IAM policy is least-privilege. Options A/B use the node role (all pods on node share), Option C uses IRSA but grants excessive admin permissions.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 3 — What do you need for a user to deploy pods to an EKS cluster? (Select 3)<br><em>A. kubectl + kubeconfig &nbsp; B. IAM perms for K8s API &nbsp; C. RBAC Role for pod creation &nbsp; D. Root account access</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ A, B, C</span><br><br><strong>A:</strong> kubectl tool + kubeconfig pointing to the cluster.<br><strong>B:</strong> IAM permissions to authenticate (get token for the K8s API).<br><strong>C:</strong> RBAC Role/ClusterRole granting <code>create</code> on <code>pods</code> (or <code>deployments</code>), bound via RoleBinding/ClusterRoleBinding.<br>D is wrong — root access is not needed or recommended.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 4 — Service account permissions. Which statements are correct? (Select A,B,D,E)</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Correct: <strong>A</strong> — SA is K8s identity for pods. <strong>B</strong> — SA enables pod→K8s API auth. <strong>D</strong> — IRSA lets SA assume IAM role for AWS API calls. <strong>E</strong> — SA token auto-projected into pod. <br>Incorrect: C — Default SA does NOT have cluster-admin. Never grant broad permissions to default SA.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Exam trap: A developer has full AdministratorAccess IAM policy. They run kubectl get pods and get "Forbidden". Why?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">IAM controls <em>AWS API</em> access, not K8s API access. The developer's IAM role is not in the <code>aws-auth</code> ConfigMap, so they have no K8s identity. They need to be added to aws-auth (mapped to a K8s group) AND have an appropriate RBAC binding. AdministratorAccess does not grant K8s access.</div>
+          <div class="footer"><span class="tag">two separate systems</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Exam trap: Can a ClusterRole be used to grant namespace-scoped permissions?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes.</strong> If you bind a ClusterRole using a <code>RoleBinding</code> (not ClusterRoleBinding) in a specific namespace, the ClusterRole's permissions apply only to that namespace. This is a valid pattern for reusing permission definitions without creating duplicate Role objects in every namespace.</div>
+          <div class="footer"><span class="tag">ClusterRole + RoleBinding</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the security risk of using the node IAM role for pod AWS access?</div>
+          <div class="footer"><span class="tag">node role risk</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Blast radius.</strong> All pods on a node share the node's IAM role. If any pod is compromised, the attacker gains access to all AWS resources the node role can reach — not just those needed by that pod. IRSA scopes credentials per SA, containing the blast radius to a single service.</div>
+          <div class="footer"><span class="tag">blast radius</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Where in the 4Cs model does RBAC belong?</div>
+          <div class="footer"><span class="tag">4Cs placement</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">RBAC belongs in the <strong>Cluster</strong> layer — the second C. It is a Kubernetes-layer control, not AWS infrastructure (Cloud), not container image security (Container), and not application code (Code). Cluster security includes RBAC, admission controllers, network policies, and audit logging.</div>
+          <div class="footer"><span class="tag">4Cs</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 09 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r) {
+  r = r === undefined ? 8 : r;
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts) {
+  opts = opts || {};
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function line(svg, x1,y1,x2,y2, color, dash) {
+  color = color || '#475569'; dash = dash || '';
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':1.5,
+    'stroke-dasharray':dash}));
+}
+function arrow(svg, x1,y1,x2,y2, color) {
+  color = color || '#38bdf8';
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':'url(#'+id+')'}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: 4Cs concentric rings ───────────────
+window.ANIMATIONS['four-cs'] = [
+  {
+    narration: 'The 4Cs model shows security as four nested layers. Each layer wraps the next. We build from the outside in — starting with Cloud infrastructure.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 22, '4Cs of Cloud-Native Security — Defense in Depth', {size:12, weight:'700', color:'#94a3b8'});
+      // Outer ring — Cloud (red)
+      svg.appendChild(svgEl('ellipse',{cx:350,cy:155,rx:300,ry:110,fill:'rgba(239,68,68,0.08)',stroke:'#ef4444','stroke-width':2,'stroke-dasharray':'6 3'}));
+      text(svg, 350, 55, 'C1 — CLOUD', {size:13, weight:'800', color:'#ef4444'});
+      text(svg, 350, 72, 'AWS infra: VPC, IAM, physical security', {size:9.5, color:'#fca5a5'});
+    }
+  },
+  {
+    narration: 'Inside Cloud sits the Cluster layer — Kubernetes-level controls. RBAC, admission controllers, secrets encryption. A misconfigured cluster exposes all containers and code inside it.',
+    apply(svg){
+      svg.appendChild(svgEl('ellipse',{cx:350,cy:155,rx:230,ry:86,fill:'rgba(249,115,22,0.09)',stroke:'#f97316','stroke-width':2,'stroke-dasharray':'6 3'}));
+      text(svg, 350, 88, 'C2 — CLUSTER', {size:12, weight:'800', color:'#f97316'});
+      text(svg, 350, 103, 'RBAC, admission controllers, network policy', {size:9, color:'#fdba74'});
+    }
+  },
+  {
+    narration: 'Inside Cluster sits the Container layer. Image scanning, least privilege, read-only root filesystem. Even in a secured cluster, a vulnerable image can be exploited.',
+    apply(svg){
+      svg.appendChild(svgEl('ellipse',{cx:350,cy:155,rx:158,ry:62,fill:'rgba(234,179,8,0.09)',stroke:'#eab308','stroke-width':2,'stroke-dasharray':'6 3'}));
+      text(svg, 350, 115, 'C3 — CONTAINER', {size:11, weight:'800', color:'#eab308'});
+      text(svg, 350, 129, 'Image scan, non-root, read-only FS', {size:9, color:'#fde68a'});
+    }
+  },
+  {
+    narration: 'At the center is Code — application-level security. SAST, dependency scanning, input validation. No amount of infrastructure hardening compensates for SQL injection in your app.',
+    apply(svg){
+      svg.appendChild(svgEl('ellipse',{cx:350,cy:155,rx:90,ry:38,fill:'rgba(34,197,94,0.12)',stroke:'#22c55e','stroke-width':2.5}));
+      text(svg, 350, 150, 'C4 — CODE', {size:11, weight:'800', color:'#22c55e'});
+      text(svg, 350, 165, 'SAST, deps, validation', {size:8.5, color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Each layer is independently necessary. A breach in Cloud can bypass Cluster, Container, and Code controls. Defense in depth means an attacker must break through ALL four rings.',
+    apply(svg){
+      // Threat arrow from outside
+      arrow(svg, 660, 100, 450, 130, '#ef4444');
+      text(svg, 655, 92, 'Attacker', {size:9.5, color:'#ef4444', anchor:'end'});
+      // Labels on arrow
+      text(svg, 590, 95, '→ blocked at Cloud', {size:8.5, color:'#94a3b8', anchor:'end'});
+      text(svg, 350, 248, 'Every layer = an independent security boundary', {size:10, weight:'700', color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 2: EKS authentication flow ────────────
+window.ANIMATIONS['authn-flow'] = [
+  {
+    narration: 'EKS authentication has two phases: first IAM proves WHO you are, then RBAC decides WHAT you can do. Let\'s trace a kubectl command step by step.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 20, 'EKS Authentication Flow', {size:13, weight:'700', color:'#94a3b8'});
+      // Developer
+      box(svg, 20, 50, 110, 60, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 75, 74, 'Developer', {size:10, weight:'700', color:'#38bdf8'});
+      text(svg, 75, 89, 'kubectl', {size:9, color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Step 1: kubectl calls "aws eks get-token" to generate a signed bearer token using the developer\'s IAM credentials. This token is short-lived (15 min).',
+    apply(svg){
+      box(svg, 165, 50, 130, 60, '#1a1a0a', '#eab308', 8);
+      text(svg, 230, 74, 'AWS IAM', {size:10, weight:'700', color:'#eab308'});
+      text(svg, 230, 89, 'get-token', {size:9, color:'#94a3b8'});
+      arrow(svg, 131, 80, 163, 80, '#eab308');
+      text(svg, 148, 74, 'creds', {size:8, color:'#eab308'});
+    }
+  },
+  {
+    narration: 'Step 2: kubectl sends the bearer token in the Authorization header to the K8s API server endpoint.',
+    apply(svg){
+      box(svg, 330, 50, 130, 60, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 395, 74, 'K8s API', {size:10, weight:'700', color:'#38bdf8'});
+      text(svg, 395, 89, 'Server', {size:9, color:'#94a3b8'});
+      arrow(svg, 296, 80, 328, 80, '#38bdf8');
+      text(svg, 313, 73, 'token', {size:8, color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Step 3: The API server validates the token via the aws-iam-authenticator. If valid, it looks up the IAM identity in the aws-auth ConfigMap to get a K8s username and groups.',
+    apply(svg){
+      box(svg, 20, 145, 180, 60, '#1a0a0a', '#f97316', 8);
+      text(svg, 110, 169, 'aws-auth ConfigMap', {size:9.5, weight:'700', color:'#f97316'});
+      text(svg, 110, 184, 'IAM role → K8s group', {size:8.5, color:'#94a3b8'});
+      arrow(svg, 395, 111, 300, 175, '#f97316');
+      text(svg, 370, 140, 'lookup', {size:8, color:'#f97316'});
+      arrow(svg, 201, 175, 328, 175, '#f97316');
+      text(svg, 265, 168, 'K8s identity', {size:8, color:'#f97316'});
+    }
+  },
+  {
+    narration: 'Step 4: RBAC checks if the K8s user/group has a RoleBinding/ClusterRoleBinding granting the requested operation. If yes — allowed. If no — 403 Forbidden.',
+    apply(svg){
+      box(svg, 330, 145, 130, 60, '#0a2a0a', '#22c55e', 8);
+      text(svg, 395, 169, 'RBAC', {size:10, weight:'700', color:'#22c55e'});
+      text(svg, 395, 184, 'Authz check', {size:9, color:'#94a3b8'});
+      arrow(svg, 395, 111, 395, 143, '#22c55e');
+      // Result
+      box(svg, 500, 145, 165, 60, '#0a1a0a', '#4ade80', 8);
+      text(svg, 582, 169, '✓ ALLOWED', {size:11, weight:'700', color:'#4ade80'});
+      text(svg, 582, 184, 'or 403 Forbidden', {size:9, color:'#94a3b8'});
+      arrow(svg, 461, 175, 498, 175, '#4ade80');
+    }
+  }
+];
+
+// ── ANIMATION 3: RBAC object relationships ───────────
+window.ANIMATIONS['rbac-objects'] = [
+  {
+    narration: 'RBAC has four objects: two define permissions (Role, ClusterRole) and two create bindings (RoleBinding, ClusterRoleBinding). Let\'s build the picture.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 20, 'RBAC Object Relationships', {size:13, weight:'700', color:'#94a3b8'});
+      // Legend
+      text(svg, 160, 245, 'Namespace-scoped', {size:9, color:'#38bdf8', anchor:'middle'});
+      box(svg, 20, 236, 280, 14, 'none', '#38bdf8', 4);
+      text(svg, 520, 245, 'Cluster-wide', {size:9, color:'#f97316', anchor:'middle'});
+      box(svg, 350, 236, 320, 14, 'none', '#f97316', 4);
+    }
+  },
+  {
+    narration: 'Role: namespaced — defines allowed verbs and resources within ONE namespace. Example: allow "get,list pods" in namespace "default".',
+    apply(svg){
+      box(svg, 30, 40, 140, 65, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 100, 63, 'Role', {size:12, weight:'800', color:'#38bdf8'});
+      text(svg, 100, 79, 'namespace-scoped', {size:9, color:'#94a3b8'});
+      text(svg, 100, 93, 'verbs + resources', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'ClusterRole: cluster-wide — same structure as Role but applies across ALL namespaces, plus non-namespaced resources like Nodes.',
+    apply(svg){
+      box(svg, 420, 40, 250, 65, '#1a0c0a', '#f97316', 8);
+      text(svg, 545, 63, 'ClusterRole', {size:12, weight:'800', color:'#f97316'});
+      text(svg, 545, 79, 'cluster-wide', {size:9, color:'#94a3b8'});
+      text(svg, 545, 93, 'verbs + resources (all NS)', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'RoleBinding: namespace-scoped binding. Can bind a Role OR a ClusterRole to a subject — but always within one namespace only.',
+    apply(svg){
+      box(svg, 30, 155, 260, 65, '#0a1a0a', '#22c55e', 8);
+      text(svg, 160, 178, 'RoleBinding', {size:12, weight:'800', color:'#22c55e'});
+      text(svg, 160, 194, 'namespace-scoped', {size:9, color:'#94a3b8'});
+      text(svg, 160, 208, 'binds Role or ClusterRole to subject', {size:8.5, color:'#64748b'});
+      arrow(svg, 100, 106, 100, 153, '#22c55e');
+      arrow(svg, 545, 106, 400, 153, '#22c55e');
+      text(svg, 410, 136, 'can also bind', {size:8, color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'ClusterRoleBinding: cluster-wide binding. Binds a ClusterRole to a subject across ALL namespaces. This is how you grant cluster-admin to a user.',
+    apply(svg){
+      box(svg, 390, 155, 280, 65, '#1a1a0a', '#eab308', 8);
+      text(svg, 530, 178, 'ClusterRoleBinding', {size:11, weight:'800', color:'#eab308'});
+      text(svg, 530, 194, 'cluster-wide binding', {size:9, color:'#94a3b8'});
+      text(svg, 530, 208, 'binds ClusterRole to subject', {size:8.5, color:'#64748b'});
+      arrow(svg, 545, 106, 530, 153, '#eab308');
+    }
+  },
+  {
+    narration: 'Subjects can be Users, Groups, or ServiceAccounts. The binding creates the link: subject → role → permissions. A user with no binding gets nothing.',
+    apply(svg){
+      box(svg, 200, 155, 145, 65, '#1a0a2a', '#818cf8', 8);
+      text(svg, 272, 178, 'Subject', {size:12, weight:'800', color:'#818cf8'});
+      text(svg, 272, 194, 'User | Group', {size:9, color:'#94a3b8'});
+      text(svg, 272, 208, 'ServiceAccount', {size:8.5, color:'#64748b'});
+      arrow(svg, 291, 155, 291, 120, '#818cf8');
+      text(svg, 320, 140, 'gets bound by', {size:8, color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 4: aws-auth ConfigMap bridge ────────────
+window.ANIMATIONS['aws-auth-flow'] = [
+  {
+    narration: 'The aws-auth ConfigMap is the critical bridge between IAM identity and K8s RBAC. Without it, IAM principals cannot use kubectl even with full AWS permissions.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 20, 'aws-auth ConfigMap: IAM → RBAC Bridge', {size:12, weight:'700', color:'#94a3b8'});
+      // IAM side
+      box(svg, 20, 50, 160, 65, '#1a1a0a', '#eab308', 8);
+      text(svg, 100, 74, 'IAM Role', {size:11, weight:'700', color:'#eab308'});
+      text(svg, 100, 90, 'role/web-admins', {size:8.5, color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Step 1: An IAM role (e.g., "web-admins") exists in AWS. Without anything else, this role cannot touch the K8s API.',
+    apply(svg){
+      text(svg, 100, 130, '⚠ No K8s access yet', {size:9, color:'#f87171', anchor:'middle'});
+    }
+  },
+  {
+    narration: 'Step 2: We add an entry to aws-auth ConfigMap mapping the IAM role ARN to a K8s username and group "web-admins".',
+    apply(svg){
+      box(svg, 250, 50, 200, 65, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 350, 68, 'aws-auth ConfigMap', {size:10, weight:'700', color:'#38bdf8'});
+      text(svg, 350, 84, 'rolearn: role/web-admins', {size:8, color:'#94a3b8'});
+      text(svg, 350, 98, '→ group: web-admins', {size:8, color:'#38bdf8'});
+      text(svg, 350, 112, '(namespace: kube-system)', {size:8, color:'#475569'});
+      arrow(svg, 181, 82, 248, 82, '#38bdf8');
+    }
+  },
+  {
+    narration: 'Step 3: A ClusterRoleBinding binds the K8s group "web-admins" to a ClusterRole — say, "view" (read-only).',
+    apply(svg){
+      box(svg, 490, 50, 185, 65, '#0a1a0a', '#22c55e', 8);
+      text(svg, 582, 68, 'ClusterRoleBinding', {size:9.5, weight:'700', color:'#22c55e'});
+      text(svg, 582, 84, 'group: web-admins', {size:8, color:'#94a3b8'});
+      text(svg, 582, 98, '→ ClusterRole: view', {size:8, color:'#22c55e'});
+      arrow(svg, 451, 82, 488, 82, '#22c55e');
+    }
+  },
+  {
+    narration: 'Step 4: Now when a developer assumes the "web-admins" IAM role and runs kubectl, the full chain works: IAM auth → aws-auth maps to group → RBAC group has ClusterRole → command succeeds.',
+    apply(svg){
+      box(svg, 140, 165, 420, 55, '#0a1020', '#475569', 8);
+      text(svg, 350, 188, 'Result: IAM role → K8s group → RBAC permissions', {size:10, weight:'700', color:'#f1f5f9'});
+      text(svg, 350, 208, 'kubectl get pods — ALLOWED ✓', {size:10, color:'#4ade80'});
+      arrow(svg, 350, 116, 350, 163, '#4ade80');
+    }
+  }
+];
+
+// ── ANIMATION 5: IRSA three-way trust ────────────────
+window.ANIMATIONS['irsa-flow'] = [
+  {
+    narration: 'IRSA solves the node IAM role problem. Without IRSA, ALL pods on a node share one IAM role — massive blast radius. With IRSA, each service account gets its own scoped IAM role.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 18, 'IRSA: Three-Way Trust for Pod AWS Credentials', {size:12, weight:'700', color:'#94a3b8'});
+      // Anti-pattern comparison
+      box(svg, 20, 40, 200, 70, '#2a0a0a', '#ef4444', 8);
+      text(svg, 120, 60, 'Without IRSA', {size:10, weight:'700', color:'#ef4444'});
+      text(svg, 120, 76, 'Node IAM Role', {size:9, color:'#94a3b8'});
+      text(svg, 120, 91, 'ALL pods share it', {size:8.5, color:'#fca5a5'});
+      // Good pattern
+      box(svg, 260, 40, 200, 70, '#0a2a0a', '#22c55e', 8);
+      text(svg, 360, 60, 'With IRSA', {size:10, weight:'700', color:'#22c55e'});
+      text(svg, 360, 76, 'Per-SA IAM role', {size:9, color:'#94a3b8'});
+      text(svg, 360, 91, 'scoped per service', {size:8.5, color:'#86efac'});
+      text(svg, 240, 58, '→', {size:20, color:'#38bdf8', anchor:'middle'});
+    }
+  },
+  {
+    narration: 'The three parties: (1) EKS cluster with OIDC issuer — issues signed tokens for service accounts. (2) AWS IAM — trusts the OIDC issuer. (3) K8s Service Account — annotated with IAM role ARN.',
+    apply(svg){
+      // Three boxes of the trust triangle
+      box(svg, 20, 140, 180, 65, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 110, 161, 'EKS OIDC Issuer', {size:10, weight:'700', color:'#38bdf8'});
+      text(svg, 110, 176, 'issues JWT tokens', {size:8.5, color:'#94a3b8'});
+      text(svg, 110, 190, 'for service accounts', {size:8.5, color:'#64748b'});
+
+      box(svg, 260, 140, 180, 65, '#1a1a0a', '#eab308', 8);
+      text(svg, 350, 161, 'AWS IAM', {size:10, weight:'700', color:'#eab308'});
+      text(svg, 350, 176, 'trusts OIDC issuer', {size:8.5, color:'#94a3b8'});
+      text(svg, 350, 190, 'AssumeRoleWithWebId', {size:8, color:'#64748b'});
+
+      box(svg, 500, 140, 180, 65, '#0a1a2a', '#818cf8', 8);
+      text(svg, 590, 161, 'K8s Service Acct', {size:10, weight:'700', color:'#818cf8'});
+      text(svg, 590, 176, 'annotated with', {size:8.5, color:'#94a3b8'});
+      text(svg, 590, 190, 'role-arn', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Flow step 1: Pod starts. Kubelet mounts a projected volume with the OIDC-signed service account token. Environment variables AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN are set automatically.',
+    apply(svg){
+      box(svg, 140, 230, 180, 45, '#0a1a2a', '#818cf8', 6);
+      text(svg, 230, 249, 'Pod', {size:11, weight:'700', color:'#818cf8'});
+      text(svg, 230, 263, 'token projected in', {size:8.5, color:'#94a3b8'});
+      arrow(svg, 590, 207, 320, 228, '#818cf8');
+    }
+  },
+  {
+    narration: 'Flow step 2: AWS SDK in the pod calls STS AssumeRoleWithWebIdentity, presenting the OIDC token and requesting the annotated IAM role.',
+    apply(svg){
+      arrow(svg, 322, 250, 348, 204, '#eab308');
+      text(svg, 290, 224, 'AssumeRoleWith', {size:8, color:'#eab308'});
+      text(svg, 290, 234, 'WebIdentity', {size:8, color:'#eab308'});
+    }
+  },
+  {
+    narration: 'Flow step 3: STS validates the OIDC token with the issuer, checks the trust policy matches the SA annotation, and returns temporary AWS credentials. Pod can now call S3, DynamoDB, etc.',
+    apply(svg){
+      box(svg, 480, 230, 190, 45, '#0a2a0a', '#22c55e', 6);
+      text(svg, 575, 249, 'Temp AWS Credentials', {size:9.5, weight:'700', color:'#22c55e'});
+      text(svg, 575, 263, 'to pod (15 min TTL)', {size:8, color:'#94a3b8'});
+      arrow(svg, 441, 172, 480, 232, '#22c55e');
+      arrow(svg, 478, 253, 322, 253, '#22c55e');
+      text(svg, 400, 245, 'creds returned', {size:8, color:'#22c55e'});
+    }
+  }
+];
+</script>
+</body>
+</html>

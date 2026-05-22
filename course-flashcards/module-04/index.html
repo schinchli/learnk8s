@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 04 — Deploying Applications to EKS · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 04: ECR, Helm, deployment workflow, chart anatomy, image scanning.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-04 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+
+.steps-row {
+  display:flex; gap:0; margin-bottom:24px; overflow:hidden; border-radius:10px;
+  border:1px solid var(--panel-light);
+}
+.step-item {
+  flex:1; padding:18px 16px; background:var(--panel); position:relative;
+  border-right:1px solid var(--panel-light);
+}
+.step-item:last-child { border-right:none; }
+.step-item .step-num {
+  font-size:0.65em; font-weight:800; letter-spacing:.1em; color:var(--accent);
+  text-transform:uppercase; margin-bottom:6px;
+}
+.step-item .step-title { font-size:0.95em; font-weight:700; color:var(--text); margin-bottom:4px; }
+.step-item .step-sub { font-size:0.82em; color:var(--muted); line-height:1.5; }
+
+.filetree {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 22px; font-family:monospace;
+  font-size:0.88em; line-height:1.9; margin-bottom:24px;
+}
+.filetree .dir { color:#F39C12; font-weight:700; }
+.filetree .file-req { color:#38bdf8; font-weight:700; }
+.filetree .file-opt { color:#94a3b8; }
+.filetree .badge {
+  display:inline-block; font-size:0.7em; font-weight:700;
+  padding:1px 6px; border-radius:4px; margin-left:8px; vertical-align:middle;
+}
+.badge-req { background:rgba(56,189,248,0.18); color:#38bdf8; }
+.badge-opt { background:rgba(148,163,184,0.15); color:#64748b; }
+
+.code-block {
+  background:#0c1018; border:1px solid var(--panel-light);
+  border-radius:8px; padding:16px 18px; font-family:monospace;
+  font-size:0.84em; line-height:1.7; color:#94a3b8; margin-bottom:20px; overflow-x:auto;
+}
+.code-block .k { color:#38bdf8; }
+.code-block .v { color:#86efac; }
+.code-block .c { color:#475569; font-style:italic; }
+.code-block .t { color:#fbbf24; }
+
+.scan-table { width:100%; border-collapse:collapse; font-size:0.87em; margin-bottom:24px; }
+.scan-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:9px 14px; text-align:left; font-size:0.78em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.scan-table td {
+  padding:9px 14px; border:1px solid #2a3347; color:var(--muted); vertical-align:top; line-height:1.5;
+}
+.scan-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.82em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.82em; }
+
+.source-pills {
+  display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px;
+}
+.src-pill {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:12px 18px; flex:1; min-width:140px;
+}
+.src-pill .label { font-size:0.68em; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.src-pill .title { font-size:0.97em; font-weight:700; color:var(--accent); }
+.src-pill .sub { font-size:0.82em; color:var(--muted); margin-top:4px; line-height:1.4; }
+
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .steps-row{ flex-direction:column; }
+  .source-pills{ flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 04
+  </div>
+  <h1>📦 Module 04 — Deploying Applications to Your EKS Cluster</h1>
+  <p>Deployment methods · scaling workflow · Amazon ECR · image scanning · Helm chart anatomy · templating · chart repos.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Deployment methods overview</a></li>
+      <li><a href="#topic-2">Scaling deployment workflow</a></li>
+      <li><a href="#topic-3">Amazon ECR — the container registry</a></li>
+      <li><a href="#topic-4">ECR image scanning</a></li>
+      <li><a href="#topic-5">ECR workflow end-to-end</a></li>
+      <li><a href="#topic-6">Helm — the Kubernetes package manager</a></li>
+      <li><a href="#topic-7">Helm chart anatomy &amp; templating</a></li>
+      <li><a href="#topic-8">Helm chart sources</a></li>
+      <li><a href="#topic-9">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — Deployment methods                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Deployment methods overview</h2>
+    <p class="lede">
+      There are two broad approaches to getting your application onto an EKS cluster: <strong>manual deployment</strong> via <code>kubectl</code> and <strong>automated deployment</strong> via a CI/CD pipeline. Manual is fine for learning; production teams use automation to eliminate human error and enforce repeatable deployments.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Manual — kubectl</h4>
+        <ul>
+          <li>Apply YAML manifests directly</li>
+          <li>Fast for development / testing</li>
+          <li>No pipeline overhead</li>
+          <li>Error-prone at scale</li>
+          <li>No audit trail / rollback automation</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Automated — CI/CD pipeline</h4>
+        <ul>
+          <li>Triggered by code commits</li>
+          <li>Build → test → push → deploy</li>
+          <li>Repeatable, auditable, consistent</li>
+          <li>Integrates with ECR + Helm</li>
+          <li>Required for production teams</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the two deployment methods covered in Module 04?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Manual deployment</strong> — using <code>kubectl</code> to apply manifests directly to the cluster.<br><br><strong>Automated deployment</strong> — using a CI/CD pipeline (build → test → push → deploy) that removes human error and enforces consistency.</div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why do production teams prefer automated over manual deployments?</div>
+          <div class="footer"><span class="tag">best practice</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Automated pipelines are <strong>repeatable</strong>, <strong>auditable</strong>, and <strong>consistent</strong> — every deploy follows the same steps. Manual kubectl commands are fast but error-prone at scale and leave no automatic audit trail or rollback mechanism.</div>
+          <div class="footer"><span class="tag">CI/CD</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — Scaling deployment workflow               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> Scaling deployment workflow — 3 steps</h2>
+    <p class="lede">
+      The course defines a three-step framework for scaling your deployment workflow beyond manual <code>kubectl</code>. Each step unlocks a new layer of reliability and automation.
+    </p>
+
+    <div class="steps-row">
+      <div class="step-item">
+        <div class="step-num">STEP 1</div>
+        <div class="step-title">Container image repository</div>
+        <div class="step-sub">Store, version, and distribute Docker images. Use Amazon ECR for native AWS integration.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">STEP 2</div>
+        <div class="step-title">Package manager / deployment tools</div>
+        <div class="step-sub">Use Helm to package Kubernetes manifests into reusable, versioned charts.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">STEP 3</div>
+        <div class="step-title">Automate your CI/CD pipeline</div>
+        <div class="step-sub">Connect code commits to automatic build, push, and deploy — no manual kubectl in production.</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the 3 steps to scaling your deployment workflow?</div>
+          <div class="footer"><span class="tag">workflow</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Set up a container image repository</strong> (e.g. Amazon ECR)<br>
+            2. <strong>Choose your package manager / deployment tools</strong> (e.g. Helm)<br>
+            3. <strong>Automate your CI/CD pipeline</strong> (build → push → deploy on every commit)
+          </div>
+          <div class="footer"><span class="tag">3-step framework</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What role does a container image repository play in the deployment workflow?</div>
+          <div class="footer"><span class="tag">registry role</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It is the <strong>central artifact store</strong>: your CI pipeline pushes built images there, your cluster pulls images from there. It enforces versioned, immutable artifacts so every environment gets exactly the same binary.</div>
+          <div class="footer"><span class="tag">ECR</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Amazon ECR                                -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Amazon ECR — the container registry</h2>
+    <p class="lede">
+      <strong>Amazon Elastic Container Registry (ECR)</strong> is a fully managed registry for Docker images and OCI artifacts. It is highly available, scalable, encrypted at rest, and tightly integrated with IAM — no separate credential management required when running on AWS.
+    </p>
+
+    <!-- Animation: ECR workflow -->
+    <div class="anim-player" data-anim-id="ecr-workflow">
+      <div class="anim-title">Animation · ECR push-to-pull workflow</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ecr-workflow" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>ECR key features</h4>
+        <ul>
+          <li>Fully managed — no servers to operate</li>
+          <li>Highly available &amp; scalable</li>
+          <li>Encryption at rest (AWS KMS)</li>
+          <li>Optional vulnerability scanning</li>
+          <li>IAM integration (no extra credentials)</li>
+          <li>Image signing support</li>
+          <li>Docker &amp; OCI artifact support</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>ECR registry &amp; repo hierarchy</h4>
+        <ul>
+          <li>Each AWS account → <strong>ONE default private registry</strong></li>
+          <li>Each AWS account → <strong>ONE default public registry</strong></li>
+          <li>Multiple <strong>repositories</strong> within a registry</li>
+          <li>Each repository holds multiple image versions (tags)</li>
+          <li>URI format: <code>&lt;account&gt;.dkr.ecr.&lt;region&gt;.amazonaws.com/&lt;repo&gt;</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is Amazon ECR in one sentence?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon ECR</strong> is a fully managed registry for Docker images and OCI artifacts — highly available, scalable, encrypted at rest, with native IAM integration.</div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How many default private registries does an AWS account get in ECR?</div>
+          <div class="footer"><span class="tag">ECR structure</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>One</strong> default private registry per AWS account (plus one default public registry). Within that registry you can create <strong>many repositories</strong>, each holding multiple image versions.</div>
+          <div class="footer"><span class="tag">KC 1 answer A</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the relationship between an ECR registry and an ECR repository?</div>
+          <div class="footer"><span class="tag">hierarchy</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>registry</strong> is the top-level namespace (one per account). A <strong>repository</strong> is a named bucket inside the registry that stores images for one application. Multiple repositories can exist within a single registry.</div>
+          <div class="footer"><span class="tag">KC 1 answer D</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why does ECR not need separate Docker Hub–style credentials on AWS?</div>
+          <div class="footer"><span class="tag">IAM integration</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">ECR uses <strong>IAM for authentication and authorization</strong>. On an EKS node or Fargate Pod, the attached IAM role grants pull access automatically. You authenticate Docker with a short-lived token: <code>aws ecr get-login-password | docker login</code>.</div>
+          <div class="footer"><span class="tag">security</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Does ECR support image signing?</div>
+          <div class="footer"><span class="tag">security</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes.</strong> ECR supports image signing via AWS Signer, which lets you cryptographically sign images so your cluster can verify that only approved, unmodified images are deployed. This integrates with OCI artifact signing standards.</div>
+          <div class="footer"><span class="tag">supply chain security</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — ECR Image scanning                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> ECR image scanning</h2>
+    <p class="lede">
+      ECR offers two vulnerability scanning tiers. <strong>Basic scanning</strong> uses the open-source Clair engine and can run on push or on demand. <strong>Enhanced scanning</strong> uses Amazon Inspector and covers both OS packages and application language packages, emitting real-time events.
+    </p>
+
+    <!-- Animation: ECR scanning comparison -->
+    <div class="anim-player" data-anim-id="ecr-scanning">
+      <div class="anim-title">Animation · Basic vs Enhanced scanning</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ecr-scanning" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="scan-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Basic scanning</th>
+          <th>Enhanced scanning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Engine</strong></td>
+          <td>Clair (open-source)</td>
+          <td>Amazon Inspector</td>
+        </tr>
+        <tr>
+          <td><strong>Trigger</strong></td>
+          <td>On push OR on demand</td>
+          <td>Continuous / on push</td>
+        </tr>
+        <tr>
+          <td><strong>Frequency limit</strong></td>
+          <td>Max once per 24 hours per image</td>
+          <td>No 24h limit</td>
+        </tr>
+        <tr>
+          <td><strong>Coverage</strong></td>
+          <td>OS packages only</td>
+          <td>OS + language packages (npm, pip, gem…)</td>
+        </tr>
+        <tr>
+          <td><strong>EventBridge events</strong></td>
+          <td>No</td>
+          <td><strong class="good-badge">Yes</strong> — automate remediation</td>
+        </tr>
+        <tr>
+          <td><strong>Cost</strong></td>
+          <td>Included</td>
+          <td><span class="warn-badge">Extra cost</span> (Inspector pricing)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What engine powers ECR Basic scanning?</div>
+          <div class="footer"><span class="tag">scanning</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Clair</strong> — an open-source static analysis tool for container image vulnerabilities. Basic scanning can be invoked on push or on demand, but is limited to <strong>once per 24 hours</strong> per image.</div>
+          <div class="footer"><span class="tag">Clair</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What additional capability does Enhanced scanning add over Basic?</div>
+          <div class="footer"><span class="tag">scanning</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Enhanced scanning (powered by Amazon Inspector) adds:<br>
+            • <strong>Language package scanning</strong> (npm, pip, gem — not just OS packages)<br>
+            • <strong>EventBridge events</strong> for automated remediation workflows<br>
+            • No 24-hour frequency limit<br>
+            Trade-off: <strong>extra cost</strong> via Amazon Inspector pricing.
+          </div>
+          <div class="footer"><span class="tag">Inspector</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the 24-hour rule for ECR Basic scanning?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Basic scanning can be triggered on push or on demand, but each image can only be scanned <strong>once per 24 hours</strong>. If you push multiple times within 24 hours, only the first push triggers a new scan. Enhanced scanning has no such limit.</div>
+          <div class="footer"><span class="tag">frequency limit</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — ECR workflow end-to-end                   -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> ECR workflow — 5 steps end-to-end</h2>
+    <p class="lede">
+      Getting a container image from your workstation into ECR and then running in an EKS Pod follows a repeatable five-step workflow. Know this sequence — it is the foundation of every CI/CD pipeline that targets EKS.
+    </p>
+
+    <div class="steps-row">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-title">Create repo</div>
+        <div class="step-sub">Create an ECR repository in the AWS Console or via CLI.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-title">Authenticate</div>
+        <div class="step-sub">Run <code>aws ecr get-login-password</code> to get a short-lived token and pass to <code>docker login</code>.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-title">Build &amp; tag</div>
+        <div class="step-sub">Build your Docker image and tag it with the full ECR URI.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">4</div>
+        <div class="step-title">Push</div>
+        <div class="step-sub"><code>docker push &lt;ecr-uri&gt;:&lt;tag&gt;</code> — layers stream to ECR.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">5</div>
+        <div class="step-title">Consume</div>
+        <div class="step-sub">EKS Pod spec references the ECR URI. Node (or Fargate) pulls the image using its IAM role.</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What command authenticates Docker to Amazon ECR?</div>
+          <div class="footer"><span class="tag">CLI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>aws ecr get-login-password --region &lt;region&gt; | docker login --username AWS --password-stdin &lt;account&gt;.dkr.ecr.&lt;region&gt;.amazonaws.com</code><br><br>This exchanges your IAM credentials for a short-lived Docker registry token.</div>
+          <div class="footer"><span class="tag">authentication</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does an EKS node pull images from ECR without a stored password?</div>
+          <div class="footer"><span class="tag">IAM pull</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>node's IAM role</strong> (or Fargate Pod execution role) includes the <code>ecr:GetAuthorizationToken</code> and <code>ecr:BatchGetImage</code> permissions. The kubelet uses those permissions to automatically authenticate to ECR — no stored credentials needed.</div>
+          <div class="footer"><span class="tag">IAM integration</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the format of an ECR image URI?</div>
+          <div class="footer"><span class="tag">URI format</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>&lt;account-id&gt;.dkr.ecr.&lt;region&gt;.amazonaws.com/&lt;repository-name&gt;:&lt;tag&gt;</code><br><br>Example: <code>123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:1.0.0</code></div>
+          <div class="footer"><span class="tag">structure</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Helm overview                             -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Helm — the Kubernetes package manager</h2>
+    <p class="lede">
+      <strong>Helm</strong> is the Kubernetes package manager. It lets you bundle your manifests into a versioned, shareable <em>chart</em> and deploy it with a single command. Helm handles upgrades, rollbacks, and configuration overrides through its templating engine.
+    </p>
+
+    <!-- Animation: Helm chart structure -->
+    <div class="anim-player" data-anim-id="helm-chart">
+      <div class="anim-title">Animation · Helm chart anatomy &amp; templating</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-helm-chart" viewBox="0 0 700 250" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is Helm and why do teams use it?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Helm</strong> is the Kubernetes package manager. Teams use it to:<br>
+            • Create <strong>standardised, reusable</strong> manifest templates<br>
+            • <strong>Eliminate deployment errors</strong> (no manual YAML editing per environment)<br>
+            • <strong>Manage app versioning</strong> (chart versions + app versions)<br>
+            • Perform <strong>in-place upgrades</strong> and <strong>rollbacks</strong> with a single command
+          </div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the 4 common tasks Helm helps with?</div>
+          <div class="footer"><span class="tag">use cases</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Create standardised reusable templates</strong><br>
+            2. <strong>Eliminate deployment errors</strong> (no manual YAML edits)<br>
+            3. <strong>Manage app versioning</strong> across environments<br>
+            4. <strong>In-place upgrades</strong> (and <code>helm rollback</code> for quick recovery)
+          </div>
+          <div class="footer"><span class="tag">Helm tasks</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Helm "release"?</div>
+          <div class="footer"><span class="tag">Helm concepts</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>release</strong> is a specific deployed instance of a Helm chart in a Kubernetes cluster. The same chart can be installed multiple times (each is a separate release with its own name). Release name is used in templates via <code>{{ .Release.Name }}</code>.</div>
+          <div class="footer"><span class="tag">release</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — Helm chart anatomy & templating           -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Helm chart anatomy &amp; templating</h2>
+    <p class="lede">
+      A Helm chart is a directory with a defined structure. The <code>Chart.yaml</code> file is <strong>mandatory</strong>. Default configuration lives in <code>values.yaml</code>. The <code>templates/</code> folder contains Go-templated Kubernetes manifests that are rendered at install/upgrade time.
+    </p>
+
+    <div class="filetree">
+      <span class="dir">my-chart/</span><br>
+      &nbsp;&nbsp;├── <span class="file-req">Chart.yaml</span><span class="badge badge-req">MANDATORY</span> &nbsp; chart name, version, description<br>
+      &nbsp;&nbsp;├── <span class="file-req">values.yaml</span><span class="badge badge-req">MANDATORY</span> &nbsp; default configuration values<br>
+      &nbsp;&nbsp;├── <span class="dir">templates/</span><span class="badge badge-req">MANDATORY</span><br>
+      &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="file-opt">pod.yaml</span> &nbsp; Go-templated K8s manifests<br>
+      &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="file-opt">service.yaml</span><br>
+      &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── <span class="file-opt">deployment.yaml</span><br>
+      &nbsp;&nbsp;└── <span class="dir">charts/</span><span class="badge badge-opt">optional</span> &nbsp; chart dependencies
+    </div>
+
+    <p style="color:var(--muted);font-size:0.9em;margin-bottom:16px;">Templating example — values feed into manifests at render time:</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div>
+        <p style="color:var(--accent);font-size:0.8em;font-weight:700;margin:0 0 6px;letter-spacing:.05em;">templates/pod.yaml</p>
+        <div class="code-block">
+<span class="k">metadata</span>:<br>
+&nbsp;&nbsp;<span class="k">name</span>: <span class="t">{{ .Release.Name }}</span><br>
+&nbsp;&nbsp;<span class="k">namespace</span>: <span class="t">{{ .Release.Namespace }}</span><br>
+<span class="k">spec</span>:<br>
+&nbsp;&nbsp;<span class="k">containers</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="k">name</span>: <span class="t">{{ .Values.name }}</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">image</span>: <span class="t">{{ .Values.image }}</span>:<span class="t">{{ .Values.tag }}</span>
+        </div>
+      </div>
+      <div>
+        <p style="color:var(--accent);font-size:0.8em;font-weight:700;margin:0 0 6px;letter-spacing:.05em;">values.yaml</p>
+        <div class="code-block">
+<span class="k">name</span>: <span class="v">my-app</span><br>
+<span class="k">image</span>: <span class="v">nginx</span><br>
+<span class="k">tag</span>: <span class="v">0.2</span><br>
+<span class="k">port</span>: <span class="v">8080</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — Which file in a Helm chart is MANDATORY and contains chart metadata?<br><em>A. pod.yaml &nbsp; B. values.yaml &nbsp; C. charts/ &nbsp; D. Chart.yaml</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ D — Chart.yaml</span><br><br><code>Chart.yaml</code> is mandatory. It contains the chart's name, version, and description. <code>values.yaml</code> (B) is also mandatory but holds config values, not chart metadata. <code>charts/</code> (C) is optional (dependencies).</div>
+          <div class="footer"><span class="tag">KC answer</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does Chart.yaml contain?</div>
+          <div class="footer"><span class="tag">chart.yaml</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>Chart.yaml</code> is the chart's <strong>manifest</strong>. Key fields:<br>
+            • <code>name</code> — chart name<br>
+            • <code>version</code> — chart version (semver)<br>
+            • <code>description</code> — human-readable description<br>
+            • <code>apiVersion</code> — Helm API version (v2)<br>
+            • <code>appVersion</code> — the app version being deployed
+          </div>
+          <div class="footer"><span class="tag">structure</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What two special template variables does Helm inject automatically?</div>
+          <div class="footer"><span class="tag">templating</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>{{ .Release.Name }}</code> — the name given at <code>helm install</code> time<br><code>{{ .Release.Namespace }}</code> — the target namespace<br><br>All user values are under <code>{{ .Values.* }}</code>. Built-in chart metadata is under <code>{{ .Chart.* }}</code>.</div>
+          <div class="footer"><span class="tag">Go templates</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the purpose of the <code>charts/</code> directory?</div>
+          <div class="footer"><span class="tag">dependencies</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <code>charts/</code> directory holds <strong>chart dependencies</strong> — other Helm charts that your chart depends on. These are declared in <code>Chart.yaml</code> under <code>dependencies:</code> and downloaded via <code>helm dependency update</code>. It is optional if you have no sub-charts.</div>
+          <div class="footer"><span class="tag">sub-charts</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you override values.yaml defaults at install time?</div>
+          <div class="footer"><span class="tag">templating</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Two ways:<br>
+            1. <code>--set key=value</code> flag on the command line (quick overrides)<br>
+            2. <code>-f custom-values.yaml</code> to supply an entire override file<br><br>
+            This lets you use one chart across dev/staging/prod by supplying environment-specific values without changing templates.
+          </div>
+          <div class="footer"><span class="tag">values override</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — Helm chart sources                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Helm chart sources</h2>
+    <p class="lede">
+      Charts can be stored in and distributed from multiple repositories. The course covers three main sources for AWS deployments. Lab 2 specifically uses <strong>Amazon S3 as a Helm repository</strong>.
+    </p>
+
+    <div class="source-pills">
+      <div class="src-pill">
+        <div class="label">SOURCE 1</div>
+        <div class="title">Artifact Hub</div>
+        <div class="sub">The official public Helm chart registry. Browse thousands of community charts at artifacthub.io.</div>
+      </div>
+      <div class="src-pill">
+        <div class="label">SOURCE 2</div>
+        <div class="title">Amazon ECR</div>
+        <div class="sub">ECR supports OCI artifacts — store and distribute Helm charts alongside container images in the same registry.</div>
+      </div>
+      <div class="src-pill">
+        <div class="label">SOURCE 3</div>
+        <div class="title">Amazon S3</div>
+        <div class="sub">Use an S3 bucket as a private Helm repository. Lab 2 configures this. Simple, low-cost, IAM-controlled.</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What three sources can serve Helm charts according to this course?</div>
+          <div class="footer"><span class="tag">chart sources</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Artifact Hub</strong> — public chart registry (artifacthub.io)<br>
+            2. <strong>Amazon ECR</strong> — OCI artifact support; charts alongside images<br>
+            3. <strong>Amazon S3</strong> — private bucket as Helm repo; used in Lab 2
+          </div>
+          <div class="footer"><span class="tag">Lab 2</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does Lab 2 require you to do with S3 and Helm?</div>
+          <div class="footer"><span class="tag">Lab 2</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Lab 2 tasks:<br>
+            1. Configure an S3 bucket as a Helm chart repository<br>
+            2. Package and load your chart into S3<br>
+            3. Deploy your application using <code>helm install</code> from S3<br>
+            4. Review <code>Chart.yaml</code> and <code>values.yaml</code>
+          </div>
+          <div class="footer"><span class="tag">hands-on</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why use ECR as a Helm chart repository instead of Artifact Hub?</div>
+          <div class="footer"><span class="tag">architecture</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Using ECR for Helm charts alongside container images means:<br>
+            • <strong>Single registry</strong> for both images and charts<br>
+            • <strong>IAM-controlled access</strong> — no separate credentials<br>
+            • <strong>Private</strong> by default — not publicly discoverable<br>
+            • <strong>OCI standard</strong> — push/pull with standard Docker tooling
+          </div>
+          <div class="footer"><span class="tag">ECR OCI</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 9 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> Knowledge checks (from the course)</h2>
+    <p class="lede">Official course knowledge-check questions. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 1 — Which two statements about Amazon ECR are true? (Select 2)<br>
+          <em>A. Each account has one default private AND one default public registry<br>
+          B. Scanning requires Inspector on all repos<br>
+          C. Repos must be in the same region as the EKS cluster<br>
+          D. Multiple repositories can exist within a single registry</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ A and D</span><br><br>
+            <strong>A</strong>: Each AWS account gets exactly one default private registry and one default public registry.<br>
+            <strong>D</strong>: Multiple repositories (one per app/service) can exist within a single registry.<br>
+            B is false (Inspector is optional). C is false (cross-region is supported).
+          </div>
+          <div class="footer"><span class="tag">KC answers</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — Which Helm chart file is mandatory and contains chart metadata?<br><em>A. pod.yaml &nbsp; B. values.yaml &nbsp; C. charts/ &nbsp; D. Chart.yaml</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ D — Chart.yaml</span><br><br>
+            <code>Chart.yaml</code> is the ONLY mandatory file that contains chart metadata (name, version, description). <code>values.yaml</code> is also mandatory but holds configuration values, not chart metadata. <code>charts/</code> is optional.
+          </div>
+          <div class="footer"><span class="tag">KC answer</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Exam trap: What is the difference between ECR Basic and Enhanced scanning triggers?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Basic</strong>: triggered on push OR on demand — but limited to <strong>once per 24 hours</strong> per image.<br><br><strong>Enhanced</strong>: continuous scanning (can run more than once per 24 hours) + emits <strong>EventBridge events</strong> for automated workflows. Extra cost.</div>
+          <div class="footer"><span class="tag">scanning</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Exam trap: What Helm template variable holds the name you give at install time?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>{{ .Release.Name }}</code> — set when you run <code>helm install &lt;release-name&gt; ./chart</code>.<br><br>This is distinct from <code>{{ .Chart.Name }}</code> (the chart name from Chart.yaml) and <code>{{ .Values.name }}</code> (a user-defined value in values.yaml).</div>
+          <div class="footer"><span class="tag">templating</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which scanning engine scans OS <em>and</em> language packages?</div>
+          <div class="footer"><span class="tag">scanning</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon Inspector</strong> (Enhanced scanning). It scans both OS-level packages (like Clair does for Basic) AND application language packages — npm, pip, Ruby gems, etc. This is critical for catching CVEs in application dependencies, not just OS libraries.</div>
+          <div class="footer"><span class="tag">Inspector</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 04 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r=8) {
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts={}) {
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function line(svg, x1,y1,x2,y2, color='#475569', dash='') {
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':1.5,
+    'stroke-dasharray':dash}));
+}
+function arrow(svg, x1,y1,x2,y2, color='#38bdf8') {
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':`url(#${id})`}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: ECR Workflow ─────────────────────────
+window.ANIMATIONS['ecr-workflow'] = [
+  {
+    narration: 'The ECR workflow has 5 steps: from building an image on a developer machine all the way to a running Pod in EKS.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,22,'ECR Push-to-Pull Workflow',{size:13,weight:'700',color:'#94a3b8'});
+      // Developer
+      box(svg,20,50,110,90,'#11151c','#1f2738',8);
+      text(svg,75,78,'Developer',{size:10,weight:'700',color:'#94a3b8'});
+      text(svg,75,94,'workstation',{size:9,color:'#64748b'});
+      // ECR registry
+      box(svg,290,50,120,90,'#11151c','#1f2738',8);
+      text(svg,350,78,'Amazon ECR',{size:10,weight:'700',color:'#94a3b8'});
+      text(svg,350,94,'Registry',{size:9,color:'#64748b'});
+      // EKS cluster
+      box(svg,560,50,120,90,'#11151c','#1f2738',8);
+      text(svg,620,78,'EKS Cluster',{size:10,weight:'700',color:'#94a3b8'});
+      text(svg,620,94,'Pod',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Step 1: The developer builds a Docker image locally. This produces a layered image artifact ready to be distributed.',
+    apply(svg){
+      box(svg,20,50,110,90,'#0c2a3a','#38bdf8',8);
+      text(svg,75,78,'Developer',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,75,94,'workstation',{size:9,color:'#94a3b8'});
+      box(svg,22,110,106,24,'#0a1a2a','#38bdf8',4);
+      text(svg,75,127,'docker build',{size:9,color:'#86efac'});
+      text(svg,195,102,'1. Build image',{size:10,weight:'700',color:'#38bdf8',anchor:'start'});
+    }
+  },
+  {
+    narration: 'Step 2: Tag the image with the full ECR URI — account ID, region, repository name, and version tag.',
+    apply(svg){
+      box(svg,22,110,106,24,'#0a1a2a','#F39C12',4);
+      text(svg,75,127,'docker tag',{size:9,color:'#fbbf24'});
+      text(svg,195,118,'2. Tag with ECR URI',{size:10,weight:'700',color:'#F39C12',anchor:'start'});
+      text(svg,195,133,'<acct>.dkr.ecr.<region>.amazonaws.com/app:1.0',{size:7.5,color:'#64748b',anchor:'start'});
+    }
+  },
+  {
+    narration: 'Step 3: Authenticate Docker to ECR using a short-lived token from aws ecr get-login-password.',
+    apply(svg){
+      box(svg,22,110,106,24,'#1a0a2a','#818cf8',4);
+      text(svg,75,127,'ecr login',{size:9,color:'#a5b4fc'});
+      text(svg,195,150,'3. Authenticate',{size:10,weight:'700',color:'#818cf8',anchor:'start'});
+      text(svg,195,165,'aws ecr get-login-password | docker login',{size:7.5,color:'#64748b',anchor:'start'});
+    }
+  },
+  {
+    narration: 'Step 4: Push the tagged image to ECR. Image layers stream to the registry.',
+    apply(svg){
+      box(svg,290,50,120,90,'#0c2a3a','#38bdf8',8);
+      text(svg,350,78,'Amazon ECR',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,350,94,'Registry ✓',{size:9,color:'#86efac'});
+      arrow(svg,132,95,288,95,'#38bdf8');
+      text(svg,210,85,'4. docker push',{size:9,weight:'700',color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Step 5: The EKS Pod spec references the ECR URI. The node pulls the image using its IAM role — no stored password needed.',
+    apply(svg){
+      box(svg,560,50,120,90,'#0a1a0a','#27AE60',8);
+      text(svg,620,78,'EKS Cluster',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,620,94,'Pod running ✓',{size:9,color:'#86efac'});
+      arrow(svg,412,95,558,95,'#27AE60');
+      text(svg,485,85,'5. Pull via IAM',{size:9,weight:'700',color:'#27AE60'});
+    }
+  }
+];
+
+// ── ANIMATION 2: Helm chart anatomy ──────────────────
+window.ANIMATIONS['helm-chart'] = [
+  {
+    narration: 'A Helm chart is a directory with a defined structure. Let\'s build it piece by piece.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,22,'Helm Chart Anatomy',{size:13,weight:'700',color:'#94a3b8'});
+      // Root chart box
+      box(svg,30,40,200,190,'#11151c','#1f2738',10);
+      text(svg,130,62,'my-chart/',{size:11,weight:'700',color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'Chart.yaml is MANDATORY. It contains the chart\'s metadata: name, version, and description. Without it, Helm refuses to install the chart.',
+    apply(svg){
+      box(svg,50,75,160,30,'#0c2a3a','#38bdf8',5);
+      text(svg,130,95,'Chart.yaml',{size:10,weight:'700',color:'#38bdf8'});
+      // annotation
+      box(svg,270,70,200,40,'#0a1020','#38bdf8',5);
+      text(svg,370,86,'MANDATORY',{size:9,weight:'700',color:'#38bdf8'});
+      text(svg,370,100,'name · version · description',{size:8.5,color:'#94a3b8'});
+      line(svg,212,90,268,90,'#38bdf8','4,3');
+    }
+  },
+  {
+    narration: 'values.yaml holds the default configuration values. These are referenced in templates via {{ .Values.* }}. They can be overridden at install time.',
+    apply(svg){
+      box(svg,50,115,160,30,'#0c1a2a','#818cf8',5);
+      text(svg,130,135,'values.yaml',{size:10,weight:'700',color:'#818cf8'});
+      box(svg,270,110,200,40,'#0a0a2a','#818cf8',5);
+      text(svg,370,126,'Default config values',{size:9,weight:'700',color:'#818cf8'});
+      text(svg,370,140,'{{ .Values.name }}, {{ .Values.image }}',{size:8,color:'#94a3b8'});
+      line(svg,212,130,268,130,'#818cf8','4,3');
+    }
+  },
+  {
+    narration: 'The templates/ directory contains Go-templated Kubernetes manifests. Helm renders them at install/upgrade time by injecting values from values.yaml and .Release.*.',
+    apply(svg){
+      box(svg,50,155,160,30,'#1a0a0a','#F39C12',5);
+      text(svg,130,175,'templates/',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,130,190,'  pod.yaml, service.yaml',{size:8,color:'#64748b'});
+      box(svg,270,150,200,45,'#1a0a00','#F39C12',5);
+      text(svg,370,166,'Go-templated manifests',{size:9,weight:'700',color:'#F39C12'});
+      text(svg,370,180,'{{ .Release.Name }}',{size:8,color:'#94a3b8'});
+      text(svg,370,193,'{{ .Values.image }}:{{ .Values.tag }}',{size:8,color:'#94a3b8'});
+      line(svg,212,170,268,170,'#F39C12','4,3');
+    }
+  },
+  {
+    narration: 'Templating in action: values.yaml defines name=my-app, image=nginx, tag=0.2. Helm renders the template by substituting {{ .Values.* }} with those values.',
+    apply(svg){
+      // Clear and show templating flow
+      clearSVG(svg);
+      text(svg,350,22,'Helm templating — values.yaml → rendered manifest',{size:11,weight:'700',color:'#94a3b8'});
+      // values.yaml
+      box(svg,30,40,200,130,'#0a0a2a','#818cf8',8);
+      text(svg,130,58,'values.yaml',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,50,80,'name: my-app',{size:9,color:'#86efac',anchor:'start'});
+      text(svg,50,97,'image: nginx',{size:9,color:'#86efac',anchor:'start'});
+      text(svg,50,114,'tag: 0.2',{size:9,color:'#86efac',anchor:'start'});
+      text(svg,50,131,'port: 8080',{size:9,color:'#86efac',anchor:'start'});
+      // arrow
+      arrow(svg,232,105,278,105,'#38bdf8');
+      text(svg,255,97,'helm',{size:8,color:'#38bdf8'});
+      text(svg,255,110,'render',{size:8,color:'#38bdf8'});
+      // rendered
+      box(svg,280,40,390,130,'#0a1a0a','#27AE60',8);
+      text(svg,475,58,'Rendered manifest',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,295,80,'name: my-release',{size:9,color:'#f1f5f9',anchor:'start'});
+      text(svg,295,97,'containers:',{size:9,color:'#f1f5f9',anchor:'start'});
+      text(svg,295,114,'  - name: my-app',{size:9,color:'#f1f5f9',anchor:'start'});
+      text(svg,295,131,'    image: nginx:0.2',{size:9,color:'#f1f5f9',anchor:'start'});
+    }
+  }
+];
+
+// ── ANIMATION 3: ECR scanning comparison ─────────────
+window.ANIMATIONS['ecr-scanning'] = [
+  {
+    narration: 'ECR offers two scanning tiers. Let\'s compare them side by side.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,22,'ECR Image Scanning: Basic vs Enhanced',{size:12,weight:'700',color:'#94a3b8'});
+      line(svg,350,35,350,230,'#1f2738');
+      text(svg,175,44,'Basic Scanning',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,525,44,'Enhanced Scanning',{size:11,weight:'700',color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Basic scanning uses Clair — an open-source tool. It\'s free, included with ECR, no extra configuration required.',
+    apply(svg){
+      box(svg,40,55,280,50,'#0c2a3a','#38bdf8',7);
+      text(svg,180,77,'Engine: Clair (open-source)',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,180,93,'Included — no extra cost',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Enhanced scanning uses Amazon Inspector — a paid service that does deeper analysis and emits EventBridge events for automated remediation.',
+    apply(svg){
+      box(svg,380,55,280,50,'#0a1a0a','#27AE60',7);
+      text(svg,520,77,'Engine: Amazon Inspector',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,520,93,'Extra cost — Inspector pricing',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Basic scanning has a hard limit: each image can only be scanned ONCE per 24 hours. Enhanced scanning has no such restriction.',
+    apply(svg){
+      box(svg,40,120,280,45,'#2a0a0a','#E74C3C',7);
+      text(svg,180,140,'Frequency: MAX 1 / 24 hours',{size:10,weight:'700',color:'#E74C3C'});
+      text(svg,180,155,'On push OR on demand',{size:9,color:'#94a3b8'});
+      box(svg,380,120,280,45,'#0a1a0a','#27AE60',7);
+      text(svg,520,140,'Frequency: no 24h limit',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,520,155,'Continuous + on push',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Basic scanning covers OS packages only. Enhanced scanning covers OS AND language packages — npm, pip, gem — critical for finding app-level CVEs.',
+    apply(svg){
+      box(svg,40,180,280,45,'#0c2a3a','#38bdf8',7);
+      text(svg,180,200,'Coverage: OS packages only',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,180,216,'(kernel, glibc, openssh…)',{size:9,color:'#94a3b8'});
+      box(svg,380,180,280,45,'#0a1a0a','#27AE60',7);
+      text(svg,520,200,'Coverage: OS + language packages',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,520,216,'npm · pip · gem · go modules…',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Key differentiator: Enhanced scanning emits EventBridge events when vulnerabilities are found, enabling automated remediation pipelines.',
+    apply(svg){
+      box(svg,380,55,280,165,'#0a1a0a','#27AE60',7);
+      text(svg,520,77,'Amazon Inspector',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,520,93,'Extra cost',{size:9,color:'#94a3b8'});
+      text(svg,520,120,'No 24h limit',{size:9,weight:'700',color:'#27AE60'});
+      text(svg,520,140,'OS + language packages',{size:9,weight:'700',color:'#27AE60'});
+      text(svg,520,165,'EventBridge events',{size:10,weight:'800',color:'#fbbf24'});
+      text(svg,520,182,'→ automated remediation',{size:9,color:'#94a3b8'});
+    }
+  }
+];
+</script>
+</body>
+</html>

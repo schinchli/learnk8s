@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 03 — Building &amp; Maintaining an Amazon EKS Cluster · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 03: cluster creation interfaces, eksctl deep-dive, AMI types, declarative options, Kubernetes version upgrades.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-03 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+.split-box .box code { font-size:0.85em; background:#1f2738; padding:1px 5px; border-radius:3px; color:#e2e8f0; }
+
+.ami-pills {
+  display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px;
+}
+.ami-pill {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:14px 18px; flex:1; min-width:180px;
+}
+.ami-pill .label { font-size:0.7em; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.ami-pill .title { font-size:1em; font-weight:700; color:var(--accent); }
+.ami-pill .sub { font-size:0.82em; color:var(--muted); margin-top:4px; line-height:1.5; }
+
+.upgrade-steps {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:24px;
+}
+.upgrade-step {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:12px; text-align:center;
+}
+.upgrade-step .num { font-size:1.5em; font-weight:800; color:var(--accent-2); margin-bottom:4px; }
+.upgrade-step .phase { font-size:0.65em; letter-spacing:.06em; font-weight:700; margin-bottom:4px; }
+.upgrade-step .phase.pre { color:#F39C12; }
+.upgrade-step .phase.cp { color:#38bdf8; }
+.upgrade-step .phase.post { color:#27AE60; }
+.upgrade-step .desc { font-size:0.8em; color:var(--muted); line-height:1.4; }
+
+.code-block {
+  background:#0c1018; border:1px solid var(--panel-light);
+  border-radius:8px; padding:18px 20px; margin-bottom:20px;
+  font-family:'Fira Code','Cascadia Code','Courier New',monospace;
+  font-size:0.82em; line-height:1.6; color:#e2e8f0;
+  overflow-x:auto; white-space:pre;
+}
+.code-block .kw { color:#38bdf8; }
+.code-block .str { color:#86efac; }
+.code-block .cmt { color:#475569; }
+.code-block .flag { color:#818cf8; }
+.code-block .val { color:#fcd34d; }
+
+.decision-table { width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:24px; }
+.decision-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:8px 12px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.decision-table td {
+  padding:8px 12px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.decision-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .ami-pills{ flex-direction:column; }
+  .upgrade-steps{ grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 03
+  </div>
+  <h1>🔧 Module 03 — Building &amp; Maintaining an Amazon EKS Cluster</h1>
+  <p>Cluster creation interfaces · eksctl deep-dive · AMI types · declarative IaC · Kubernetes version upgrades.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Cluster creation interfaces (Console vs CLI vs eksctl)</a></li>
+      <li><a href="#topic-2">eksctl deep-dive (commands, cluster.yaml, defaults)</a></li>
+      <li><a href="#topic-3">Deploying nodes — AMI types</a></li>
+      <li><a href="#topic-4">Declarative options (CloudFormation, Blueprints, Terraform)</a></li>
+      <li><a href="#topic-5">Kubernetes version upgrades (sequence &amp; node paths)</a></li>
+      <li><a href="#topic-6">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — Cluster creation interfaces               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Cluster creation interfaces</h2>
+    <p class="lede">
+      EKS clusters can be created through three main interfaces: the <strong>AWS Console</strong>, the <strong>AWS CLI</strong>, and <strong>eksctl</strong>. Each trades verbosity for convenience differently. eksctl is the most opinionated and the fastest path to a working cluster.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>AWS Console</h4>
+        <ul>
+          <li>Clickable GUI — good for learning</li>
+          <li>Wizard-guided cluster configuration</li>
+          <li>Not repeatable — not infrastructure-as-code</li>
+          <li>Good for one-off exploration</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>AWS CLI</h4>
+        <ul>
+          <li><code>aws eks create-cluster</code></li>
+          <li>Full API surface exposed</li>
+          <li>Scriptable but verbose (many flags)</li>
+          <li>You manage VPC/subnet/IAM separately</li>
+        </ul>
+      </div>
+    </div>
+    <div class="split-box">
+      <div class="box">
+        <h4>eksctl</h4>
+        <ul>
+          <li>Open-source CLI built for EKS</li>
+          <li>Single command creates cluster + node group</li>
+          <li>Auto-creates VPC, IAM roles, kubeconfig</li>
+          <li>YAML-driven: <code>cluster.yaml</code></li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Declarative (IaC)</h4>
+        <ul>
+          <li>CloudFormation stacks</li>
+          <li>EKS Blueprints (CDK/Terraform)</li>
+          <li>Terraform AWS provider</li>
+          <li>Repeatable, version-controlled</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the three main interfaces for creating an EKS cluster?</div>
+          <div class="footer"><span class="tag">interfaces</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>AWS Console</strong> — guided wizard, not repeatable<br>
+            2. <strong>AWS CLI</strong> — <code>aws eks create-cluster</code>, scriptable but verbose<br>
+            3. <strong>eksctl</strong> — purpose-built CLI, creates VPC + IAM + cluster in one command
+          </div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why is the AWS Console not ideal for production cluster creation?</div>
+          <div class="footer"><span class="tag">console</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The Console is <strong>not repeatable</strong> — it produces no code artifact. If you need to recreate the cluster (DR, new region, staging env), you have to click through the wizard again. Use eksctl or IaC for any cluster you care about.</div>
+          <div class="footer"><span class="tag">repeatability</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does eksctl do automatically that the AWS CLI does NOT?</div>
+          <div class="footer"><span class="tag">eksctl vs CLI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">eksctl automatically creates:<br>
+            • <strong>VPC</strong> (192.168.0.0/16) with public/private subnets<br>
+            • <strong>IAM roles</strong> for the cluster and node group<br>
+            • <strong>CloudFormation stacks</strong> to manage all resources<br>
+            • <strong>kubeconfig</strong> entry on your local machine<br>
+            The AWS CLI only calls the EKS API — you supply all dependencies.
+          </div>
+          <div class="footer"><span class="tag">automation</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — eksctl deep-dive                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> eksctl deep-dive</h2>
+    <p class="lede">
+      <code>eksctl</code> is the official CLI for EKS. It wraps all EKS, CloudFormation, IAM, and VPC operations into a single opinionated interface. You can drive it with CLI flags for quick clusters, or a <strong>cluster.yaml</strong> config file for full declarative control.
+    </p>
+
+    <!-- eksctl create cluster command -->
+    <div class="code-block"><span class="kw">eksctl create cluster</span> \
+  <span class="flag">--name</span> <span class="val">prod</span> <span class="flag">--version</span> <span class="val">1.27</span> <span class="flag">--region</span> <span class="val">us-west-2</span> \
+  <span class="flag">--nodegroup-name</span> <span class="val">standard-workers</span> <span class="flag">--node-type</span> <span class="val">t3.medium</span> \
+  <span class="flag">--nodes</span> <span class="val">3</span> <span class="flag">--nodes-min</span> <span class="val">1</span> <span class="flag">--nodes-max</span> <span class="val">4</span> <span class="flag">--managed</span></div>
+
+    <!-- cluster.yaml -->
+    <div class="code-block"><span class="cmt"># cluster.yaml — declarative cluster config</span>
+<span class="kw">apiVersion</span>: <span class="val">eksctl.io/v1alpha5</span>
+<span class="kw">kind</span>: <span class="val">ClusterConfig</span>
+<span class="kw">metadata</span>:
+  <span class="kw">name</span>: <span class="val">MySecondEKScluster</span>
+  <span class="kw">region</span>: <span class="val">us-east-1</span>
+<span class="kw">vpc</span>:
+  <span class="kw">subnets</span>:
+    <span class="kw">private</span>:
+      <span class="val">us-east-1b</span>: { <span class="kw">id</span>: <span class="str">subnet-0fdd9b15cb2da9ce6</span> }
+<span class="kw">nodeGroups</span>:
+  - <span class="kw">name</span>: <span class="val">ClusterTwoNodes</span>
+    <span class="kw">instanceType</span>: <span class="val">m5.xlarge</span>
+    <span class="kw">desiredCapacity</span>: <span class="val">3</span>
+    <span class="kw">privateNetworking</span>: <span class="val">true</span></div>
+
+    <!-- Animation: eksctl flow -->
+    <div class="anim-player" data-anim-id="eksctl-flow">
+      <div class="anim-title">Animation · What eksctl does under the hood</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-eksctl-flow" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the 6 things eksctl creates by default when you run <code>eksctl create cluster</code>?</div>
+          <div class="footer"><span class="tag">eksctl defaults</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>IAM roles</strong> for cluster + node group<br>
+            2. <strong>Dedicated VPC</strong> (192.168.0.0/16) with public &amp; private subnets<br>
+            3. <strong>EKS cluster</strong> (control plane)<br>
+            4. <strong>Managed node group</strong> with specified instance type<br>
+            5. <strong>API endpoint access</strong> configuration<br>
+            6. <strong>kubeconfig</strong> written locally for kubectl
+          </div>
+          <div class="footer"><span class="tag">infrastructure</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What CIDR block does eksctl use for the automatically created VPC?</div>
+          <div class="footer"><span class="tag">networking</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>192.168.0.0/16</strong> — eksctl's default VPC CIDR. This avoids conflicts with the common 10.0.0.0/8 and 172.16.0.0/12 ranges used in corporate networks. You can override this in cluster.yaml via the <code>vpc.cidr</code> field.</div>
+          <div class="footer"><span class="tag">VPC</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the <code>--managed</code> flag in eksctl and why use it?</div>
+          <div class="footer"><span class="tag">flag</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <code>--managed</code> flag creates a <strong>managed node group</strong> instead of a self-managed one. With a managed node group, EKS handles rolling updates, AMI patching, and draining — you don't manage the lifecycle yourself. It's almost always the right choice for new clusters.</div>
+          <div class="footer"><span class="tag">managed node group</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <code>privateNetworking: true</code> in cluster.yaml do?</div>
+          <div class="footer"><span class="tag">cluster.yaml</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It deploys node group instances into <strong>private subnets only</strong> — nodes get no public IP addresses. Traffic between nodes and the internet routes through a NAT Gateway. This is a security best practice for production clusters.</div>
+          <div class="footer"><span class="tag">security</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Two ways to specify the AWS region in eksctl — what are they?</div>
+          <div class="footer"><span class="tag">KC3 answer</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>B.</strong> The <code>--region</code> flag on the CLI command:<br>
+            <code>eksctl create cluster --region us-west-2</code><br><br>
+            <strong>C.</strong> The <code>metadata.region</code> field in cluster.yaml:<br>
+            <code>metadata:</code><br>
+            <code>&nbsp;&nbsp;region: us-east-1</code>
+          </div>
+          <div class="footer"><span class="tag">knowledge check KC3</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What technology does eksctl use under the hood to manage AWS resources?</div>
+          <div class="footer"><span class="tag">internals</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS CloudFormation.</strong> eksctl generates and submits CloudFormation stacks for every resource it creates (VPC, EKS cluster, node group). This means all eksctl-created resources appear in the CloudFormation console and benefit from stack-level rollback.</div>
+          <div class="footer"><span class="tag">CloudFormation</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — AMI types                                 -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Deploying nodes — AMI types</h2>
+    <p class="lede">
+      EKS worker nodes need an AMI that includes the Kubernetes node components (kubelet, kube-proxy, container runtime). EKS provides four AMI categories — each with different tradeoffs for security, flexibility, and OS choice.
+    </p>
+
+    <div class="ami-pills">
+      <div class="ami-pill">
+        <div class="label">AMI TYPE 1</div>
+        <div class="title">EKS Optimized Linux</div>
+        <div class="sub">Default. Turnkey Amazon Linux 2 / Amazon Linux 2023 AMI pre-configured by AWS for EKS. Easiest path to production.</div>
+      </div>
+      <div class="ami-pill">
+        <div class="label">AMI TYPE 2</div>
+        <div class="title">Bottlerocket</div>
+        <div class="sub">Open-source Linux distro by AWS. Purpose-built for running containers only. Minimal attack surface. Available as a built-in EKS AMI.</div>
+      </div>
+      <div class="ami-pill">
+        <div class="label">AMI TYPE 3</div>
+        <div class="title">Custom AMI</div>
+        <div class="sub">Built from a GitHub build spec. Use when you need specific packages or OS customizations. NOT supported with Fargate.</div>
+      </div>
+      <div class="ami-pill">
+        <div class="label">AMI TYPE 4</div>
+        <div class="title">Windows AMI</div>
+        <div class="sub">Run Windows containers on Windows Server 2019 or 2022. Mixed Linux/Windows clusters supported.</div>
+      </div>
+    </div>
+
+    <!-- Animation: AMI types -->
+    <div class="anim-player" data-anim-id="ami-types">
+      <div class="anim-title">Animation · Four EKS AMI types</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ami-types" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What AMI type is open-source and purpose-built for running containers?</div>
+          <div class="footer"><span class="tag">KC1 answer</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Bottlerocket</strong> — an open-source Linux-based OS developed by AWS. It contains only what is needed to run containers, resulting in a minimal attack surface and faster startup. Available as a built-in EKS AMI option.</div>
+          <div class="footer"><span class="tag">knowledge check KC1</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the default EKS AMI type and what does "turnkey" mean in this context?</div>
+          <div class="footer"><span class="tag">default AMI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EKS Optimized Linux</strong> is the default. "Turnkey" means AWS pre-installs and pre-configures all EKS node components (kubelet, kube-proxy, containerd, AWS VPC CNI) — you select it and it works immediately with no additional setup.</div>
+          <div class="footer"><span class="tag">EKS Optimized Linux</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Custom AMIs are NOT supported with which deployment type?</div>
+          <div class="footer"><span class="tag">Custom AMI limit</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS Fargate.</strong> Fargate is serverless — AWS manages the underlying compute. You cannot bring a custom AMI because there is no node OS for you to control. Custom AMIs are only valid for EC2-based node groups (self-managed or managed).</div>
+          <div class="footer"><span class="tag">Fargate constraint</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What Windows Server versions are supported for Windows EKS nodes?</div>
+          <div class="footer"><span class="tag">Windows AMI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Windows Server 2019</strong> and <strong>Windows Server 2022</strong>. EKS supports mixed Linux/Windows clusters — you can have Linux node groups and Windows node groups in the same cluster. Pod scheduling to the right OS is handled with node selectors.</div>
+          <div class="footer"><span class="tag">mixed OS clusters</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why would you choose Bottlerocket over EKS Optimized Linux?</div>
+          <div class="footer"><span class="tag">Bottlerocket</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Security:</strong> Smaller OS footprint = smaller attack surface<br>
+            <strong>Immutability:</strong> The OS is read-only at runtime (harder to persist malware)<br>
+            <strong>Automatic updates:</strong> Atomic OS updates with rollback support<br>
+            <strong>Purpose-built:</strong> No general-purpose packages, only what containers need
+          </div>
+          <div class="footer"><span class="tag">security posture</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — Declarative options                       -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Declarative options (IaC)</h2>
+    <p class="lede">
+      For production clusters, you want infrastructure-as-code — repeatable, version-controlled, reviewable definitions. EKS supports three declarative paths: <strong>CloudFormation</strong>, <strong>EKS Blueprints</strong>, and <strong>Terraform / AWS SDK</strong>.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>What it provides</th>
+          <th>Best for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>CloudFormation</strong></td>
+          <td>AWS-native IaC. Define cluster, node groups, VPC, IAM in YAML/JSON stacks.</td>
+          <td>AWS-first shops; automatic rollback on failure</td>
+        </tr>
+        <tr>
+          <td><strong>EKS Blueprints</strong></td>
+          <td>Fully bootstrapped clusters: cluster + networking + add-ons + operational software in one deployment. Available as CDK or Terraform module.</td>
+          <td>Teams that want a production-ready cluster on day 1</td>
+        </tr>
+        <tr>
+          <td><strong>Terraform / AWS SDK</strong></td>
+          <td>Multi-cloud IaC. AWS EKS provider covers full cluster lifecycle. SDK enables custom tooling.</td>
+          <td>Multi-cloud shops; existing Terraform workflows</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are EKS Blueprints and what makes them different from raw CloudFormation?</div>
+          <div class="footer"><span class="tag">EKS Blueprints</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>EKS Blueprints</strong> are pre-built cluster templates that include not just the EKS cluster but also <em>operational software</em> — cluster autoscaler, load balancer controller, metrics server, logging, etc. You get a <strong>fully bootstrapped cluster</strong> ready for production workloads, not just raw infrastructure.</div>
+          <div class="footer"><span class="tag">bootstrapped cluster</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the key advantage of using CloudFormation for EKS cluster management?</div>
+          <div class="footer"><span class="tag">CloudFormation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Automatic rollback on failure.</strong> If a CloudFormation stack update fails, AWS automatically rolls back all changes to the previous known-good state. Other benefits: native AWS integration, change sets for previewing updates, drift detection.</div>
+          <div class="footer"><span class="tag">rollback</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why might a team choose Terraform over CloudFormation for EKS?</div>
+          <div class="footer"><span class="tag">Terraform</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Multi-cloud:</strong> Terraform manages AWS, GCP, Azure resources in a single codebase<br>
+            <strong>Existing workflows:</strong> Teams already using Terraform for other infra don't need a second tool<br>
+            <strong>State management:</strong> Terraform state file supports complex dependency tracking across providers<br>
+            <strong>Community modules:</strong> Rich ecosystem of EKS modules on Terraform Registry
+          </div>
+          <div class="footer"><span class="tag">multi-cloud IaC</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — Kubernetes version upgrades               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Kubernetes version upgrades</h2>
+    <p class="lede">
+      Upgrading an EKS cluster is a two-phase process: first the <strong>control plane</strong>, then the <strong>data plane</strong>. The 8-step upgrade sequence must be followed in order. Skipping steps — especially reviewing API deprecations before upgrading — causes production outages.
+    </p>
+
+    <div class="upgrade-steps">
+      <div class="upgrade-step">
+        <div class="num">1</div>
+        <div class="phase pre">PRE-UPGRADE</div>
+        <div class="desc">Review release notes &amp; deprecation notices</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">2</div>
+        <div class="phase pre">PRE-UPGRADE</div>
+        <div class="desc">Backup cluster (optional but recommended)</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">3</div>
+        <div class="phase pre">PRE-UPGRADE</div>
+        <div class="desc">Identify removed or changed API versions</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">4</div>
+        <div class="phase pre">PRE-UPGRADE</div>
+        <div class="desc">Check node group version compatibility</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">5</div>
+        <div class="phase cp">CONTROL PLANE</div>
+        <div class="desc">Upgrade cluster control plane (EKS API / Console)</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">6</div>
+        <div class="phase post">POST / ADD-ONS</div>
+        <div class="desc">Review &amp; upgrade EKS add-ons</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">7</div>
+        <div class="phase post">POST / ADD-ONS</div>
+        <div class="desc">Upgrade kubectl to match cluster version</div>
+      </div>
+      <div class="upgrade-step">
+        <div class="num">8</div>
+        <div class="phase post">DATA PLANE</div>
+        <div class="desc">Upgrade cluster data plane (nodes)</div>
+      </div>
+    </div>
+
+    <!-- Animation: upgrade sequence -->
+    <div class="anim-player" data-anim-id="upgrade-seq">
+      <div class="anim-title">Animation · 8-step cluster upgrade sequence</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-upgrade-seq" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>What happens during control plane upgrade</h4>
+        <ul>
+          <li>New API server nodes are deployed</li>
+          <li>Auto rollback on failure</li>
+          <li>Possible minor service interruptions</li>
+          <li>Existing nodes remain unchanged</li>
+          <li>Add-ons remain unchanged (separate step)</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Node upgrade by type</h4>
+        <ul>
+          <li><strong>Self-managed:</strong> AWS native or third-party tools</li>
+          <li><strong>Managed node groups:</strong> Console or eksctl</li>
+          <li><strong>Fargate:</strong> No upgrade required (AWS handles it)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the correct order: upgrade control plane FIRST or data plane FIRST?</div>
+          <div class="footer"><span class="tag">upgrade order</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Control plane first, data plane second.</strong> Always upgrade the EKS control plane before upgrading worker nodes. The Kubernetes compatibility guarantee says a control plane can be one minor version ahead of nodes, but not the reverse.</div>
+          <div class="footer"><span class="tag">sequence</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Who handles patch version upgrades to the EKS control plane?</div>
+          <div class="footer"><span class="tag">version rules</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS applies patch versions automatically</strong> to the control plane (e.g., 1.27.1 → 1.27.4). You only control <em>minor version</em> upgrades (e.g., 1.27 → 1.28). This is one of the managed benefits — you never need to apply a patch for the API server.</div>
+          <div class="footer"><span class="tag">managed patching</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the minimum upgrade type that can remove Kubernetes APIs?</div>
+          <div class="footer"><span class="tag">KC4 answer</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>B — Minor version upgrade</strong> (e.g., 1.26 → 1.27). Only major or minor version upgrades can remove or change APIs. Patch versions (1.27.1 → 1.27.2) never remove APIs. This is why step 3 (identify API changes) only matters for minor version upgrades.</div>
+          <div class="footer"><span class="tag">knowledge check KC4</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which node type requires NO manual upgrade steps during an EKS version upgrade?</div>
+          <div class="footer"><span class="tag">Fargate upgrade</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS Fargate.</strong> Because Fargate is serverless and AWS manages the underlying compute, Fargate nodes are automatically upgraded when new Pods are scheduled. There is no node upgrade action required from you for Fargate workloads.</div>
+          <div class="footer"><span class="tag">Fargate managed</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What happens if the EKS control plane upgrade fails mid-flight?</div>
+          <div class="footer"><span class="tag">failure handling</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>EKS automatically rolls back the control plane.</strong> New API server nodes are deployed alongside old ones; only after the new nodes are healthy does EKS cut over. If health checks fail, the rollback is automatic and the cluster stays on the original version.</div>
+          <div class="footer"><span class="tag">auto rollback</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why must you upgrade EKS add-ons AFTER the control plane upgrade (Step 6)?</div>
+          <div class="footer"><span class="tag">add-on upgrade</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Add-ons like CoreDNS, kube-proxy, and VPC CNI have <strong>version compatibility requirements</strong> tied to the Kubernetes minor version. An old add-on version may not support new API objects introduced in the upgraded Kubernetes version — upgrading add-ons after the control plane ensures compatibility.</div>
+          <div class="footer"><span class="tag">compatibility</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you upgrade a managed node group?</div>
+          <div class="footer"><span class="tag">data plane</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Via the <strong>AWS Console</strong> or <strong>eksctl</strong>:<br>
+            <code>eksctl upgrade nodegroup \<br>&nbsp;&nbsp;--name=standard-workers \<br>&nbsp;&nbsp;--cluster=prod \<br>&nbsp;&nbsp;--kubernetes-version=1.28</code><br><br>
+            EKS performs a rolling update: new nodes → drain old nodes → terminate old nodes.
+          </div>
+          <div class="footer"><span class="tag">rolling update</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Knowledge checks (from the course)</h2>
+    <p class="lede">These are the official course knowledge-check questions. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 1 — Which node AMI type is open-source and purpose-built for running containers?<br><em>A. EKS Optimized Linux &nbsp; B. Bottlerocket &nbsp; C. Custom &nbsp; D. Windows</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B — Bottlerocket</span><br><br>Bottlerocket is the open-source, container-specific OS developed by AWS. EKS Optimized Linux (A) is the default/turnkey option but not specifically container-only. Custom (C) and Windows (D) serve different purposes.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — IAM permissions are provided via the node IAM role to which two entities?<br><em>A. kube-apiserver &nbsp; B. kubelet on each node &nbsp; C. kube-scheduler &nbsp; D. Applications running in pods</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B and D</span><br><br><strong>B. kubelet on each node</strong> — uses the node IAM role to make EC2, ECR, and CloudWatch API calls.<br><strong>D. Applications running in pods</strong> — pods inherit the node IAM role unless IRSA (IAM Roles for Service Accounts) is configured. The API server (A) and scheduler (C) run in the AWS-managed control plane, not on your nodes.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 3 — How can you specify the AWS region when using eksctl?<br><em>A. AWS_DEFAULT_REGION env var &nbsp; B. --region flag &nbsp; C. cluster.yaml metadata.region &nbsp; D. IAM role ARN</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B and C</span><br><br><strong>B. --region flag</strong> — e.g. <code>eksctl create cluster --region us-west-2</code><br><strong>C. cluster.yaml</strong> — <code>metadata.region: us-east-1</code><br><br>AWS_DEFAULT_REGION (A) works with the AWS CLI but is not the eksctl-specific method. IAM role ARN (D) is for authentication, not region selection.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 4 — What is the minimum upgrade type that can result in the removal of an API?<br><em>A. Patch version &nbsp; B. Minor version &nbsp; C. Major version &nbsp; D. AMI update</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B — Minor version upgrade</span><br><br>Kubernetes follows semver: only <strong>minor version</strong> upgrades (e.g. 1.27 → 1.28) can deprecate and remove APIs. Patch versions (A) are backward-compatible bug fixes. Major versions (C) would also remove APIs but EKS doesn't ship major K8s changes independently. AMI updates (D) don't change the Kubernetes API.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You run <code>eksctl create cluster --name demo --managed</code> with no other flags. What VPC CIDR does eksctl use?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>192.168.0.0/16</strong> — eksctl's built-in default VPC CIDR. It also creates subnets across two AZs and configures both public and private subnets. You can override this with <code>vpc.cidr</code> in cluster.yaml.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is step 5 in the EKS upgrade sequence, and what technology does EKS use to execute it safely?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Step 5 is <strong>"Upgrade the cluster control plane"</strong>. EKS deploys <em>new API server nodes</em> alongside old ones, waits for them to be healthy, then cuts over. If new nodes fail health checks, EKS <strong>automatically rolls back</strong> to the old nodes — no manual intervention needed.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 03 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r) {
+  r = r === undefined ? 8 : r;
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts) {
+  opts = opts || {};
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function arrow(svg, x1,y1,x2,y2, color) {
+  color = color || '#38bdf8';
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,'marker-end':'url(#'+id+')'}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: eksctl flow ──────────────────────────
+window.ANIMATIONS['eksctl-flow'] = [
+  {
+    narration: 'eksctl starts by reading your cluster config — either CLI flags or a cluster.yaml file.',
+    reset: function(svg){ clearSVG(svg); },
+    apply: function(svg){
+      text(svg,350,20,'eksctl — what it does under the hood',{size:12,weight:'700',color:'#94a3b8'});
+      box(svg,50,40,160,60,'#0c2a3a','#38bdf8',8);
+      text(svg,130,66,'eksctl',{size:13,weight:'700',color:'#38bdf8'});
+      text(svg,130,82,'reads cluster.yaml',{size:9.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'eksctl calls CloudFormation — it generates CF stacks for VPC, cluster, and node group resources.',
+    apply: function(svg){
+      box(svg,280,40,160,60,'#2a1a0a','#F39C12',8);
+      text(svg,360,66,'CloudFormation',{size:11,weight:'700',color:'#F39C12'});
+      text(svg,360,82,'stack generator',{size:9.5,color:'#94a3b8'});
+      arrow(svg,212,70,278,70,'#F39C12');
+    }
+  },
+  {
+    narration: 'CloudFormation creates the VPC: public and private subnets, internet gateway, NAT gateway — all in 192.168.0.0/16.',
+    apply: function(svg){
+      box(svg,50,130,160,60,'#0a1a0a','#27AE60',8);
+      text(svg,130,156,'VPC + Subnets',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,130,172,'192.168.0.0/16',{size:9,color:'#94a3b8'});
+      arrow(svg,360,102,130,128,'#27AE60');
+    }
+  },
+  {
+    narration: 'CloudFormation creates the EKS control plane — the cluster resource with API server, etcd, and IAM role.',
+    apply: function(svg){
+      box(svg,280,130,160,60,'#0c2a3a','#38bdf8',8);
+      text(svg,360,156,'EKS Cluster',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,360,172,'control plane + IAM',{size:9,color:'#94a3b8'});
+      arrow(svg,360,102,360,128,'#38bdf8');
+    }
+  },
+  {
+    narration: 'CloudFormation creates the managed node group — EC2 instances in an Auto Scaling Group, joined to the cluster.',
+    apply: function(svg){
+      box(svg,510,130,160,60,'#1a0a2a','#818cf8',8);
+      text(svg,590,156,'Node Group',{size:11,weight:'700',color:'#818cf8'});
+      text(svg,590,172,'ASG + worker nodes',{size:9,color:'#94a3b8'});
+      arrow(svg,360,102,590,128,'#818cf8');
+    }
+  },
+  {
+    narration: 'Finally, eksctl writes the kubeconfig to your local machine so kubectl can immediately connect to the new cluster.',
+    apply: function(svg){
+      box(svg,510,40,160,60,'#1a1a0a','#F39C12',8);
+      text(svg,590,66,'kubeconfig',{size:11,weight:'700',color:'#F39C12'});
+      text(svg,590,82,'~/.kube/config',{size:9,color:'#94a3b8'});
+      arrow(svg,442,70,508,70,'#F39C12');
+      text(svg,350,205,'Cluster ready! kubectl can connect.',{size:11,weight:'700',color:'#27AE60'});
+    }
+  }
+];
+
+// ── ANIMATION 2: upgrade sequence ────────────────────
+window.ANIMATIONS['upgrade-seq'] = [
+  {
+    narration: 'The 8-step upgrade sequence has three phases. We start before the upgrade even begins.',
+    reset: function(svg){ clearSVG(svg); },
+    apply: function(svg){
+      text(svg,350,20,'Kubernetes version upgrade — 8 steps',{size:12,weight:'700',color:'#94a3b8'});
+      // Phase labels
+      box(svg,20,35,210,170,'#1a1200','#F39C12',6);
+      text(svg,125,52,'PRE-UPGRADE',{size:9,weight:'700',color:'#F39C12'});
+      box(svg,245,35,210,80,'#001a20','#38bdf8',6);
+      text(svg,350,52,'CONTROL PLANE',{size:9,weight:'700',color:'#38bdf8'});
+      box(svg,245,130,210,75,'#001a0a','#27AE60',6);
+      text(svg,350,147,'POST / DATA PLANE',{size:9,weight:'700',color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Step 1: Review the Kubernetes release notes. Look for deprecated API warnings, new features, and breaking changes.',
+    apply: function(svg){
+      box(svg,30,60,185,30,'#2a1500','#F39C12',5);
+      text(svg,122,78,'1. Review release notes',{size:9.5,color:'#fcd34d'});
+    }
+  },
+  {
+    narration: 'Step 2: Back up the cluster if critical (etcd snapshot via Velero or AWS Backup). Optional but strongly recommended.',
+    apply: function(svg){
+      box(svg,30,96,185,30,'#2a1500','#F39C12',5);
+      text(svg,122,113,'2. Backup cluster (optional)',{size:9.5,color:'#fcd34d'});
+    }
+  },
+  {
+    narration: 'Step 3: Identify removed or changed API versions. Any manifests using deprecated APIs must be updated BEFORE upgrading.',
+    apply: function(svg){
+      box(svg,30,132,185,30,'#2a1500','#F39C12',5);
+      text(svg,122,149,'3. Identify API changes',{size:9.5,color:'#fcd34d'});
+    }
+  },
+  {
+    narration: 'Step 4: Check node group versioning. Nodes can be at most one minor version behind the control plane.',
+    apply: function(svg){
+      box(svg,30,168,185,30,'#2a1500','#F39C12',5);
+      text(svg,122,185,'4. Check node group versions',{size:9.5,color:'#fcd34d'});
+    }
+  },
+  {
+    narration: 'Step 5: Upgrade the control plane via EKS console or CLI. EKS deploys new API server nodes and auto-rolls back on failure.',
+    apply: function(svg){
+      box(svg,255,60,185,30,'#001520','#38bdf8',5);
+      text(svg,347,78,'5. Upgrade control plane',{size:9.5,color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Step 6: Review and upgrade EKS managed add-ons (CoreDNS, kube-proxy, VPC CNI) to versions compatible with the new Kubernetes version.',
+    apply: function(svg){
+      box(svg,255,145,185,28,'#001a08','#27AE60',5);
+      text(svg,347,162,'6. Upgrade add-ons',{size:9.5,color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Step 7: Upgrade kubectl on your local machine to the new cluster version. kubectl must be within one minor version of the API server.',
+    apply: function(svg){
+      box(svg,255,96,185,28,'#001520','#38bdf8',5);
+      text(svg,347,113,'7. Upgrade kubectl',{size:9.5,color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Step 8: Upgrade the data plane — worker nodes. Self-managed: manual. Managed node groups: Console or eksctl. Fargate: automatic.',
+    apply: function(svg){
+      box(svg,255,175,185,28,'#001a08','#27AE60',5);
+      text(svg,347,192,'8. Upgrade data plane (nodes)',{size:9.5,color:'#86efac'});
+      text(svg,350,215,'Upgrade complete.',{size:11,weight:'700',color:'#27AE60'});
+    }
+  }
+];
+
+// ── ANIMATION 3: AMI types ────────────────────────────
+window.ANIMATIONS['ami-types'] = [
+  {
+    narration: 'EKS supports four AMI types for worker nodes. Each has different tradeoffs for security, customization, and OS.',
+    reset: function(svg){ clearSVG(svg); },
+    apply: function(svg){
+      text(svg,350,20,'Four EKS worker node AMI types',{size:12,weight:'700',color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Type 1: Amazon EKS Optimized Linux — the DEFAULT. AWS pre-configures kubelet, containerd, VPC CNI. Turnkey and ready to go.',
+    apply: function(svg){
+      box(svg,30,40,150,130,'#0c2a3a','#38bdf8',8);
+      text(svg,105,66,'EKS Optimized',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,105,82,'Linux',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,105,102,'DEFAULT',{size:9,color:'#94a3b8'});
+      text(svg,105,116,'Turnkey',{size:9,color:'#64748b'});
+      text(svg,105,130,'Amazon Linux 2/2023',{size:8.5,color:'#475569'});
+      text(svg,105,144,'Fully pre-configured',{size:8.5,color:'#475569'});
+    }
+  },
+  {
+    narration: 'Type 2: Bottlerocket — open-source, purpose-built for containers. Minimal OS footprint, immutable, automatic updates. Available as a built-in EKS AMI.',
+    apply: function(svg){
+      box(svg,200,40,150,130,'#0a2a0a','#27AE60',8);
+      text(svg,275,66,'Bottlerocket',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,275,86,'Open-source',{size:9,color:'#94a3b8'});
+      text(svg,275,100,'Container-only OS',{size:9,color:'#94a3b8'});
+      text(svg,275,116,'Minimal attack surface',{size:8.5,color:'#86efac'});
+      text(svg,275,130,'Immutable root FS',{size:8.5,color:'#86efac'});
+      text(svg,275,148,'Built-in EKS AMI',{size:8,color:'#475569'});
+    }
+  },
+  {
+    narration: 'Type 3: Custom AMI — built from a GitHub build spec. For teams that need custom packages or OS configuration. NOT supported on Fargate.',
+    apply: function(svg){
+      box(svg,370,40,150,130,'#1a1a0a','#F39C12',8);
+      text(svg,445,66,'Custom AMI',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,445,86,'GitHub build spec',{size:9,color:'#94a3b8'});
+      text(svg,445,102,'Full OS control',{size:9,color:'#94a3b8'});
+      text(svg,445,118,'NO Fargate support',{size:8.5,color:'#E74C3C',weight:'700'});
+      text(svg,445,134,'EC2 nodes only',{size:8.5,color:'#475569'});
+      text(svg,445,150,'Most flexible',{size:8.5,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Type 4: Windows AMI — Windows Server 2019 or 2022. Supports Windows containers in mixed Linux/Windows EKS clusters.',
+    apply: function(svg){
+      box(svg,540,40,130,130,'#0a0a2a','#818cf8',8);
+      text(svg,605,66,'Windows AMI',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,605,86,'Windows containers',{size:9,color:'#94a3b8'});
+      text(svg,605,100,'Server 2019',{size:9,color:'#94a3b8'});
+      text(svg,605,116,'Server 2022',{size:9,color:'#94a3b8'});
+      text(svg,605,134,'Mixed OS clusters',{size:8.5,color:'#64748b'});
+      text(svg,605,150,'Node selectors req\'d',{size:8,color:'#475569'});
+    }
+  }
+];
+</script>
+</body>
+</html>

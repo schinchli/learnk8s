@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 05 — Managing Applications at Scale · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 05: HPA, VPA, Cluster Autoscaler, Karpenter, CI/CD pipelines, GitOps with Argo CD.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-05 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+.autoscaler-table { width:100%; border-collapse:collapse; font-size:0.86em; margin-bottom:24px; }
+.autoscaler-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:9px 13px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.autoscaler-table td {
+  padding:9px 13px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.autoscaler-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.autoscaler-table td:first-child { font-weight:700; color:var(--text); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+.vpa-modes {
+  display:grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:24px;
+}
+.vpa-mode {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:14px 16px;
+}
+.vpa-mode .mode-name { font-size:0.9em; font-weight:700; color:var(--accent); margin-bottom:5px; }
+.vpa-mode .mode-desc { font-size:0.82em; color:var(--muted); line-height:1.55; }
+.pipeline-stages {
+  display:flex; flex-wrap:wrap; gap:0; margin-bottom:22px;
+}
+.pipeline-stage {
+  background:var(--panel); border:1px solid var(--panel-light);
+  padding:10px 14px; flex:1; min-width:80px; text-align:center; position:relative;
+}
+.pipeline-stage:not(:last-child)::after {
+  content:'›'; position:absolute; right:-8px; top:50%; transform:translateY(-50%);
+  color:var(--accent); font-size:1.1em; z-index:1;
+}
+.pipeline-stage:first-child { border-radius:8px 0 0 8px; }
+.pipeline-stage:last-child { border-radius:0 8px 8px 0; }
+.pipeline-stage .ps-label { font-size:0.68em; letter-spacing:.06em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.pipeline-stage .ps-icon { font-size:1.3em; }
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .pipeline-stages { gap:4px; }
+  .pipeline-stage:not(:last-child)::after { display:none; }
+  .pipeline-stage { border-radius:8px; flex-basis:calc(50% - 2px); }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 05
+  </div>
+  <h1>⚖️ Module 05 — Managing Applications at Scale in Amazon EKS</h1>
+  <p>HPA · VPA · Cluster Autoscaler · Karpenter · CI/CD Pipelines · GitOps with Argo CD</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Horizontal Pod Autoscaler (HPA)</a></li>
+      <li><a href="#topic-2">Vertical Pod Autoscaler (VPA)</a></li>
+      <li><a href="#topic-3">Cluster Autoscaler (CA)</a></li>
+      <li><a href="#topic-4">Karpenter</a></li>
+      <li><a href="#topic-5">HPA vs VPA vs CA vs Karpenter</a></li>
+      <li><a href="#topic-6">CI/CD pipelines</a></li>
+      <li><a href="#topic-7">GitOps with Argo CD</a></li>
+      <li><a href="#topic-8">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — Horizontal Pod Autoscaler                 -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Horizontal Pod Autoscaler (HPA)</h2>
+    <p class="lede">
+      HPA <strong>scales the number of Pod replicas</strong> in or out based on observed metrics (CPU utilisation, memory, or custom metrics). It does <em>not</em> change the resource requests of individual pods — it just adds or removes them.
+    </p>
+
+    <!-- Animation: HPA -->
+    <div class="anim-player" data-anim-id="hpa-vpa">
+      <div class="anim-title">Animation · HPA (horizontal) vs VPA (vertical) — side-by-side</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-hpa-vpa" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does HPA scale — pods or resources?</div>
+          <div class="footer"><span class="tag">HPA basics</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Pods (replicas).</strong> HPA scales the <em>number</em> of Pod instances horizontally — adding more identical pods under load, removing them when load drops. It does not resize CPU/memory on existing pods.</div>
+          <div class="footer"><span class="tag">horizontal</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Write the HPA kubectl command for a deployment "myapp" targeting 50% CPU, min 3, max 10.</div>
+          <div class="footer"><span class="tag">command</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>kubectl autoscale deployment myapp --cpu-percent=50 --min=3 --max=10</code><br><br>This creates an HPA object that watches average CPU utilisation across all pods and scales between 3 and 10 replicas to keep it near 50%.</div>
+          <div class="footer"><span class="tag">kubectl</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What metrics can HPA use to make scaling decisions?</div>
+          <div class="footer"><span class="tag">metrics</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Built-in:</strong> CPU utilisation, memory utilisation<br>
+            <strong>Custom metrics:</strong> any metric from Kubernetes Metrics API (e.g. requests-per-second, queue depth)<br>
+            <strong>External metrics:</strong> metrics from outside the cluster (e.g. SQS queue length via KEDA)
+          </div>
+          <div class="footer"><span class="tag">metrics sources</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What must pods have set for HPA CPU scaling to work?</div>
+          <div class="footer"><span class="tag">prerequisite</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Pods must have <strong>CPU resource requests</strong> set in their spec. HPA measures utilisation as a percentage of the requested CPU. Without requests, the Metrics Server cannot compute utilisation and HPA will not scale.</div>
+          <div class="footer"><span class="tag">resource requests</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — Vertical Pod Autoscaler                   -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> Vertical Pod Autoscaler (VPA)</h2>
+    <p class="lede">
+      VPA <strong>scales the CPU and memory resources</strong> available to individual pods — making each pod bigger or smaller rather than adding more of them. It is made of three deployments and has four operating modes.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>VPA — 3 deployments</h4>
+        <ul>
+          <li><strong>vpa-recommender</strong> — watches pod usage, produces resource recommendations</li>
+          <li><strong>vpa-updater</strong> — evicts pods that need updated resources (in Recreate/InPlaceOrRecreate mode)</li>
+          <li><strong>vpa-admission-controller</strong> — mutates new pods at creation time to apply recommended resources</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>VPA vs HPA — key distinction</h4>
+        <ul>
+          <li><strong>HPA:</strong> changes replica count → more pods</li>
+          <li><strong>VPA:</strong> changes resource requests → bigger pods</li>
+          <li>Do not combine HPA (CPU) + VPA (CPU) on same deployment — they conflict</li>
+          <li>Safe combo: HPA on custom metrics + VPA for right-sizing</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="vpa-modes">
+      <div class="vpa-mode">
+        <div class="mode-name">Off</div>
+        <div class="mode-desc">Recommendations generated but <em>never applied</em>. Read-only advisory mode.</div>
+      </div>
+      <div class="vpa-mode">
+        <div class="mode-name">Initial</div>
+        <div class="mode-desc">Resources set at pod creation only. No evictions after pod is running.</div>
+      </div>
+      <div class="vpa-mode">
+        <div class="mode-name">Recreate</div>
+        <div class="mode-desc">Evicts pods and recreates them with updated resource requests. Causes restarts.</div>
+      </div>
+      <div class="vpa-mode">
+        <div class="mode-name">InPlaceOrRecreate</div>
+        <div class="mode-desc">Updates resources in-place if possible; falls back to evict+recreate. Preferred for minimal disruption.</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which VPA component generates resource recommendations?</div>
+          <div class="footer"><span class="tag">VPA components</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>vpa-recommender.</strong> It continuously watches historical and current pod CPU/memory usage and produces a recommendation. The recommender writes its output to the VPA object's <code>status.recommendation</code> field.</div>
+          <div class="footer"><span class="tag">recommender</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which VPA mode causes the least disruption to running workloads?</div>
+          <div class="footer"><span class="tag">VPA modes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Off</strong> (zero disruption — read-only) or <strong>InPlaceOrRecreate</strong> (tries in-place resize first, only evicts if in-place is impossible). For production workloads, start with <em>Off</em> to observe recommendations before enabling any mutation.</div>
+          <div class="footer"><span class="tag">disruption</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does vpa-admission-controller do?</div>
+          <div class="footer"><span class="tag">VPA components</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It is a <strong>MutatingAdmissionWebhook</strong> that intercepts pod creation requests and rewrites the resource requests/limits to match VPA's current recommendation — before the pod is scheduled. This means new pods start right-sized even before the updater acts.</div>
+          <div class="footer"><span class="tag">admission webhook</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why can't you combine VPA (CPU) and HPA (CPU) on the same Deployment?</div>
+          <div class="footer"><span class="tag">conflict</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">They fight each other: HPA adds replicas when CPU is high; VPA simultaneously increases each pod's CPU request. The Metrics Server sees changing denominators, causing oscillation. Safe combo: HPA on custom/external metrics + VPA for CPU/memory right-sizing.</div>
+          <div class="footer"><span class="tag">HPA+VPA</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Cluster Autoscaler                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Cluster Autoscaler (CA)</h2>
+    <p class="lede">
+      Cluster Autoscaler <strong>scales EC2 nodes in or out</strong> by adjusting existing Auto Scaling Groups. When pods are Pending due to insufficient node capacity, CA asks the ASG to add nodes. When nodes are underutilised, CA removes them.
+    </p>
+
+    <!-- Animation: CA scale-out flow -->
+    <div class="anim-player" data-anim-id="ca-flow">
+      <div class="anim-title">Animation · Cluster Autoscaler scale-out flow</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ca-flow" viewBox="0 0 700 230" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>CA best practices</h4>
+        <ul>
+          <li>Use auto-discovery setup (preferred over static config)</li>
+          <li>Adjust min/max directly on the ASG — not via CA config</li>
+          <li>Use <strong>MixedInstancesPolicy</strong> for On-Demand + Spot mix</li>
+          <li>Use <strong>Expanders</strong> for multi-node-group clusters</li>
+          <li>Set <code>--balance-similar-node-groups=true</code> for balanced AZ spread</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>CA Expanders</h4>
+        <ul>
+          <li><strong>random</strong> — default; pick randomly from eligible groups</li>
+          <li><strong>most-pods</strong> — pick the group that can schedule the most pending pods</li>
+          <li><strong>least-waste</strong> — pick the group with least CPU/memory waste</li>
+          <li><strong>price</strong> — pick the cheapest option (cloud-provider support needed)</li>
+          <li><strong>priority</strong> — user-defined priority labels on node groups</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What triggers Cluster Autoscaler to add nodes?</div>
+          <div class="footer"><span class="tag">CA trigger</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Pods stuck in Pending state</strong> because no existing node has sufficient CPU/memory or matches the pod's node selector/affinity constraints. CA simulates scheduling and determines which node group to expand.</div>
+          <div class="footer"><span class="tag">Pending pods</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">In the course's CA scale-out scenario (3 nodes, ASG max=6, then 14 replicas): what happens to the 2 pods after CA hits the ASG max?</div>
+          <div class="footer"><span class="tag">CA limits</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">They remain <strong>Pending indefinitely</strong>. CA cannot exceed the ASG's <em>maximum</em>. Once 6 nodes are running, CA has hit the hard limit — the 2 extra pods cannot be scheduled until you raise the ASG max or reduce the replica count.</div>
+          <div class="footer"><span class="tag">ASG max limit</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is MixedInstancesPolicy in the context of Cluster Autoscaler?</div>
+          <div class="footer"><span class="tag">cost optimisation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An ASG configuration that lets a single node group use a <strong>mix of On-Demand and Spot instances</strong>. CA can scale this group normally — it doesn't need to know which individual instance type is launched. Reduces cost while maintaining capacity.</div>
+          <div class="footer"><span class="tag">Spot + On-Demand</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the CA "auto-discovery" setup do?</div>
+          <div class="footer"><span class="tag">CA setup</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">CA tags ASGs with <code>k8s.io/cluster-autoscaler/&lt;cluster-name&gt;=owned</code> and <code>k8s.io/cluster-autoscaler/enabled=true</code>. The CA controller discovers all matching ASGs automatically — no need to list ASG names statically in the CA deployment config.</div>
+          <div class="footer"><span class="tag">tags</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — Karpenter                                 -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Karpenter</h2>
+    <p class="lede">
+      Karpenter is an <strong>open-source node provisioner</strong> maintained by AWS that scales nodes <em>without</em> Auto Scaling Groups. It provisions exactly the right node for each pending pod — faster and more flexible than Cluster Autoscaler.
+    </p>
+
+    <!-- Animation: Karpenter vs CA -->
+    <div class="anim-player" data-anim-id="karpenter-vs-ca">
+      <div class="anim-title">Animation · Karpenter vs Cluster Autoscaler — key differences</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-karpenter-vs-ca" viewBox="0 0 700 230" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the most fundamental difference between Karpenter and Cluster Autoscaler?</div>
+          <div class="footer"><span class="tag">Karpenter vs CA</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ASG dependency.</strong> CA requires pre-configured Auto Scaling Groups — it can only scale groups that exist. Karpenter provisions EC2 instances <em>directly</em> via the EC2 API, choosing instance type and size based on the pending pod's exact requirements — no ASG needed.</div>
+          <div class="footer"><span class="tag">no ASG</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">When should you choose Karpenter over Cluster Autoscaler?</div>
+          <div class="footer"><span class="tag">when to use</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            Choose Karpenter when:<br>
+            • <strong>Spiky demand</strong> — fast node provisioning needed<br>
+            • <strong>Diverse compute</strong> — need many instance families/sizes<br>
+            • <strong>Cost optimisation</strong> — want Karpenter to auto-select cheapest instance that fits<br>
+            • <strong>Spot workloads</strong> — Karpenter handles spot interruption and rebalancing natively
+          </div>
+          <div class="footer"><span class="tag">use cases</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What annotation prevents Karpenter from evicting a critical pod?</div>
+          <div class="footer"><span class="tag">Karpenter annotation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>karpenter.sh/do-not-evict: "true"</code> placed on the pod annotation. This tells Karpenter's consolidation logic to skip evicting that pod when it tries to remove underutilised nodes. Use for stateful workloads, long-running jobs, or anything that cannot tolerate rescheduling.</div>
+          <div class="footer"><span class="tag">do-not-evict</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are "layered constraints" in Karpenter?</div>
+          <div class="footer"><span class="tag">Karpenter constraints</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Karpenter applies constraints from multiple layers: cluster-level NodePool constraints → workload pod spec (node selector, affinity, tolerations). Each layer narrows the provisioning decision. For example: the NodePool allows only us-east-1a + us-east-1b, and the pod's affinity further restricts to GPU nodes.</div>
+          <div class="footer"><span class="tag">NodePool</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Who maintains Karpenter and what is its open-source status?</div>
+          <div class="footer"><span class="tag">Karpenter origin</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Karpenter is an <strong>open-source project</strong> originally created and currently maintained by <strong>AWS</strong>. It was donated to the CNCF ecosystem. It works with any Kubernetes cluster on any cloud, though it has native AWS EC2 integration via the <code>karpenter-provider-aws</code>.</div>
+          <div class="footer"><span class="tag">CNCF / AWS</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — The 4-autoscaler comparison               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Four autoscalers — side-by-side comparison</h2>
+    <p class="lede">
+      EKS has four complementary autoscalers that operate at different layers of the stack. They are <em>not</em> mutually exclusive — production clusters typically combine HPA + Karpenter (or HPA + CA).
+    </p>
+
+    <table class="autoscaler-table">
+      <thead>
+        <tr>
+          <th>Autoscaler</th>
+          <th>What scales</th>
+          <th>Mechanism</th>
+          <th>K8s object</th>
+          <th>Best for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>HPA</td>
+          <td>Pod replicas (out/in)</td>
+          <td>Metrics Server → CPU/memory/custom metric → adjust replica count</td>
+          <td><code>HorizontalPodAutoscaler</code></td>
+          <td>Stateless services with variable traffic</td>
+        </tr>
+        <tr>
+          <td>VPA</td>
+          <td>Pod resources (up/down)</td>
+          <td>Recommender → Updater evicts → Admission Controller injects new requests</td>
+          <td><code>VerticalPodAutoscaler</code></td>
+          <td>Right-sizing; stateful pods; initial resource tuning</td>
+        </tr>
+        <tr>
+          <td>Cluster Autoscaler</td>
+          <td>EC2 nodes (out/in)</td>
+          <td>Watches Pending pods → calls ASG to add/remove nodes</td>
+          <td>None (controller deployment)</td>
+          <td>Standard EKS clusters with managed node groups + ASGs</td>
+        </tr>
+        <tr>
+          <td>Karpenter</td>
+          <td>EC2 nodes (out/in)</td>
+          <td>Watches Pending pods → directly provisions EC2 via NodePool + NodeClaim</td>
+          <td><code>NodePool</code>, <code>NodeClaim</code> (CRDs)</td>
+          <td>Spiky demand; diverse instance types; cost-optimised Spot</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which two autoscalers operate at the node level (not pod level)?</div>
+          <div class="footer"><span class="tag">comparison</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Cluster Autoscaler</strong> and <strong>Karpenter</strong> both scale EC2 nodes. The difference: CA works through existing ASGs, Karpenter provisions nodes directly. HPA and VPA operate at the pod level.</div>
+          <div class="footer"><span class="tag">node vs pod</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can HPA and Karpenter be used together? If so, how do they cooperate?</div>
+          <div class="footer"><span class="tag">combining autoscalers</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes — this is the recommended production pattern.</strong> HPA scales pods in response to traffic. When HPA adds pods that cannot fit on existing nodes, those pods go Pending. Karpenter detects Pending pods and provisions the right-sized node. They work at different layers and complement each other.</div>
+          <div class="footer"><span class="tag">HPA + Karpenter</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which autoscaler has the most complex architecture with 3 separate deployments?</div>
+          <div class="footer"><span class="tag">architecture</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>VPA</strong> — it needs vpa-recommender, vpa-updater, and vpa-admission-controller all running. HPA is built into the K8s controller manager. CA and Karpenter each deploy as a single controller.</div>
+          <div class="footer"><span class="tag">VPA components</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — CI/CD pipelines                           -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> CI/CD pipelines</h2>
+    <p class="lede">
+      CI/CD (Continuous Integration / Continuous Delivery) automates the path from code commit to production. The course defines <strong>eight stages</strong> that every robust pipeline covers.
+    </p>
+
+    <div class="pipeline-stages">
+      <div class="pipeline-stage"><div class="ps-label">1</div><div class="ps-icon">📋</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Plan</div></div>
+      <div class="pipeline-stage"><div class="ps-label">2</div><div class="ps-icon">💻</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Code</div></div>
+      <div class="pipeline-stage"><div class="ps-label">3</div><div class="ps-icon">🔨</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Build</div></div>
+      <div class="pipeline-stage"><div class="ps-label">4</div><div class="ps-icon">🧪</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Test</div></div>
+      <div class="pipeline-stage"><div class="ps-label">5</div><div class="ps-icon">📦</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Release</div></div>
+      <div class="pipeline-stage"><div class="ps-label">6</div><div class="ps-icon">🚀</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Deploy</div></div>
+      <div class="pipeline-stage"><div class="ps-label">7</div><div class="ps-icon">⚙️</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Operate</div></div>
+      <div class="pipeline-stage"><div class="ps-label">8</div><div class="ps-icon">📊</div><div style="font-size:0.72em;color:var(--muted);margin-top:4px;">Monitor</div></div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name the 8 stages of a CI/CD pipeline in order.</div>
+          <div class="footer"><span class="tag">pipeline stages</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Plan → Code → Build → Test → Release → Deploy → Operate → Monitor</strong><br><br>Memory trick: <em>"Please Can Bob Take Really Detailed Operations Metrics"</em></div>
+          <div class="footer"><span class="tag">order</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between CI (Continuous Integration) and CD (Continuous Delivery)?</div>
+          <div class="footer"><span class="tag">CI vs CD</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>CI</strong> — automatically builds and tests code on every commit (Plan → Test stages). Ensures the codebase is always in a releasable state.<br><br><strong>CD</strong> — automatically delivers validated builds to a staging or production environment (Release → Deploy stages). May include a manual approval gate before production.</div>
+          <div class="footer"><span class="tag">definitions</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">In an EKS CI/CD pipeline, where does the container image go after the Build stage?</div>
+          <div class="footer"><span class="tag">EKS pipeline</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The built and tested image is pushed to <strong>Amazon ECR</strong> (Elastic Container Registry). The Deploy stage then references the new ECR image tag in a Kubernetes Deployment manifest — either directly (imperative) or via a GitOps manifest update (declarative).</div>
+          <div class="footer"><span class="tag">ECR</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — GitOps with Argo CD                       -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> GitOps with Argo CD</h2>
+    <p class="lede">
+      GitOps treats <strong>Git as the single source of truth</strong> for both application and infrastructure configuration. Argo CD is the GitOps controller that continuously syncs your EKS cluster to match the desired state declared in Git — and automatically reverts unauthorized changes.
+    </p>
+
+    <!-- Animation: GitOps flow -->
+    <div class="anim-player" data-anim-id="gitops-flow">
+      <div class="anim-title">Animation · GitOps with Argo CD — app change + drift detection</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-gitops-flow" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>GitOps — 4 principles</h4>
+        <ul>
+          <li><strong>Git as single source of truth</strong> — all desired state lives in Git</li>
+          <li><strong>Declarative</strong> — describe <em>what</em> you want, not <em>how</em> to get there</li>
+          <li><strong>Approved changes applied automatically</strong> — merged = deployed</li>
+          <li><strong>Software agents ensure state</strong> — controllers reconcile cluster to Git continuously</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Argo CD — how it works</h4>
+        <ul>
+          <li>Watches a Git repo for manifest changes</li>
+          <li>Compares live cluster state to desired Git state</li>
+          <li>Syncs the cluster when drift is detected</li>
+          <li>Reverts unauthorized <code>kubectl</code> edits automatically</li>
+          <li>Provides a visual dashboard of sync status</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Walk through the GitOps app code change scenario step by step.</div>
+          <div class="footer"><span class="tag">scenario 1</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. Developer pushes code to <strong>app Git repo</strong><br>
+            2. CI pipeline builds image, runs tests<br>
+            3. CI pushes new image to <strong>ECR</strong><br>
+            4. CI updates image tag in <strong>manifest Git repo</strong><br>
+            5. <strong>Argo CD</strong> detects manifest change<br>
+            6. Argo CD syncs → rolls out new pods in <strong>EKS cluster</strong>
+          </div>
+          <div class="footer"><span class="tag">6 steps</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What happens if someone runs "kubectl edit deployment myapp" directly on a GitOps-managed cluster?</div>
+          <div class="footer"><span class="tag">scenario 2 — drift</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Argo CD detects drift</strong> — it continuously compares live cluster state to Git. The direct kubectl change creates a mismatch. On the next sync cycle (or immediately if auto-sync is on), Argo CD <strong>reverts the cluster to the state declared in Git</strong>, undoing the manual change.</div>
+          <div class="footer"><span class="tag">drift detection</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why is GitOps described as "declarative" rather than "imperative"?</div>
+          <div class="footer"><span class="tag">declarative</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Declarative</strong> = you describe the desired end state (e.g. "3 replicas of v2.1.0"). The GitOps controller figures out how to get there.<br><strong>Imperative</strong> = you issue commands (e.g. "kubectl set image", "kubectl scale"). GitOps eliminates one-off imperative commands because they bypass Git and get reverted.</div>
+          <div class="footer"><span class="tag">declarative vs imperative</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the two Git repositories in a GitOps setup and what does each contain?</div>
+          <div class="footer"><span class="tag">repo structure</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>App code repo</strong> — application source code. Changes here trigger the CI pipeline.<br>
+            <strong>Manifest repo</strong> (infra/config repo) — Kubernetes YAML manifests (Deployments, Services, etc.) + infrastructure-as-code. Changes here are watched by Argo CD and applied to the cluster.
+          </div>
+          <div class="footer"><span class="tag">two repos</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does Argo CD enforce the GitOps "approved changes applied automatically" principle?</div>
+          <div class="footer"><span class="tag">auto-sync</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When <strong>auto-sync</strong> is enabled in Argo CD, any merge to the watched Git branch automatically triggers a sync to the cluster — no human operator needs to run kubectl or approve a deploy. The Git merge/pull request process IS the approval gate. Argo CD then ensures the cluster matches.</div>
+          <div class="footer"><span class="tag">auto-sync</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Knowledge checks &amp; quick-fire recall</h2>
+    <p class="lede">Official course knowledge-check questions plus quick-fire recall cards. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — You have a stateless web app with unpredictable traffic spikes. Which autoscaler should you use first?<br><em>A. VPA &nbsp; B. HPA &nbsp; C. Karpenter only &nbsp; D. CA only</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B — HPA</span><br><br>HPA scales pod replicas in response to CPU/traffic. For spiky traffic on stateless apps, HPA is the primary tool. Karpenter/CA add nodes when HPA can't fit the extra pods.</div>
+          <div class="footer"><span class="tag">KC answer</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — Which VPA component actually evicts pods that need updated resources?<br><em>A. vpa-recommender &nbsp; B. vpa-admission-controller &nbsp; C. vpa-updater</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ C — vpa-updater</span><br><br>vpa-recommender generates recommendations. vpa-admission-controller injects resources at pod creation. vpa-updater is the only one that evicts running pods to apply new resource settings.</div>
+          <div class="footer"><span class="tag">KC answer</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — Cluster Autoscaler cannot add more nodes. What is the most likely cause?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>Auto Scaling Group's maximum size</strong> has been reached. CA cannot scale beyond the ASG max. Fix: increase the max capacity on the ASG directly. Also check: IAM permissions for CA to modify the ASG, and that the CA pod is running and healthy.</div>
+          <div class="footer"><span class="tag">ASG max</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — In GitOps, a developer directly edits a running pod using kubectl. What happens next?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Argo CD <strong>detects the drift</strong> between live cluster state and the Git manifest. On the next sync cycle (or immediately with auto-sync), it <strong>reverts the cluster to the Git-declared state</strong>. The manual change is overwritten.</div>
+          <div class="footer"><span class="tag">drift revert</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: What does the VPA "Off" mode do?</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Generates <strong>recommendations only</strong> — no changes are applied to pods. Use it to observe what VPA would recommend before enabling mutations. Zero risk to running workloads.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: What annotation prevents Karpenter from removing a node with a critical pod?</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>karpenter.sh/do-not-evict: "true"</code> on the pod. This signals Karpenter's consolidation loop to leave the node running even if it's underutilised.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: Name the 4 GitOps principles.</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Git as single source of truth</strong><br>
+            2. <strong>Declarative</strong> (not imperative)<br>
+            3. <strong>Approved changes applied automatically</strong><br>
+            4. <strong>Software agents ensure consistent state</strong> (drift detection + auto-reconcile)
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: Which autoscaler does NOT use Auto Scaling Groups?</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Karpenter.</strong> It provisions EC2 instances directly via the EC2 Fleet API, choosing the right instance type based on pending pod requirements. Cluster Autoscaler requires pre-configured ASGs.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: What are the 3 deployments that make up VPA?</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>vpa-recommender</strong> — generates resource recommendations<br>
+            2. <strong>vpa-updater</strong> — evicts pods needing resource changes<br>
+            3. <strong>vpa-admission-controller</strong> — mutates new pods at creation
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Quick-fire: In the GitOps Argo CD flow, what triggers Argo CD to sync the cluster?</div>
+          <div class="footer"><span class="tag">quick recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>change in the manifest Git repo</strong>. Argo CD polls the repo (or uses webhooks) and detects that the desired state (Git) differs from the current cluster state. It then applies the diff to bring the cluster in line with Git.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 05 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r) {
+  r = r === undefined ? 8 : r;
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts) {
+  opts = opts || {};
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function arrow(svg, x1, y1, x2, y2, color) {
+  color = color || '#38bdf8';
+  const id = 'arr'+Math.random().toString(36).slice(2,8);
+  let defs = svg.querySelector('defs');
+  if (!defs) { defs = svgEl('defs',{}); svg.insertBefore(defs, svg.firstChild); }
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  mk.appendChild(svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color}));
+  defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':`url(#${id})`}));
+}
+function clearSVG(svg) { while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ────────────────────────────────────────────────────
+// ANIMATION 1: HPA vs VPA side-by-side
+// ────────────────────────────────────────────────────
+window.ANIMATIONS['hpa-vpa'] = [
+  {
+    narration: 'Two autoscalers, two strategies. HPA (left) scales pod count. VPA (right) scales pod size. Let\'s see each in action.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      // divider
+      svg.appendChild(svgEl('line',{x1:350,y1:10,x2:350,y2:215,stroke:'#1f2738','stroke-width':1.5,'stroke-dasharray':'4 4'}));
+      text(svg,175,18,'HPA — Horizontal Pod Autoscaler',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,525,18,'VPA — Vertical Pod Autoscaler',{size:10,weight:'700',color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'HPA baseline: 3 pods running, CPU load is low (25%). The HPA target is 50% CPU.',
+    apply(svg){
+      for(let i=0;i<3;i++){
+        box(svg,40+i*85,40,72,55,'#0a1a0a','#27AE60',6);
+        text(svg,76+i*85,62,`Pod ${i+1}`,{size:9.5,weight:'700',color:'#27AE60'});
+        text(svg,76+i*85,76,'CPU 25%',{size:8.5,color:'#94a3b8'});
+      }
+      box(svg,40,105,255,28,'#0c2a3a','#38bdf8',5);
+      text(svg,167,123,'HPA: target 50% CPU · replicas: 3',{size:9,color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Traffic spikes! CPU climbs to 90%. HPA decides to add pods to bring average CPU back toward 50%.',
+    apply(svg){
+      for(let i=0;i<3;i++){
+        box(svg,40+i*85,40,72,55,'#2a1a0a','#F39C12',6);
+        text(svg,76+i*85,62,`Pod ${i+1}`,{size:9.5,weight:'700',color:'#F39C12'});
+        text(svg,76+i*85,76,'CPU 90%',{size:8.5,color:'#fbbf24'});
+      }
+      box(svg,40,105,255,28,'#2a1a0a','#F39C12',5);
+      text(svg,167,123,'HPA: CPU high → scaling up!',{size:9,color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'HPA scales out to 6 pods. Each pod now handles less load, bringing CPU back to ~45%.',
+    apply(svg){
+      for(let i=0;i<6;i++){
+        const col = i%3, row = Math.floor(i/3);
+        box(svg,40+col*85,40+row*62,72,52,'#0a1a0a','#27AE60',6);
+        text(svg,76+col*85,62+row*62,`Pod ${i+1}`,{size:9,weight:'700',color:'#27AE60'});
+        text(svg,76+col*85,76+row*62,'CPU 45%',{size:8,color:'#86efac'});
+      }
+      box(svg,40,170,255,28,'#0a2a0a','#27AE60',5);
+      text(svg,167,188,'HPA: replicas 3 → 6 ✓',{size:9,color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Now VPA. A single pod is running with 0.5 CPU / 256 MiB requested. VPA observes actual usage is higher.',
+    apply(svg){
+      box(svg,380,40,280,65,'#0c2a3a','#38bdf8',6);
+      text(svg,520,64,'Pod: myapp',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,520,80,'requests: 0.5 CPU · 256 MiB',{size:9,color:'#94a3b8'});
+      box(svg,380,115,280,28,'#1a1a0a','#475569',5);
+      text(svg,520,133,'VPA observing usage…',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'VPA recommender analyzes usage and suggests: increase to 1.5 CPU / 512 MiB. In Recreate mode, updater evicts the pod.',
+    apply(svg){
+      box(svg,380,40,280,65,'#2a1a0a','#F39C12',6);
+      text(svg,520,57,'VPA Recommendation',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,520,72,'0.5 CPU → 1.5 CPU',{size:9,color:'#fbbf24'});
+      text(svg,520,86,'256 MiB → 512 MiB',{size:9,color:'#fbbf24'});
+      box(svg,380,115,280,45,'#0a2a0a','#27AE60',5);
+      text(svg,520,133,'Pod recreated with new resources',{size:9,color:'#27AE60'});
+      text(svg,520,148,'Pod is taller (more resources) ↑',{size:9,weight:'700',color:'#86efac'});
+    }
+  }
+];
+
+// ────────────────────────────────────────────────────
+// ANIMATION 2: Cluster Autoscaler scale-out flow
+// ────────────────────────────────────────────────────
+window.ANIMATIONS['ca-flow'] = [
+  {
+    narration: 'Starting state: 3 nodes, ASG max=6. Deployment has 3 replicas, all Running.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,16,'Cluster Autoscaler — scale-out flow',{size:12,weight:'700',color:'#94a3b8'});
+      for(let i=0;i<3;i++){
+        box(svg,30+i*150,35,130,55,'#0a1a0a','#27AE60',7);
+        text(svg,95+i*150,57,`Node ${i+1}`,{size:10,weight:'700',color:'#27AE60'});
+        text(svg,95+i*150,71,'1 pod Running',{size:8.5,color:'#86efac'});
+      }
+      box(svg,510,35,165,55,'#0c2a3a','#38bdf8',7);
+      text(svg,592,57,'ASG',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,592,71,'min=1 · max=6',{size:8.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Deployment scales to 10 replicas. Existing 3 nodes can only hold 3 pods. 7 new pods go Pending.',
+    apply(svg){
+      text(svg,350,108,'Deployment → 10 replicas: 3 Running · 7 Pending',{size:9.5,weight:'700',color:'#F39C12'});
+      for(let i=0;i<7;i++){
+        const col = i%4, row = Math.floor(i/4);
+        box(svg,30+col*90,125+row*35,80,28,'#2a1a0a','#F39C12',4);
+        text(svg,70+col*90,144+row*35,`Pod Pending`,{size:8,color:'#fbbf24'});
+      }
+    }
+  },
+  {
+    narration: 'Cluster Autoscaler detects Pending pods. It simulates scheduling and asks the ASG to increase desired capacity.',
+    apply(svg){
+      box(svg,510,125,165,55,'#0c2a3a','#38bdf8',7);
+      text(svg,592,147,'CA detects',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,592,162,'7 Pending pods',{size:9,color:'#94a3b8'});
+      arrow(svg,592,108,592,123,'#F39C12');
+      arrow(svg,592,182,592,205,'#38bdf8');
+      box(svg,510,207,165,28,'#0a2a0a','#27AE60',5);
+      text(svg,592,224,'ASG: desired → 6',{size:9,color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'ASG launches 3 new nodes (4, 5, 6). New nodes join the cluster. Pending pods get scheduled. 6 nodes, all Running.',
+    apply(svg){
+      for(let i=0;i<6;i++){
+        box(svg,15+i*113,35,100,55,'#0a1a0a','#27AE60',7);
+        text(svg,65+i*113,57,`Node ${i+1}`,{size:9.5,weight:'700',color:'#27AE60'});
+        text(svg,65+i*113,71,'Running ✓',{size:8.5,color:'#86efac'});
+      }
+      text(svg,350,108,'6 nodes · 10 pods Running ✓',{size:11,weight:'700',color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Scale to 14 replicas. Still 4 pods Pending. CA tries to add nodes — but ASG max=6 is already reached. 4 pods stay Pending.',
+    apply(svg){
+      text(svg,350,108,'Deployment → 14: 10 Running · 4 Pending · ASG at MAX',{size:9,weight:'700',color:'#E74C3C'});
+      for(let i=0;i<4;i++){
+        box(svg,90+i*130,125,110,35,'#2a0a0a','#E74C3C',5);
+        text(svg,145+i*130,148,'Pod PENDING',{size:8.5,weight:'700',color:'#E74C3C'});
+      }
+      box(svg,510,170,165,40,'#2a0a0a','#E74C3C',7);
+      text(svg,592,186,'ASG max=6',{size:10,weight:'700',color:'#E74C3C'});
+      text(svg,592,200,'HARD LIMIT HIT',{size:9,color:'#E74C3C'});
+    }
+  }
+];
+
+// ────────────────────────────────────────────────────
+// ANIMATION 3: Karpenter vs Cluster Autoscaler
+// ────────────────────────────────────────────────────
+window.ANIMATIONS['karpenter-vs-ca'] = [
+  {
+    narration: 'Karpenter and Cluster Autoscaler both provision nodes — but they take completely different paths. Left: CA. Right: Karpenter.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      svg.appendChild(svgEl('line',{x1:350,y1:10,x2:350,y2:225,stroke:'#1f2738','stroke-width':1.5,'stroke-dasharray':'4 4'}));
+      text(svg,175,18,'Cluster Autoscaler',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,525,18,'Karpenter',{size:11,weight:'700',color:'#818cf8'});
+    }
+  },
+  {
+    narration: 'Same trigger for both: pods go Pending because no node has enough capacity.',
+    apply(svg){
+      box(svg,40,35,260,38,'#2a1a0a','#F39C12',7);
+      text(svg,170,50,'Pod PENDING',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,170,65,'insufficient node capacity',{size:9,color:'#94a3b8'});
+      box(svg,390,35,270,38,'#2a1a0a','#F39C12',7);
+      text(svg,525,50,'Pod PENDING',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,525,65,'insufficient node capacity',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'CA must look up a pre-configured Auto Scaling Group. It cannot choose a different instance type — it\'s locked to what the ASG was built with.',
+    apply(svg){
+      box(svg,40,90,260,45,'#0c2a3a','#38bdf8',7);
+      text(svg,170,108,'ASG (pre-configured)',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,170,123,'Fixed instance type from ASG',{size:9,color:'#94a3b8'});
+      arrow(svg,170,75,170,88,'#F39C12');
+    }
+  },
+  {
+    narration: 'Karpenter reads the pending pod\'s requirements (CPU, memory, GPU, arch) and picks the optimal instance type from EC2 directly — no ASG needed.',
+    apply(svg){
+      box(svg,390,90,270,45,'#1a0a2a','#818cf8',7);
+      text(svg,525,108,'EC2 Fleet API (direct)',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,525,123,'Picks right-sized instance',{size:9,color:'#94a3b8'});
+      arrow(svg,525,75,525,88,'#F39C12');
+    }
+  },
+  {
+    narration: 'CA: slower (ASG launch + bootstrap). New node is the same type as the ASG. Works for homogeneous clusters.',
+    apply(svg){
+      box(svg,40,150,260,45,'#0a1a0a','#27AE60',7);
+      text(svg,170,168,'EC2 node joins cluster',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,170,183,'Same type as ASG · ~3-5 min',{size:9,color:'#94a3b8'});
+      arrow(svg,170,137,170,148,'#38bdf8');
+    }
+  },
+  {
+    narration: 'Karpenter: faster, flexible. Provisions EXACTLY the right-sized node for the pending pods. Best for diverse workloads and spiky demand.',
+    apply(svg){
+      box(svg,390,150,270,45,'#0a0a1a','#818cf8',7);
+      text(svg,525,168,'Exact-fit node provisioned',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,525,183,'Any instance type · ~60s',{size:9,color:'#94a3b8'});
+      arrow(svg,525,137,525,148,'#818cf8');
+      // summary bar
+      box(svg,40,205,260,20,'#0a1a0a','#27AE60',4);
+      text(svg,170,218,'Good: stable, homogeneous clusters',{size:8.5,color:'#86efac'});
+      box(svg,390,205,270,20,'#0a0a1a','#818cf8',4);
+      text(svg,525,218,'Better: spiky, diverse, cost-sensitive',{size:8.5,color:'#a5b4fc'});
+    }
+  }
+];
+
+// ────────────────────────────────────────────────────
+// ANIMATION 4: GitOps with Argo CD
+// ────────────────────────────────────────────────────
+window.ANIMATIONS['gitops-flow'] = [
+  {
+    narration: 'GitOps architecture: code repo, CI pipeline, ECR, manifest repo, Argo CD, and the EKS cluster. Let\'s trace the two scenarios.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      // Boxes
+      box(svg,10,10,100,42,'#0c2a3a','#38bdf8',7);
+      text(svg,60,27,'App Repo',{size:9.5,weight:'700',color:'#38bdf8'});
+      text(svg,60,42,'(GitHub)',{size:8.5,color:'#94a3b8'});
+      box(svg,140,10,100,42,'#1a1a0a','#F39C12',7);
+      text(svg,190,27,'CI Pipeline',{size:9.5,weight:'700',color:'#F39C12'});
+      text(svg,190,42,'Build+Test',{size:8.5,color:'#94a3b8'});
+      box(svg,270,10,90,42,'#0a1a0a','#27AE60',7);
+      text(svg,315,27,'ECR',{size:9.5,weight:'700',color:'#27AE60'});
+      text(svg,315,42,'Image tag',{size:8.5,color:'#94a3b8'});
+      box(svg,390,10,110,42,'#1a0a2a','#818cf8',7);
+      text(svg,445,27,'Manifest Repo',{size:9.5,weight:'700',color:'#818cf8'});
+      text(svg,445,42,'(Git)',{size:8.5,color:'#94a3b8'});
+      box(svg,530,10,100,42,'#0c2a3a','#38bdf8',7);
+      text(svg,580,27,'Argo CD',{size:9.5,weight:'700',color:'#38bdf8'});
+      text(svg,580,42,'GitOps ctrl',{size:8.5,color:'#94a3b8'});
+      box(svg,648,10,44,42,'#0a1a0a','#27AE60',7);
+      text(svg,670,31,'EKS',{size:9,weight:'700',color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Scenario 1 — App code change: Developer commits. CI pipeline triggers automatically.',
+    apply(svg){
+      arrow(svg,60,54,60,80,'#38bdf8');
+      box(svg,10,82,100,30,'#0c2a0a','#27AE60',5);
+      text(svg,60,101,'git push ✓',{size:9,weight:'700',color:'#27AE60'});
+      arrow(svg,112,31,138,31,'#F39C12');
+    }
+  },
+  {
+    narration: 'CI builds and tests the image. On success, pushes the new image to ECR.',
+    apply(svg){
+      box(svg,140,82,100,30,'#2a1a0a','#F39C12',5);
+      text(svg,190,101,'Build ✓ Test ✓',{size:9,weight:'700',color:'#F39C12'});
+      arrow(svg,242,31,268,31,'#27AE60');
+    }
+  },
+  {
+    narration: 'CI updates the image tag in the manifest Git repo — this is what triggers Argo CD.',
+    apply(svg){
+      arrow(svg,362,31,388,31,'#818cf8');
+      box(svg,390,82,110,30,'#1a0a2a','#818cf8',5);
+      text(svg,445,101,'image: v2.1.0',{size:9,weight:'700',color:'#818cf8'});
+      arrow(svg,502,31,528,31,'#38bdf8');
+    }
+  },
+  {
+    narration: 'Argo CD detects the manifest change. It syncs the cluster — rolling out pods with the new image.',
+    apply(svg){
+      box(svg,530,82,100,30,'#0c2a3a','#38bdf8',5);
+      text(svg,580,101,'Drift detected!',{size:9,weight:'700',color:'#38bdf8'});
+      arrow(svg,648,31,680,31,'#27AE60');
+      box(svg,648,82,44,30,'#0a2a0a','#27AE60',4);
+      text(svg,670,101,'Sync ✓',{size:8,weight:'700',color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Scenario 2 — Drift detection: Someone does "kubectl edit" directly. Argo CD sees the cluster differs from Git and reverts it.',
+    apply(svg){
+      // Clear lower area
+      box(svg,0,140,700,100,'#06080d','#06080d',0);
+      box(svg,220,145,260,40,'#2a0a0a','#E74C3C',7);
+      text(svg,350,161,'kubectl edit deployment myapp',{size:9.5,weight:'700',color:'#E74C3C'});
+      text(svg,350,177,'(unauthorized direct change)',{size:8.5,color:'#94a3b8'});
+      arrow(svg,350,187,350,205,'#E74C3C');
+      box(svg,220,207,260,28,'#0c2a3a','#38bdf8',5);
+      text(svg,350,225,'Argo CD: DRIFT → Revert to Git ✓',{size:9,weight:'700',color:'#38bdf8'});
+    }
+  }
+];
+</script>
+</body>
+</html>

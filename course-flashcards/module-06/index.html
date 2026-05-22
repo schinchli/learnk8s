@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 06 — Managing Networking in Amazon EKS · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 06: VPC CNI, network policies, service types, load balancer controller, DNS resolution in EKS.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-06 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+.decision-table { width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:24px; }
+.decision-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:8px 12px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.decision-table td {
+  padding:8px 12px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.decision-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+.svc-pills {
+  display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px;
+}
+.svc-pill {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:12px 18px; flex:1; min-width:160px;
+}
+.svc-pill .label { font-size:0.7em; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.svc-pill .title { font-size:1em; font-weight:700; color:var(--accent); }
+.svc-pill .sub { font-size:0.82em; color:var(--muted); margin-top:4px; }
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .svc-pills{ flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 06
+  </div>
+  <h1>🌐 Module 06 — Managing Networking in Amazon EKS</h1>
+  <p>VPC fundamentals · communication types · network policies · service types · AWS Load Balancer Controller · DNS resolution.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">AWS networking fundamentals</a></li>
+      <li><a href="#topic-2">EKS communication types</a></li>
+      <li><a href="#topic-3">Amazon VPC CNI plugin</a></li>
+      <li><a href="#topic-4">Network Policies</a></li>
+      <li><a href="#topic-5">Security groups for pods</a></li>
+      <li><a href="#topic-6">Kubernetes Service types</a></li>
+      <li><a href="#topic-7">AWS Load Balancer Controller</a></li>
+      <li><a href="#topic-8">Ingress &amp; path routing</a></li>
+      <li><a href="#topic-9">DNS resolution in EKS</a></li>
+      <li><a href="#topic-10">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — AWS Networking Fundamentals               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> AWS networking fundamentals</h2>
+    <p class="lede">
+      EKS clusters live inside an Amazon <strong>VPC</strong> (Virtual Private Cloud). Understanding VPC building blocks — subnets, route tables, security groups, and internet/NAT gateways — is essential before diving into EKS-specific networking.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Core VPC components</h4>
+        <ul>
+          <li><strong>VPC</strong> — isolated virtual network, defined by a CIDR block</li>
+          <li><strong>Public subnet</strong> — has route to Internet Gateway; resources get public IPs</li>
+          <li><strong>Private subnet</strong> — no direct internet route; uses NAT Gateway for outbound</li>
+          <li><strong>Route table</strong> — controls where subnet traffic is directed</li>
+          <li><strong>Internet Gateway (IGW)</strong> — allows inbound internet traffic to public subnets</li>
+          <li><strong>NAT Gateway</strong> — allows private subnet outbound internet (no inbound)</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Security controls</h4>
+        <ul>
+          <li><strong>Security groups</strong> — stateful, instance-level firewall (allow rules only)</li>
+          <li><strong>NACLs</strong> — stateless, subnet-level rules (allow + deny)</li>
+          <li><strong>ENI</strong> — Elastic Network Interface; virtual NIC attached to an instance</li>
+          <li><strong>VPC Peering</strong> — connects two VPCs; traffic stays on AWS backbone</li>
+          <li>EKS nodes and pods reside in subnets within your VPC</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between a public and private subnet in AWS?</div>
+          <div class="footer"><span class="tag">VPC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>public subnet</strong> has a route to an Internet Gateway (IGW), so resources can receive inbound traffic from the internet. A <strong>private subnet</strong> has no such route — outbound internet access uses a NAT Gateway, but no inbound connections are possible directly.</div>
+          <div class="footer"><span class="tag">networking</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What makes security groups "stateful"?</div>
+          <div class="footer"><span class="tag">security groups</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Stateful means return traffic is <strong>automatically allowed</strong>. If you allow inbound HTTP (port 80), the response traffic is permitted without an explicit outbound rule. NACLs, by contrast, are stateless — you must explicitly allow both directions.</div>
+          <div class="footer"><span class="tag">stateful vs stateless</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is an ENI and why does it matter for EKS?</div>
+          <div class="footer"><span class="tag">ENI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An <strong>Elastic Network Interface (ENI)</strong> is a virtual network card you can attach to EC2 instances. In EKS, the VPC CNI plugin assigns <em>secondary IP addresses</em> from ENIs attached to nodes — giving each pod its own real VPC IP without needing an overlay network.</div>
+          <div class="footer"><span class="tag">VPC CNI</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — EKS Communication Types                   -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> EKS communication types</h2>
+    <p class="lede">
+      EKS has three distinct pod communication paths, each using a different mechanism. Understanding which mechanism handles which path is a core exam topic.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Communication type</th>
+          <th>Scope</th>
+          <th>Mechanism</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Container-to-container</strong></td>
+          <td>Within the same Pod</td>
+          <td>Shared network namespace — containers use <code>localhost</code></td>
+        </tr>
+        <tr>
+          <td><strong>Pod-to-pod (intrahost)</strong></td>
+          <td>Same node, different Pods</td>
+          <td><strong>Linux Virtual Ethernet Device (veth) pairs</strong> — connected through the node's network bridge</td>
+        </tr>
+        <tr>
+          <td><strong>Pod-to-pod (interhost)</strong></td>
+          <td>Different nodes</td>
+          <td><strong>Amazon VPC CNI plugin</strong> — pods get real VPC IPs, traffic routes natively through VPC</td>
+        </tr>
+        <tr>
+          <td><strong>External-to-cluster</strong></td>
+          <td>Internet or VPC to cluster</td>
+          <td><strong>LoadBalancer service</strong> (NLB/ALB provisioned by AWS)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do two containers in the same pod communicate?</div>
+          <div class="footer"><span class="tag">intra-pod</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Containers in the same pod <strong>share a network namespace</strong>. They see the same network interfaces and communicate over <code>localhost</code> (127.0.0.1). Port conflicts between containers in the same pod are possible — each must use a unique port.</div>
+          <div class="footer"><span class="tag">shared namespace</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What mechanism handles pod-to-pod traffic on the same node (intrahost)?</div>
+          <div class="footer"><span class="tag">intrahost</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Linux Virtual Ethernet Device (veth) pairs.</strong> Each pod gets a veth pair — one end in the pod's network namespace, the other in the host namespace. The host's Linux bridge connects veth pairs so pods on the same node can reach each other directly.</div>
+          <div class="footer"><span class="tag">veth pairs</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What mechanism handles pod-to-pod traffic across different nodes (interhost)?</div>
+          <div class="footer"><span class="tag">interhost</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon VPC CNI plugin.</strong> Because each pod gets a real VPC IP address (not an overlay address), pods on different nodes communicate directly via standard VPC routing — no encapsulation or tunnelling required. The VPC subnet's route table handles it natively.</div>
+          <div class="footer"><span class="tag">VPC CNI</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does external traffic reach a workload inside an EKS cluster?</div>
+          <div class="footer"><span class="tag">external traffic</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Via a <strong>LoadBalancer service</strong> — which provisions an AWS NLB or ALB. The load balancer sits outside the cluster, receives external traffic, and forwards it to the correct node/pod. NodePort and Ingress are alternatives for different use cases.</div>
+          <div class="footer"><span class="tag">LoadBalancer</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Amazon VPC CNI Plugin                     -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Amazon VPC CNI plugin</h2>
+    <p class="lede">
+      The <strong>Amazon VPC CNI plugin</strong> is the default CNI for EKS. It fundamentally differs from overlay-based CNIs: pods get <em>real VPC IP addresses</em> — no encapsulation, no tunnel, native VPC routing. This is the key idea for the exam.
+    </p>
+
+    <!-- Animation: VPC CNI -->
+    <div class="anim-player" data-anim-id="vpc-cni">
+      <div class="anim-title">Animation · Amazon VPC CNI — pods get real VPC IPs</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-vpc-cni" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the core difference VPC CNI brings vs a traditional overlay CNI?</div>
+          <div class="footer"><span class="tag">VPC CNI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">With VPC CNI, <strong>each pod gets an IP address directly from the VPC CIDR</strong> — the same IP is visible both inside the pod and on the VPC network. Traditional overlay CNIs (Calico, Flannel) give pods overlay IPs and encapsulate traffic, adding overhead. VPC CNI requires no encapsulation.</div>
+          <div class="footer"><span class="tag">no overlay</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does the VPC CNI plugin assign IP addresses to pods?</div>
+          <div class="footer"><span class="tag">IP assignment</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The VPC CNI attaches <strong>secondary ENIs</strong> to the EC2 node and pre-warms a pool of secondary IP addresses from the VPC subnet. When a pod is scheduled, the CNI assigns one of these pre-allocated IPs to the pod's veth interface — startup is fast because IPs are already reserved.</div>
+          <div class="footer"><span class="tag">ENI secondary IPs</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What limits the number of pods a node can run in EKS with VPC CNI?</div>
+          <div class="footer"><span class="tag">pod density</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>maximum number of ENIs and secondary IPs</strong> the EC2 instance type supports. Larger instances (e.g. m5.large vs m5.xlarge) support more ENIs and more secondary IPs, thus more pods. This is an important sizing constraint when choosing instance types for EKS node groups.</div>
+          <div class="footer"><span class="tag">instance limits</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is "IP mode" vs "instance mode" in the context of the VPC CNI?</div>
+          <div class="footer"><span class="tag">target mode</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Instance mode:</strong> the load balancer (NLB) sends traffic to the node's port; kube-proxy then routes it to the pod. <strong>IP mode:</strong> the NLB sends traffic <em>directly to the pod IP</em>, bypassing kube-proxy entirely. IP mode requires the VPC CNI and reduces latency.</div>
+          <div class="footer"><span class="tag">NLB target types</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — Network Policies                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Network Policies</h2>
+    <p class="lede">
+      By default, all pods in a cluster can communicate with all other pods. <strong>NetworkPolicy</strong> resources let you enforce pod-level firewall rules — controlling which pods can talk to which. The default-deny pattern is a security best practice.
+    </p>
+
+    <!-- Animation: network policy -->
+    <div class="anim-player" data-anim-id="network-policy">
+      <div class="anim-title">Animation · NetworkPolicy — from open to locked-down to selective allow</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-network-policy" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Default deny all (namespace-wide)</h4>
+        <pre style="background:#0a0e16;border:1px solid #1f2738;border-radius:6px;padding:10px;font-size:0.78em;color:#e2e8f0;overflow-x:auto;">kind: NetworkPolicy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress</pre>
+      </div>
+      <div class="box">
+        <h4>Allow nginx → webapp only</h4>
+        <pre style="background:#0a0e16;border:1px solid #1f2738;border-radius:6px;padding:10px;font-size:0.78em;color:#e2e8f0;overflow-x:auto;">spec:
+  podSelector:
+    matchLabels:
+      app: webapp
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nginx</pre>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the default network behaviour in a Kubernetes cluster with no NetworkPolicies?</div>
+          <div class="footer"><span class="tag">default behaviour</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>All pods can communicate with all other pods</strong> in any namespace, and all pods can initiate external connections. There is no built-in isolation — you must explicitly create NetworkPolicy resources to restrict traffic.</div>
+          <div class="footer"><span class="tag">open by default</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does a NetworkPolicy with an empty podSelector ({}) select?</div>
+          <div class="footer"><span class="tag">podSelector</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An empty <code>podSelector: {}</code> matches <strong>ALL pods in the namespace</strong>. Combined with <code>policyTypes: [Ingress, Egress]</code> and no rules, this creates a <em>default deny all</em> policy — blocking all inbound and outbound traffic for every pod in the namespace.</div>
+          <div class="footer"><span class="tag">default deny</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Do NetworkPolicies apply to pods across namespaces?</div>
+          <div class="footer"><span class="tag">namespace scope</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">NetworkPolicies are <strong>namespace-scoped</strong>. A policy in namespace A only affects pods in namespace A. To allow cross-namespace traffic, use a <code>namespaceSelector</code> in the ingress/egress rules. Without it, only pods within the same namespace are matched.</div>
+          <div class="footer"><span class="tag">namespaceSelector</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Does EKS enforce NetworkPolicies by default?</div>
+          <div class="footer"><span class="tag">CNI enforcement</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">NetworkPolicy enforcement depends on the <strong>CNI plugin</strong>, not Kubernetes itself. The Amazon VPC CNI supports NetworkPolicy enforcement through the <strong>Network Policy Controller add-on</strong>. Without a CNI that supports it, NetworkPolicy objects are accepted by the API server but have <em>no effect</em>.</div>
+          <div class="footer"><span class="tag">CNI dependency</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">NetworkPolicies operate at which layer — pod, node, or namespace?</div>
+          <div class="footer"><span class="tag">layer</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Pod level.</strong> NetworkPolicies select pods using label selectors and control traffic to/from those specific pods. They are namespace-scoped objects but apply at the individual pod (IP/port) level — not at the node or subnet level. Security groups operate at a higher (node/ENI) level.</div>
+          <div class="footer"><span class="tag">pod-level firewall</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — Security groups for pods                  -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Security groups for pods</h2>
+    <p class="lede">
+      Beyond NetworkPolicies, EKS supports assigning <strong>AWS security groups directly to pods</strong>. This lets you apply VPC-level firewall rules (security groups) to individual pods rather than to entire nodes — useful when pods need access to AWS services like RDS or ElastiCache.
+    </p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What problem does "security groups for pods" solve?</div>
+          <div class="footer"><span class="tag">sg for pods</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Without this feature, all pods on a node share the node's security group. You cannot restrict which pods can reach an RDS database at the SG level. <strong>Security groups for pods</strong> assign an AWS SG to a specific pod, enabling precise VPC-level access control (e.g. only the <code>api</code> pod can reach the RDS SG).</div>
+          <div class="footer"><span class="tag">fine-grained SG</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How are security groups assigned to pods in EKS?</div>
+          <div class="footer"><span class="tag">SecurityGroupPolicy</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Using a custom EKS CRD called <strong>SecurityGroupPolicy</strong>. You define a <code>SecurityGroupPolicy</code> resource specifying a <code>podSelector</code> (or <code>serviceAccountSelector</code>) and the security group IDs to assign. The VPC CNI plugin then attaches a branch ENI with those SGs to matching pods.</div>
+          <div class="footer"><span class="tag">branch ENI</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the key difference between NetworkPolicy and security groups for pods?</div>
+          <div class="footer"><span class="tag">comparison</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>NetworkPolicy</strong> is a Kubernetes-native, CNI-enforced control for pod-to-pod traffic using label selectors. <strong>Security groups for pods</strong> are AWS-native VPC controls that apply to pod ENIs — useful for controlling access to AWS services (RDS, ElastiCache) and enforcing VPC-level rules alongside K8s-level policies.</div>
+          <div class="footer"><span class="tag">two layers</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Kubernetes Service types                  -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Kubernetes Service types</h2>
+    <p class="lede">
+      A <strong>Service</strong> is the stable endpoint for a set of pods — it abstracts away pod IP churn. Kubernetes defines four service types, each for a different exposure scope. Know all four for the exam, especially what each wraps and what AWS resource it provisions.
+    </p>
+
+    <!-- Animation: service types -->
+    <div class="anim-player" data-anim-id="service-types">
+      <div class="anim-title">Animation · Four Service types and their traffic flow</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-service-types" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="svc-pills">
+      <div class="svc-pill">
+        <div class="label">TYPE 1</div>
+        <div class="title">ClusterIP</div>
+        <div class="sub">Default. Internal only — not reachable from outside the cluster.</div>
+      </div>
+      <div class="svc-pill">
+        <div class="label">TYPE 2</div>
+        <div class="title">NodePort</div>
+        <div class="sub">Exposes on a static port (30000–32767) on every node IP. Wraps ClusterIP.</div>
+      </div>
+      <div class="svc-pill">
+        <div class="label">TYPE 3</div>
+        <div class="title">LoadBalancer</div>
+        <div class="sub">Provisions AWS NLB/ALB. Internet-accessible. Wraps NodePort.</div>
+      </div>
+      <div class="svc-pill">
+        <div class="label">TYPE 4</div>
+        <div class="title">ExternalName</div>
+        <div class="sub">Maps to an external DNS name via CNAME. No proxying.</div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Scope</th>
+          <th>AWS resource</th>
+          <th>When to use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ClusterIP</strong></td>
+          <td>Cluster-internal only</td>
+          <td>None</td>
+          <td>Internal microservice communication; backend APIs</td>
+        </tr>
+        <tr>
+          <td><strong>NodePort</strong></td>
+          <td>External via node IP + port</td>
+          <td>None (uses EC2 node ports)</td>
+          <td>Dev/test external access; custom load balancer in front</td>
+        </tr>
+        <tr>
+          <td><strong>LoadBalancer</strong></td>
+          <td>External via AWS LB</td>
+          <td>NLB or ALB (annotation-driven)</td>
+          <td>Production external services; single service exposure</td>
+        </tr>
+        <tr>
+          <td><strong>ExternalName</strong></td>
+          <td>External DNS resolution</td>
+          <td>None (CNAME record)</td>
+          <td>Map Kubernetes service name to external DB/API endpoint</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a ClusterIP service and who can reach it?</div>
+          <div class="footer"><span class="tag">ClusterIP</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ClusterIP</strong> is the default service type. It assigns a stable virtual IP address reachable <em>only from within the cluster</em>. Pods use this IP (or the service DNS name) to reach other pods. External clients cannot reach a ClusterIP service — it is completely internal.</div>
+          <div class="footer"><span class="tag">internal only</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What port range does NodePort use and how does traffic flow?</div>
+          <div class="footer"><span class="tag">NodePort</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">NodePort allocates a port in the range <strong>30000–32767</strong> on every node. External clients send traffic to <code>&lt;NodeIP&gt;:&lt;NodePort&gt;</code>; kube-proxy on the node forwards it to the ClusterIP, which routes to a pod. NodePort <em>wraps</em> ClusterIP — a ClusterIP is created automatically.</div>
+          <div class="footer"><span class="tag">wraps ClusterIP</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does a LoadBalancer service provision in AWS?</div>
+          <div class="footer"><span class="tag">LoadBalancer</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A LoadBalancer service automatically provisions an <strong>AWS Network Load Balancer (NLB)</strong> by default, or an ALB if the AWS Load Balancer Controller is installed and annotated. It wraps NodePort — traffic hits the LB, goes to a node port, and kube-proxy routes it to a pod. Annotation: <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance</code></div>
+          <div class="footer"><span class="tag">NLB / ALB</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does ExternalName differ from all other service types?</div>
+          <div class="footer"><span class="tag">ExternalName</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ExternalName</strong> creates a CNAME DNS record that maps the service name to an external DNS hostname (e.g. <code>my.db.example.com</code>). There is <strong>no proxying</strong>, no ClusterIP, and no kube-proxy involvement. It lets pods use a Kubernetes service name while the actual endpoint lives outside the cluster.</div>
+          <div class="footer"><span class="tag">CNAME only</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the nesting hierarchy of service types?</div>
+          <div class="footer"><span class="tag">hierarchy</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>LoadBalancer wraps NodePort, which wraps ClusterIP.</strong> Creating a LoadBalancer service automatically creates a NodePort and a ClusterIP. Traffic path: Internet → AWS LB → Node:NodePort → kube-proxy → ClusterIP → Pod. ExternalName is separate — no ClusterIP, just a DNS CNAME.</div>
+          <div class="footer"><span class="tag">wrapping</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between LoadBalancer instance mode and IP mode?</div>
+          <div class="footer"><span class="tag">target modes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Instance mode:</strong> NLB routes traffic to the EC2 node's port; kube-proxy routes to the pod. <strong>IP mode:</strong> NLB routes directly to the <em>pod IP</em> — kube-proxy is bypassed. IP mode requires VPC CNI (pods need real VPC IPs). IP mode reduces hops and latency.</div>
+          <div class="footer"><span class="tag">kube-proxy bypass</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — AWS Load Balancer Controller              -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> AWS Load Balancer Controller</h2>
+    <p class="lede">
+      The <strong>AWS Load Balancer Controller (AWS LBC)</strong> is a Kubernetes controller that provisions and manages ALBs for Ingress resources and NLBs for LoadBalancer services. It replaces the older in-tree cloud provider logic with a richer, annotation-driven model.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>What AWS LBC manages</h4>
+        <ul>
+          <li><strong>ALB</strong> — created for Ingress resources</li>
+          <li><strong>NLB</strong> — created for LoadBalancer services</li>
+          <li>Annotation-driven configuration (no separate AWS console work)</li>
+          <li>Supports both instance mode and IP mode targets</li>
+          <li>Supports HTTP/HTTPS, SSL termination, and WAF integration</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Key annotations</h4>
+        <ul>
+          <li><code>kubernetes.io/ingress.class: alb</code> — tells LBC to handle this Ingress</li>
+          <li><code>ingressClassName: alb</code> — newer IngressClass approach</li>
+          <li><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance</code> — NLB instance mode</li>
+          <li><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip</code> — NLB IP mode</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the AWS Load Balancer Controller provision for an Ingress resource?</div>
+          <div class="footer"><span class="tag">AWS LBC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">An <strong>Application Load Balancer (ALB)</strong>. When you create an Ingress with <code>ingressClassName: alb</code>, the AWS LBC creates an ALB with listener rules matching the Ingress path/host rules. Each backend service becomes a target group on the ALB.</div>
+          <div class="footer"><span class="tag">ALB provisioning</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What annotation triggers the AWS LBC to manage a LoadBalancer service with an NLB?</div>
+          <div class="footer"><span class="tag">annotation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance</code> (or <code>ip</code>). The presence of the AWS LBC in the cluster and this annotation causes it to provision an NLB instead of using the in-tree ELB provisioner. The <code>ip</code> value enables direct pod IP targeting.</div>
+          <div class="footer"><span class="tag">NLB annotation</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why would you install the AWS Load Balancer Controller instead of relying on the built-in cloud provider?</div>
+          <div class="footer"><span class="tag">why AWS LBC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The built-in in-tree cloud provider only supports Classic ELBs and basic NLBs. AWS LBC gives you: <strong>ALB support for Ingress</strong>, IP mode targets (pod-level routing), WAF integration, SSL policies, HTTP/2, path-based routing, multiple certificates, and faster feature updates from AWS.</div>
+          <div class="footer"><span class="tag">ALB features</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — Ingress and path routing                  -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Ingress &amp; path routing</h2>
+    <p class="lede">
+      <strong>Ingress</strong> is a Kubernetes API object that provides a single entry point for multiple backend services using <em>path-based</em> or <em>host-based</em> routing. It is not a service type — it requires an <strong>Ingress Controller</strong> (e.g. AWS LBC) to function.
+    </p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the main advantage of Ingress over multiple LoadBalancer services?</div>
+          <div class="footer"><span class="tag">Ingress</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A single Ingress (one ALB) can route to <strong>multiple backend services</strong> based on URL path or hostname — instead of provisioning one NLB per service. Example: <code>/webapp1</code> → webapp1:32003, <code>/webapp2</code> → webapp2:32004. This saves cost and reduces complexity.</div>
+          <div class="footer"><span class="tag">path routing</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Does Ingress work without an Ingress Controller?</div>
+          <div class="footer"><span class="tag">controller required</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>No.</strong> An Ingress object alone does nothing — it is just a configuration spec. An <strong>Ingress Controller</strong> watches for Ingress objects and configures the actual load balancer. In EKS, the AWS Load Balancer Controller is the standard Ingress Controller and creates an ALB.</div>
+          <div class="footer"><span class="tag">controller watch loop</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you tell Kubernetes which Ingress Controller should handle an Ingress object?</div>
+          <div class="footer"><span class="tag">ingressClassName</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Set <code>spec.ingressClassName: alb</code> in the Ingress manifest (or the older annotation <code>kubernetes.io/ingress.class: "alb"</code>). This tells the AWS Load Balancer Controller to claim and act on this Ingress, creating a corresponding ALB with matching listener rules.</div>
+          <div class="footer"><span class="tag">ingressClassName</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What type of routing does Ingress support?</div>
+          <div class="footer"><span class="tag">routing modes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Two types: <strong>Path-based routing</strong> — route based on URL path prefix (e.g. <code>/api</code> → api-service). <strong>Host-based routing</strong> — route based on HTTP Host header (e.g. <code>api.example.com</code> → api-service, <code>app.example.com</code> → frontend-service). Both can be combined in one Ingress.</div>
+          <div class="footer"><span class="tag">path + host routing</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 9 — DNS resolution in EKS                     -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> DNS resolution in EKS</h2>
+    <p class="lede">
+      DNS resolution in EKS works in <strong>three layers</strong>, each handling a different scope. Understanding which resolver handles which domain is important for debugging connectivity issues and for the exam.
+    </p>
+
+    <!-- Animation: DNS layers -->
+    <div class="anim-player" data-anim-id="dns-layers">
+      <div class="anim-title">Animation · Three-layer DNS resolution in EKS</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-dns-layers" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Resolver</th>
+          <th>Handles</th>
+          <th>Example query</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1</strong></td>
+          <td>CoreDNS (EKS add-on)</td>
+          <td>Resources <em>within</em> the EKS cluster</td>
+          <td><code>backend.prod.svc.cluster.local</code></td>
+        </tr>
+        <tr>
+          <td><strong>2</strong></td>
+          <td>Default Route 53 Resolver</td>
+          <td>Resources <em>within the VPC</em> outside the cluster</td>
+          <td>RDS endpoint, internal EC2 hostname</td>
+        </tr>
+        <tr>
+          <td><strong>3</strong></td>
+          <td>Upstream DNS server</td>
+          <td>Resources <em>outside the VPC</em></td>
+          <td><code>api.stripe.com</code>, any public hostname</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is CoreDNS and what does it resolve?</div>
+          <div class="footer"><span class="tag">CoreDNS</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>CoreDNS</strong> is the cluster DNS add-on that runs as a Deployment in the <code>kube-system</code> namespace. It resolves Kubernetes internal names: services (<code>svc.cluster.local</code>), pods, and namespaced resources. It is the first DNS resolver a pod hits for any query.</div>
+          <div class="footer"><span class="tag">cluster.local</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the DNS format for a Kubernetes service?</div>
+          <div class="footer"><span class="tag">DNS format</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Full form: <code>&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local</code>. Within the same namespace, pods can use just <code>&lt;service-name&gt;</code>. CoreDNS appends the search domain. Example: <code>backend</code> (same namespace) or <code>backend.prod.svc.cluster.local</code> (cross-namespace).</div>
+          <div class="footer"><span class="tag">svc.cluster.local</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">A pod queries an RDS endpoint. Which DNS layer resolves it?</div>
+          <div class="footer"><span class="tag">DNS layers</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Layer 2 — Route 53 VPC Resolver.</strong> CoreDNS (layer 1) forwards queries it cannot resolve to the VPC's default DNS resolver (169.254.169.253). RDS endpoints are VPC-local DNS names that Route 53 resolves within the VPC. They don't need an upstream public DNS server.</div>
+          <div class="footer"><span class="tag">Route 53 resolver</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does CoreDNS know when to forward a query to the Route 53 resolver?</div>
+          <div class="footer"><span class="tag">forward plugin</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">CoreDNS has a <strong>forward plugin</strong> in its ConfigMap. Any query that doesn't match <code>cluster.local</code> or other cluster domains is forwarded to the upstream resolver — which is the VPC's DNS server at the VPC base address +2 (e.g. 10.0.0.2). That resolver then either answers (VPC resource) or recurses to the internet.</div>
+          <div class="footer"><span class="tag">CoreDNS ConfigMap</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 10 — Knowledge checks                         -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-10">
+    <h2><span class="topic-num">TOPIC 10</span> Knowledge checks (from the course)</h2>
+    <p class="lede">Official course knowledge-check questions formatted as flashcards. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC1 — Which service type can be accessed from outside the cluster?<br><em>A. ClusterIP &nbsp; B. ExternalName &nbsp; C. NodePort only &nbsp; D. Both NodePort and LoadBalancer</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ D — Both NodePort and LoadBalancer</span><br><br>NodePort exposes the service on a static port on every node IP (external access via NodeIP:NodePort). LoadBalancer additionally provisions an AWS LB. ClusterIP (A) is internal only. ExternalName (B) maps to external DNS but is not itself externally accessible.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC2 — What is the Amazon VPC CNI plugin?<br><em>A. A security tool for pods &nbsp; B. A monitoring agent &nbsp; C. A routing overlay &nbsp; D. Plugin allowing pods to have the same IP inside the pod as on the VPC network</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ D — Plugin allowing pods to have same IP inside the pod as on the VPC network</span><br><br>This eliminates the need for an overlay network. Pods get IPs from the VPC CIDR — the pod IP is the same address visible to other VPC resources. Option C (routing overlay) is the opposite of what VPC CNI does.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Traffic routing activity — Intranode pod-to-pod uses what mechanism?</div>
+          <div class="footer"><span class="tag">traffic routing</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Linux Virtual Ethernet Device (veth) pairs.</strong> Each pod on the node has a veth pair — one end in the pod namespace, the other in the host namespace. Intra-node pods communicate via the host network bridge connecting all veth pairs on that node.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Traffic routing activity — Internode pod-to-pod (different nodes) uses what?</div>
+          <div class="footer"><span class="tag">traffic routing</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon VPC CNI plugin.</strong> Because each pod has a real VPC IP, the VPC routing table routes packets directly between pods on different nodes — no tunnel or encapsulation. This is the key differentiator of VPC CNI versus overlay-based CNIs.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Traffic routing activity — External traffic to a service uses what?</div>
+          <div class="footer"><span class="tag">traffic routing</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>LoadBalancer service.</strong> An AWS NLB or ALB is provisioned by the service controller (or AWS LBC). External clients connect to the load balancer's public endpoint; the LB forwards traffic to the appropriate node port or pod IP.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which Ingress Controller does the AWS Load Balancer Controller create — NLB or ALB?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ALB</strong> for Ingress resources, <strong>NLB</strong> for LoadBalancer services. The AWS LBC handles both. An Ingress with <code>ingressClassName: alb</code> creates an Application Load Balancer (Layer 7, HTTP/HTTPS). A LoadBalancer service with the NLB annotation creates a Network Load Balancer (Layer 4, TCP/UDP).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name the three CoreDNS / DNS layers in EKS in order.</div>
+          <div class="footer"><span class="tag">DNS recall</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>CoreDNS</strong> — resolves resources inside the EKS cluster (<code>*.cluster.local</code>)<br>
+            2. <strong>Route 53 VPC Resolver</strong> — resolves resources inside the VPC (RDS endpoints, EC2 names)<br>
+            3. <strong>Upstream DNS</strong> — resolves resources outside the VPC (public internet hostnames)
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 06 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r) {
+  r = r === undefined ? 8 : r;
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts) {
+  opts = opts || {};
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function arrow(svg, x1, y1, x2, y2, color) {
+  color = color || '#38bdf8';
+  const id = 'arr' + Math.random().toString(36).slice(2);
+  let defs = svg.querySelector('defs');
+  if (!defs) { defs = svgEl('defs'); svg.insertBefore(defs, svg.firstChild); }
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  mk.appendChild(svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color}));
+  defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,'marker-end':'url(#'+id+')'}));
+}
+function dashedArrow(svg, x1, y1, x2, y2, color) {
+  color = color || '#E74C3C';
+  const id = 'arr' + Math.random().toString(36).slice(2);
+  let defs = svg.querySelector('defs');
+  if (!defs) { defs = svgEl('defs'); svg.insertBefore(defs, svg.firstChild); }
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  mk.appendChild(svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color}));
+  defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':1.5,
+    'stroke-dasharray':'5,3','marker-end':'url(#'+id+')'}));
+}
+function clearSVG(svg) { while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: Service Types ────────────────────────
+window.ANIMATIONS['service-types'] = [
+  {
+    narration: 'Kubernetes has four service types, each exposing pods at a different scope. We\'ll build each one on top of the cluster diagram.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      // VPC border
+      box(svg, 20, 20, 660, 220, '#0a0e16', '#1f2738', 12);
+      text(svg, 350, 38, 'AWS VPC — EKS Cluster', {size:11, weight:'700', color:'#64748b'});
+      // Node
+      box(svg, 200, 55, 320, 150, '#0c1018', '#1f2738', 8);
+      text(svg, 360, 72, 'EKS Node', {size:10, weight:'700', color:'#475569'});
+      // Pods inside node
+      box(svg, 230, 85, 80, 50, '#0a1a0a', '#27AE60', 6);
+      text(svg, 270, 113, 'Pod A', {size:10, weight:'700', color:'#27AE60'});
+      box(svg, 350, 85, 80, 50, '#0a1a0a', '#27AE60', 6);
+      text(svg, 390, 113, 'Pod B', {size:10, weight:'700', color:'#27AE60'});
+      box(svg, 400, 170, 100, 25, '#0c2a3a', '#38bdf8', 5);
+      text(svg, 450, 186, 'ClusterIP svc', {size:9, color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'ClusterIP (default): assigns a stable internal IP. Only pods inside the cluster can reach it. No external access.',
+    apply(svg){
+      box(svg, 400, 170, 100, 25, '#0c2a3a', '#38bdf8', 5);
+      text(svg, 450, 186, 'ClusterIP svc', {size:9, color:'#38bdf8'});
+      arrow(svg, 270, 134, 400, 183, '#38bdf8');
+      arrow(svg, 390, 134, 420, 170, '#38bdf8');
+      box(svg, 80, 160, 100, 30, '#1a1a1a', '#475569', 5);
+      text(svg, 130, 179, 'External ?', {size:9, color:'#475569'});
+      dashedArrow(svg, 182, 175, 398, 183, '#E74C3C');
+      text(svg, 290, 202, '✗ blocked', {size:8, color:'#E74C3C'});
+    }
+  },
+  {
+    narration: 'NodePort: opens a port 30000–32767 on every node. External clients hit NodeIP:NodePort. It wraps the ClusterIP.',
+    apply(svg){
+      box(svg, 200, 55, 320, 150, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 360, 72, 'Node :31000', {size:10, weight:'700', color:'#38bdf8'});
+      box(svg, 80, 160, 100, 30, '#2a1a0a', '#F39C12', 5);
+      text(svg, 130, 179, 'External client', {size:9, color:'#F39C12'});
+      arrow(svg, 182, 175, 198, 155, '#F39C12');
+      text(svg, 290, 160, 'NodeIP:31000', {size:9, color:'#F39C12'});
+      arrow(svg, 340, 183, 400, 183, '#38bdf8');
+      text(svg, 370, 176, '→ ClusterIP', {size:8, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'LoadBalancer: provisions an AWS NLB or ALB in front. Internet traffic hits the LB, then the NodePort, then the pod. Wraps NodePort.',
+    apply(svg){
+      box(svg, 20, 20, 150, 45, '#2a1a0a', '#F39C12', 8);
+      text(svg, 95, 36, 'Internet', {size:10, weight:'700', color:'#F39C12'});
+      text(svg, 95, 50, 'client', {size:9, color:'#94a3b8'});
+      box(svg, 20, 100, 150, 45, '#0c2a1a', '#27AE60', 8);
+      text(svg, 95, 118, 'AWS NLB / ALB', {size:10, weight:'700', color:'#27AE60'});
+      text(svg, 95, 133, 'LoadBalancer svc', {size:8, color:'#94a3b8'});
+      arrow(svg, 95, 66, 95, 98, '#F39C12');
+      arrow(svg, 172, 122, 198, 122, '#27AE60');
+      text(svg, 185, 118, '→ Node:port', {size:8, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'ExternalName: no proxying — just a CNAME. The service name resolves to an external DNS hostname. Used for external databases or APIs.',
+    apply(svg){
+      clearSVG(svg);
+      box(svg, 150, 80, 160, 55, '#0c2a3a', '#818cf8', 8);
+      text(svg, 230, 100, 'ExternalName', {size:11, weight:'700', color:'#818cf8'});
+      text(svg, 230, 116, 'service', {size:9.5, color:'#94a3b8'});
+      box(svg, 420, 80, 200, 55, '#1a0a2a', '#818cf8', 8);
+      text(svg, 520, 100, 'my.db.example.com', {size:10, weight:'700', color:'#818cf8'});
+      text(svg, 520, 116, '(external DNS)', {size:9, color:'#94a3b8'});
+      arrow(svg, 312, 107, 418, 107, '#818cf8');
+      text(svg, 365, 100, 'CNAME', {size:9, weight:'700', color:'#818cf8'});
+      box(svg, 150, 165, 470, 28, '#0a0e16', '#1f2738', 5);
+      text(svg, 385, 183, 'No proxying · No ClusterIP · DNS resolution only', {size:9, color:'#475569'});
+    }
+  }
+];
+
+// ── ANIMATION 2: VPC CNI ───────────────────────────────
+window.ANIMATIONS['vpc-cni'] = [
+  {
+    narration: 'Traditional overlay CNIs give pods virtual IPs and wrap traffic in a tunnel (encapsulation). This adds overhead.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      box(svg, 20, 20, 310, 220, '#1a1a0a', '#F39C12', 10);
+      text(svg, 175, 38, 'Traditional overlay CNI', {size:10, weight:'700', color:'#F39C12'});
+      box(svg, 50, 60, 110, 55, '#0a0e16', '#475569', 6);
+      text(svg, 105, 82, 'Pod', {size:11, weight:'700', color:'#94a3b8'});
+      text(svg, 105, 97, 'IP: 10.244.1.5', {size:9, color:'#64748b'});
+      text(svg, 105, 110, '(overlay IP)', {size:8, color:'#475569'});
+      box(svg, 170, 60, 110, 55, '#0a0e16', '#475569', 6);
+      text(svg, 225, 82, 'Pod', {size:11, weight:'700', color:'#94a3b8'});
+      text(svg, 225, 97, 'IP: 10.244.2.3', {size:9, color:'#64748b'});
+      text(svg, 225, 110, '(overlay IP)', {size:8, color:'#475569'});
+      box(svg, 50, 145, 230, 35, '#2a1a0a', '#F39C12', 5);
+      text(svg, 165, 167, 'VXLAN tunnel / encapsulation', {size:9, color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'Amazon VPC CNI: each node has an ENI with secondary IP addresses pre-allocated from the VPC CIDR. No overlay needed.',
+    apply(svg){
+      box(svg, 360, 20, 320, 220, '#0c1018', '#38bdf8', 10);
+      text(svg, 520, 38, 'Amazon VPC CNI', {size:10, weight:'700', color:'#38bdf8'});
+      // Node
+      box(svg, 380, 55, 280, 100, '#0a0e16', '#1f2738', 6);
+      text(svg, 520, 70, 'EC2 Node', {size:9, color:'#475569'});
+      // ENI
+      box(svg, 400, 80, 100, 30, '#0c2a3a', '#38bdf8', 4);
+      text(svg, 450, 99, 'ENI', {size:9, weight:'700', color:'#38bdf8'});
+      // secondary IPs
+      text(svg, 450, 120, '10.0.1.10', {size:8, color:'#64748b'});
+      text(svg, 450, 132, '10.0.1.11', {size:8, color:'#64748b'});
+      text(svg, 450, 144, '10.0.1.12', {size:8, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Pod A is scheduled on the node. VPC CNI assigns it the real VPC IP 10.0.1.10. The same IP is seen inside the pod and on the VPC.',
+    apply(svg){
+      box(svg, 510, 80, 120, 65, '#0a1a0a', '#27AE60', 6);
+      text(svg, 570, 100, 'Pod A', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 570, 116, 'IP: 10.0.1.10', {size:9, color:'#86efac'});
+      text(svg, 570, 130, '(real VPC IP)', {size:8, color:'#94a3b8'});
+      arrow(svg, 502, 99, 510, 99, '#38bdf8');
+    }
+  },
+  {
+    narration: 'Pod B on a different node also gets a real VPC IP. They communicate directly via VPC routing — no tunnel, no encapsulation.',
+    apply(svg){
+      box(svg, 380, 175, 280, 55, '#0c1018', '#1f2738', 6);
+      text(svg, 520, 192, 'EC2 Node 2', {size:9, color:'#475569'});
+      box(svg, 400, 198, 100, 28, '#0c2a3a', '#38bdf8', 4);
+      text(svg, 450, 215, 'ENI', {size:9, weight:'700', color:'#38bdf8'});
+      box(svg, 510, 198, 120, 28, '#0a1a0a', '#27AE60', 4);
+      text(svg, 570, 215, 'Pod B: 10.0.2.5', {size:8.5, color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Direct pod-to-pod traffic via VPC routing. 10.0.1.10 → 10.0.2.5 is a native VPC route — AWS handles it automatically.',
+    apply(svg){
+      arrow(svg, 570, 147, 570, 196, '#27AE60');
+      text(svg, 620, 172, 'Direct VPC', {size:9, color:'#27AE60', anchor:'start'});
+      text(svg, 620, 184, 'routing', {size:9, color:'#27AE60', anchor:'start'});
+      box(svg, 360, 195, 310, 18, '#0a1a0a', 'transparent', 0);
+      text(svg, 350, 240, '✓ No encapsulation  ✓ No overlay  ✓ Real VPC IPs', {size:9, weight:'700', color:'#27AE60'});
+    }
+  }
+];
+
+// ── ANIMATION 3: Network Policy ───────────────────────
+window.ANIMATIONS['network-policy'] = [
+  {
+    narration: 'Default state: no NetworkPolicies. All pods in the namespace can freely communicate in all directions.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      box(svg, 20, 20, 660, 200, '#0c1018', '#1f2738', 10);
+      text(svg, 350, 38, 'Namespace: production', {size:10, weight:'700', color:'#475569'});
+      // Pod nginx
+      box(svg, 70, 60, 110, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 125, 83, 'nginx', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 125, 98, 'app: nginx', {size:8.5, color:'#64748b'});
+      // Pod webapp
+      box(svg, 290, 60, 120, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 350, 83, 'webapp', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 350, 98, 'app: webapp', {size:8.5, color:'#64748b'});
+      // Pod db
+      box(svg, 510, 60, 110, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 565, 83, 'database', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 565, 98, 'app: db', {size:8.5, color:'#64748b'});
+      // free arrows
+      arrow(svg, 182, 87, 288, 87, '#27AE60');
+      arrow(svg, 288, 97, 182, 97, '#27AE60');
+      arrow(svg, 412, 87, 508, 87, '#27AE60');
+      arrow(svg, 508, 97, 412, 97, '#27AE60');
+      text(svg, 350, 160, 'Open by default — all pods can reach all pods', {size:10, color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Apply a default-deny NetworkPolicy: podSelector {} with Ingress + Egress and no rules. All traffic is now blocked.',
+    apply(svg){
+      box(svg, 20, 20, 660, 200, '#2a0a0a', '#E74C3C', 10);
+      text(svg, 350, 38, 'NetworkPolicy: default-deny (all pods)', {size:10, weight:'700', color:'#E74C3C'});
+      dashedArrow(svg, 182, 87, 288, 87, '#E74C3C');
+      dashedArrow(svg, 288, 97, 182, 97, '#E74C3C');
+      dashedArrow(svg, 412, 87, 508, 87, '#E74C3C');
+      dashedArrow(svg, 508, 97, 412, 97, '#E74C3C');
+      text(svg, 225, 140, '✗ BLOCKED', {size:11, weight:'700', color:'#E74C3C'});
+      text(svg, 460, 140, '✗ BLOCKED', {size:11, weight:'700', color:'#E74C3C'});
+    }
+  },
+  {
+    narration: 'Apply allow-nginx policy: only pods with label app=nginx can send ingress traffic to pods with app=webapp. All other traffic stays blocked.',
+    apply(svg){
+      // Reset pod boxes
+      box(svg, 70, 60, 110, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 125, 83, 'nginx', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 125, 98, 'app: nginx', {size:8.5, color:'#64748b'});
+      box(svg, 290, 60, 120, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 350, 83, 'webapp', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 350, 98, 'app: webapp', {size:8.5, color:'#64748b'});
+      box(svg, 510, 60, 110, 55, '#0a1a0a', '#27AE60', 6);
+      text(svg, 565, 83, 'database', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 565, 98, 'app: db', {size:8.5, color:'#64748b'});
+      // Allow nginx -> webapp
+      arrow(svg, 182, 82, 288, 82, '#27AE60');
+      text(svg, 235, 74, '✓ allowed', {size:8, color:'#27AE60'});
+      // Still blocked: webapp -> db, nginx -> db, return
+      dashedArrow(svg, 412, 87, 508, 87, '#E74C3C');
+      dashedArrow(svg, 182, 97, 288, 97, '#E74C3C');
+      text(svg, 350, 160, 'Only nginx → webapp is allowed. All other paths stay blocked.', {size:9.5, color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 4: DNS Layers ───────────────────────────
+window.ANIMATIONS['dns-layers'] = [
+  {
+    narration: 'DNS resolution in EKS has three layers. We\'ll trace each type of query from a pod.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      // Pod
+      box(svg, 30, 95, 100, 45, '#0a1a0a', '#27AE60', 6);
+      text(svg, 80, 111, 'Pod', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 80, 126, 'making query', {size:8.5, color:'#64748b'});
+      // Three resolvers stacked right
+      box(svg, 200, 30, 200, 45, '#0c2a3a', '#38bdf8', 6);
+      text(svg, 300, 52, '① CoreDNS (kube-system)', {size:9.5, weight:'700', color:'#38bdf8'});
+      box(svg, 200, 100, 200, 45, '#2a1a0a', '#F39C12', 6);
+      text(svg, 300, 122, '② Route 53 VPC Resolver', {size:9.5, weight:'700', color:'#F39C12'});
+      box(svg, 200, 170, 200, 45, '#1a0a2a', '#818cf8', 6);
+      text(svg, 300, 192, '③ Upstream DNS server', {size:9.5, weight:'700', color:'#818cf8'});
+    }
+  },
+  {
+    narration: 'Layer 1: Pod queries backend.prod.svc.cluster.local — a Kubernetes service name. CoreDNS resolves it within the cluster.',
+    apply(svg){
+      arrow(svg, 132, 107, 198, 52, '#38bdf8');
+      text(svg, 160, 72, 'cluster.local', {size:8.5, weight:'700', color:'#38bdf8'});
+      box(svg, 430, 30, 200, 45, '#0a1a0a', '#27AE60', 6);
+      text(svg, 530, 52, '10.100.5.20 (ClusterIP)', {size:9, color:'#27AE60'});
+      arrow(svg, 402, 52, 428, 52, '#38bdf8');
+      text(svg, 415, 46, '→', {size:10, color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Layer 2: Pod queries an RDS endpoint (db.abc.us-east-1.rds.amazonaws.com). CoreDNS forwards to Route 53 VPC Resolver.',
+    apply(svg){
+      arrow(svg, 132, 117, 198, 122, '#F39C12');
+      text(svg, 162, 113, 'VPC resource', {size:8.5, weight:'700', color:'#F39C12'});
+      box(svg, 430, 100, 200, 45, '#0a1a0a', '#27AE60', 6);
+      text(svg, 530, 118, '10.0.1.200 (RDS IP)', {size:9, color:'#27AE60'});
+      text(svg, 530, 133, 'within VPC', {size:8.5, color:'#64748b'});
+      arrow(svg, 402, 122, 428, 122, '#F39C12');
+    }
+  },
+  {
+    narration: 'Layer 3: Pod queries api.stripe.com — an external internet hostname. CoreDNS → VPC Resolver → upstream public DNS.',
+    apply(svg){
+      arrow(svg, 132, 127, 198, 192, '#818cf8');
+      text(svg, 155, 165, 'public DNS', {size:8.5, weight:'700', color:'#818cf8'});
+      box(svg, 430, 170, 200, 45, '#0a1a0a', '#27AE60', 6);
+      text(svg, 530, 188, '104.16.0.1 (public IP)', {size:9, color:'#27AE60'});
+      text(svg, 530, 203, 'internet resource', {size:8.5, color:'#64748b'});
+      arrow(svg, 402, 192, 428, 192, '#818cf8');
+    }
+  }
+];
+</script>
+</body>
+</html>

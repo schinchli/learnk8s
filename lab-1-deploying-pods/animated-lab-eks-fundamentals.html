@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Module 02 — Amazon EKS Fundamentals. 20-step animated walkthrough: EKS control plane, data plane options, managed node groups, Fargate profiles, two APIs.">
+<meta name="theme-color" content="#06080d">
+<title>EKS Fundamentals — Animated Lab</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<style>
+:root {
+  --aws-orange: #ED7100;
+  --aws-purple: #8C4FFF;
+  --k8s-blue: #4A90E2;
+  --fargate: #F39C12;
+  --good: #27AE60;
+  --bad: #E74C3C;
+  --bg: #06080d;
+  --panel: #11151c;
+  --panel-light: #1f2738;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background:
+    radial-gradient(ellipse at top, rgba(56,189,248,0.05), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(155,89,182,0.04), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+header {
+  padding: 16px 28px;
+  background: linear-gradient(135deg, rgba(237,113,0,0.85), rgba(140,79,255,0.85)), var(--bg);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  display: flex; align-items: center; gap: 16px;
+}
+header .badge { background: rgba(255,255,255,0.15); border-radius: 6px; padding: 2px 10px; font-size: 0.75em; font-weight: 700; letter-spacing: .06em; }
+header h1 { margin: 0; font-size: 1.3em; }
+header p { margin: 3px 0 0; opacity: 0.85; font-size: 0.88em; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  padding: 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.navbar {
+  grid-column: 1 / -1;
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex; gap: 16px; align-items: center;
+  flex-wrap: wrap;
+}
+.nav-btns { display: flex; gap: 8px; }
+button {
+  background: var(--panel-light); color: var(--text);
+  border: 1px solid #475569; border-radius: 6px;
+  padding: 8px 14px; font-size: 0.9em; cursor: pointer;
+  transition: background 0.15s;
+}
+button:hover { background: #2d3748; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+button.primary { background: rgba(56,189,248,0.2); border-color: var(--accent); color: var(--accent); }
+.step-info { flex: 1; }
+.step-title { font-weight: 700; color: var(--accent); font-size: 1em; }
+.step-narration { color: var(--muted); font-size: 0.87em; margin-top: 4px; line-height: 1.5; }
+.progress-bar { width: 100%; height: 5px; background: #1e293b; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--aws-orange), var(--aws-purple)); border-radius: 3px; transition: width 0.3s; }
+.counter { font-size: 0.78em; color: var(--muted); white-space: nowrap; font-family: ui-monospace, monospace; }
+
+/* Left panel — step list */
+.steps-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: 680px;
+  padding: 12px;
+}
+.steps-panel h2 {
+  font-size: 0.72em; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .08em; margin: 0 0 10px; padding: 0 4px;
+}
+.step-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  font-size: 0.85em;
+}
+.step-item:hover { background: rgba(255,255,255,0.04); }
+.step-item.active { background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.25); }
+.step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--panel-light); border: 1px solid #475569;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75em; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.step-item.done .step-num { background: rgba(39,174,96,0.2); border-color: #27AE60; color: #27AE60; }
+.step-item.active .step-num { background: rgba(56,189,248,0.2); border-color: var(--accent); color: var(--accent); }
+.step-label { line-height: 1.4; }
+.step-section { font-size: 0.68em; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; }
+
+/* Right panel — SVG diagram */
+.diagram-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 680px;
+}
+#main-svg {
+  width: 100%; height: 100%;
+  max-height: 660px;
+}
+
+/* bottom rail */
+.bottom-rail {
+  grid-column: 1 / -1;
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.link-btn {
+  background: var(--panel-light); color: var(--text);
+  border: 1px solid #475569; border-radius: 6px;
+  padding: 6px 14px; font-size: 0.82em; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.12s;
+}
+.link-btn:hover { background: #2d3748; color: var(--accent); }
+.kbd { background: #334155; border: 1px solid #475569; border-bottom-width: 2px; border-radius: 4px; padding: 1px 7px; font-family: ui-monospace; font-size: 0.78em; margin: 0 2px; color: var(--text); }
+.hint { font-size: 0.78em; color: var(--muted); margin-left: auto; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .steps-panel { max-height: 220px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span class="badge">MODULE 02</span>
+      <h1>🔶 Amazon EKS Fundamentals</h1>
+    </div>
+    <p>20-step animated walkthrough · control plane · data plane · Fargate · two APIs</p>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Top nav bar -->
+  <div class="navbar">
+    <div class="nav-btns">
+      <button id="btn-prev" disabled>◀ Prev</button>
+      <button id="btn-play" class="primary">▶ Auto-play</button>
+      <button id="btn-next">Next ▶</button>
+    </div>
+    <div class="step-info">
+      <div class="step-title" id="nav-title">—</div>
+      <div class="step-narration" id="nav-narration">—</div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:5%"></div></div>
+    </div>
+    <div class="counter" id="counter">1 / 20</div>
+  </div>
+
+  <!-- Step list -->
+  <div class="steps-panel">
+    <h2>Steps</h2>
+    <div id="step-list"></div>
+  </div>
+
+  <!-- SVG diagram -->
+  <div class="diagram-panel">
+    <svg id="main-svg" viewBox="0 0 820 620" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <!-- Bottom links -->
+  <div class="bottom-rail">
+    <a href="index.html" class="link-btn">🏠 Dashboard</a>
+    <a href="animated-lab.html" class="link-btn">📚 K8s Core Concepts</a>
+    <a href="animated-lab-aws.html" class="link-btn">☁️ AWS EKS Lab</a>
+    <a href="../course-flashcards/module-02/index.html" class="link-btn">🃏 Module 02 Flashcards</a>
+    <a href="../course-flashcards/module-02/notes.md" class="link-btn">📝 Study Notes</a>
+    <span class="hint"><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> navigate · <kbd class="kbd">Space</kbd> play/pause</span>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// STEPS DATA
+// ============================================================
+const STEPS = [
+  {
+    title: 'What is Amazon EKS?',
+    section: 'Introduction',
+    narration: 'Amazon EKS is a managed Kubernetes service. AWS runs the control plane; you supply the workers. Built on EKS Distro — the same distribution AWS uses internally.',
+    render(svg) {
+      clear(svg);
+      // Central EKS logo box
+      roundRect(svg,260,200,300,120,'#0c2a3a','#38bdf8',12,2);
+      svgText(svg,410,248,'Amazon EKS',14,700,'#38bdf8');
+      svgText(svg,410,268,'Managed Kubernetes Service',11,400,'#94a3b8');
+      svgText(svg,410,288,'Powered by EKS Distro',10,400,'#64748b');
+      // tagline
+      roundRect(svg,210,360,400,48,'#0a1020','#475569',8,1);
+      svgText(svg,410,381,'AWS manages the control plane.',11,700,'#f1f5f9');
+      svgText(svg,410,397,'You manage the data plane.',11,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'EKS component set',
+    section: 'Introduction',
+    narration: 'Four cooperating components make up the EKS experience: EKS itself, Fargate (serverless), EC2 (traditional nodes), and the EKS Dashboard.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,40,'EKS — Four Components',13,700,'#94a3b8');
+      const cols = [
+        {x:80,  label:'Amazon EKS', sub:'Creates K8s clusters\n(EKS Distro)', c:'#38bdf8', fill:'#0c2a3a'},
+        {x:280, label:'AWS Fargate', sub:'Serverless\ncontainers', c:'#F39C12', fill:'#2a1a0a'},
+        {x:480, label:'Amazon EC2',  sub:'Worker nodes\nfor your cluster', c:'#27AE60', fill:'#0a1a0a'},
+        {x:640, label:'EKS Dashboard',sub:'View & explore\nrunning apps', c:'#818cf8', fill:'#1a0a2a'},
+      ];
+      cols.forEach(({x,label,sub,c,fill})=>{
+        roundRect(svg,x,60,160,160,fill,c,10,1.5);
+        svgText(svg,x+80,110,label,12,700,c);
+        sub.split('\n').forEach((l,i)=>svgText(svg,x+80,132+i*16,l,10,400,'#94a3b8'));
+      });
+      // three arrows from EKS → run apps
+      roundRect(svg,240,260,340,60,'#11151c','#1f2738',8,1);
+      svgText(svg,410,285,'Run Kubernetes apps',12,700,'#f1f5f9');
+      svgText(svg,410,301,'on any combination of the above',10,400,'#94a3b8');
+      arrowV(svg,160,222,410,258,'#38bdf8');
+      arrowV(svg,360,222,410,258,'#F39C12');
+      arrowV(svg,560,222,410,258,'#27AE60');
+      arrowV(svg,720,222,410,258,'#818cf8');
+    }
+  },
+  {
+    title: 'Control plane lives in AWS account',
+    section: 'Control Plane',
+    narration: 'The EKS control plane runs in an AWS-managed account — completely separate from yours. You only access it through the API endpoint EKS exposes.',
+    render(svg) {
+      clear(svg);
+      // AWS account box (left)
+      roundRect(svg,30,60,360,420,'#0c1018','#38bdf8',12,2);
+      svgText(svg,210,90,'AWS-managed account',11,700,'#38bdf8');
+      svgText(svg,210,108,'(you never see this)',9,400,'#475569');
+      // Your account box (right)
+      roundRect(svg,430,60,360,420,'#0c1018','#818cf8',12,2);
+      svgText(svg,610,90,'Your AWS account',11,700,'#818cf8');
+      // Arrow between
+      arrowH(svg,392,270,428,270,'#F39C12');
+      svgText(svg,410,264,'ENI',9,700,'#F39C12');
+      // Control plane components
+      const cps = ['kube-apiserver','etcd','kube-scheduler','kube-controller-manager'];
+      cps.forEach((c,i)=>{
+        roundRect(svg,60,130+i*70,280,52,'#0c2a3a','#38bdf8',8,1);
+        svgText(svg,200,150+i*70,c,11,700,'#38bdf8');
+        svgText(svg,200,166+i*70,'AWS manages & repairs',9,400,'#64748b');
+      });
+      // Your account: placeholder
+      roundRect(svg,460,130,300,180,'#0a1020','#475569',8,1);
+      svgText(svg,610,190,'Your worker nodes',12,700,'#94a3b8');
+      svgText(svg,610,210,'(data plane)',10,400,'#64748b');
+      svgText(svg,610,235,'EC2 or Fargate',10,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'What AWS manages in the control plane',
+    section: 'Control Plane',
+    narration: 'EKS automatically patches, scales, and repairs all control plane components: API server, etcd (multi-AZ replicated), scheduler, and controller manager. You never SSH into these.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,38,'EKS Control Plane — AWS manages all of this',12,700,'#38bdf8');
+      const items = [
+        {label:'kube-apiserver', detail:'HTTPS endpoint for kubectl/SDK calls', x:100, y:80},
+        {label:'etcd', detail:'Cluster state · multi-AZ · auto-repaired', x:100, y:180},
+        {label:'kube-scheduler', detail:'Assigns pods to nodes', x:450, y:80},
+        {label:'kube-controller-manager', detail:'Reconciles desired vs actual state', x:430, y:180},
+      ];
+      items.forEach(({label,detail,x,y})=>{
+        roundRect(svg,x,y,300,72,'#0c2a3a','#38bdf8',8,1.5);
+        svgText(svg,x+150,y+26,label,12,700,'#38bdf8');
+        svgText(svg,x+150,y+44,detail,9.5,400,'#94a3b8');
+        // lock icon
+        svgText(svg,x+150,y+60,'🔒 AWS-managed',8.5,700,'#27AE60');
+      });
+      // Multi-AZ strip
+      roundRect(svg,80,280,650,55,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,303,'Multi-AZ: control plane nodes spread across ≥3 AZs',11,700,'#27AE60');
+      svgText(svg,410,319,'Auto-repair: unhealthy control plane nodes replaced automatically',10,400,'#94a3b8');
+      // cost note
+      roundRect(svg,240,355,340,45,'#0a1020','#475569',6,1);
+      svgText(svg,410,374,'Cost: ~$0.10/hr per cluster',10,700,'#94a3b8');
+      svgText(svg,410,390,'HA across AZs included at no extra charge',9,400,'#64748b');
+    }
+  },
+  {
+    title: 'Three data plane options',
+    section: 'Data Plane',
+    narration: 'EKS always manages the control plane. For worker nodes, you choose: self-managed EC2, managed node groups, or AWS Fargate. Each trades operational control for automation.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,38,'EKS Data Plane — Three Options',13,700,'#818cf8');
+      const opts = [
+        {x:60, label:'Self-managed', sub:'You launch, patch,\nand replace EC2\nnodes manually.', ctrl:'FULL CONTROL\nFULL RESPONSIBILITY', c:'#E74C3C', fill:'#1a0505'},
+        {x:295, label:'Managed Node\nGroups', sub:'EKS provisions,\nupdates, and scales\nnodes via ASG.', ctrl:'SHARED CONTROL\nEKS HANDLES LIFECYCLE', c:'#38bdf8', fill:'#0c2a3a'},
+        {x:530, label:'AWS Fargate', sub:'No nodes at all.\nEach pod = isolated\nmicro-VM.', ctrl:'ZERO NODE MGMT\nFULLY SERVERLESS', c:'#F39C12', fill:'#2a1a0a'},
+      ];
+      opts.forEach(({x,label,sub,ctrl,c,fill})=>{
+        roundRect(svg,x,60,210,260,fill,c,10,2);
+        label.split('\n').forEach((l,i)=>svgText(svg,x+105,100+i*18,l,13,700,c));
+        sub.split('\n').forEach((l,i)=>svgText(svg,x+105,148+i*16,l,10,400,'#94a3b8'));
+        ctrl.split('\n').forEach((l,i)=>svgText(svg,x+105,222+i*14,l,8.5,700,c));
+      });
+      // You manage arrows
+      svgText(svg,410,360,'← You manage →',10,700,'#475569');
+      svgText(svg,130,360,'Everything',9,400,'#E74C3C');
+      svgText(svg,400,360,'App + config',9,400,'#38bdf8');
+      svgText(svg,640,360,'Just pod spec',9,400,'#F39C12');
+    }
+  },
+  {
+    title: 'Managed node groups — what EKS handles',
+    section: 'Data Plane',
+    narration: 'Managed node groups let EKS automate the full node lifecycle: provisioning, OS patching, rolling upgrades, scaling — all via an Auto Scaling Group.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,38,'Managed Node Groups — 5 things EKS handles',12,700,'#38bdf8');
+      const items = [
+        '1. Provisioning — launches EC2 in an Auto Scaling Group',
+        '2. Managing    — joins nodes to the K8s cluster',
+        '3. Updating    — rolling AMI + K8s version upgrades',
+        '4. Scaling     — respects min/max/desired controls',
+        '5. eksctl      — first-class CLI support',
+      ];
+      items.forEach((txt,i)=>{
+        roundRect(svg,100,70+i*80,620,60,'#0c2a3a','#38bdf8',8,1);
+        svgText(svg,410,97+i*80,txt,11.5,i===0?700:400,'#f1f5f9');
+      });
+      // eksctl command
+      roundRect(svg,100,490,620,55,'#03050a','#27AE60',6,1);
+      svgText(svg,410,512,'$ eksctl create cluster --name prod --version 1.29 --managed',10.5,400,'#c5e478');
+      svgText(svg,410,528,'$ eksctl upgrade nodegroup --name workers --kubernetes-version 1.30',10.5,400,'#c5e478');
+    }
+  },
+  {
+    title: 'MNG rolling update: zero downtime',
+    section: 'Data Plane',
+    narration: 'MNG updates roll one node at a time: add new node, cordon old node (no new pods), drain old node (evict pods), terminate old node. PodDisruptionBudgets respected throughout.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,30,'Managed Node Group — rolling update (1.28 → 1.29)',12,700,'#38bdf8');
+      // 3 old nodes
+      const nodes = [{x:60,label:'Node 1',ver:'1.28',c:'#27AE60',f:'#0a1a0a'},{x:240,label:'Node 2',ver:'1.28',c:'#27AE60',f:'#0a1a0a'},{x:420,label:'Node 3',ver:'1.28',c:'#27AE60',f:'#0a1a0a'}];
+      nodes.forEach(({x,label,ver,c,f})=>{
+        roundRect(svg,x,50,160,90,f,c,8,1.5);
+        svgText(svg,x+80,82,label,11,700,c);
+        svgText(svg,x+80,98,ver,10,400,'#94a3b8');
+        // pods
+        roundRect(svg,x+10,114,60,20,'#1a3a1a','#27AE60',3,1);
+        svgText(svg,x+40,127,'Pod',8.5,400,'#86efac');
+        roundRect(svg,x+80,114,60,20,'#1a3a1a','#27AE60',3,1);
+        svgText(svg,x+110,127,'Pod',8.5,400,'#86efac');
+      });
+      // Step annotations
+      const steps = [
+        {x:60, y:185, txt:'Step 1: New node\n(1.29) added', c:'#38bdf8'},
+        {x:240, y:185, txt:'Step 2: Node 1\ncordoned + drained', c:'#E74C3C'},
+        {x:420, y:185, txt:'Step 3: Node 1\nterminated', c:'#475569'},
+      ];
+      steps.forEach(({x,y,txt,c})=>{
+        txt.split('\n').forEach((l,i)=>svgText(svg,x+80,y+i*16,l,9.5,700,c));
+      });
+      // New node (1.29)
+      roundRect(svg,620,50,160,90,'#0a2a0a','#38bdf8',8,2);
+      svgText(svg,700,82,'NEW Node',11,700,'#38bdf8');
+      svgText(svg,700,98,'K8s 1.29',10,400,'#94a3b8');
+      // Timeline
+      roundRect(svg,100,250,620,45,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,268,'Result: zero-downtime upgrade across all nodes',11,700,'#27AE60');
+      svgText(svg,410,284,'Pods always have a home · PDB respected',9.5,400,'#94a3b8');
+      // cordon icon
+      roundRect(svg,60,320,160,55,'#2a0505','#E74C3C',6,1);
+      svgText(svg,140,342,'CORDONED',10,700,'#E74C3C');
+      svgText(svg,140,358,'no new pods scheduled',8.5,400,'#94a3b8');
+      roundRect(svg,240,320,160,55,'#1a0a0a','#F39C12',6,1);
+      svgText(svg,320,342,'DRAINED',10,700,'#F39C12');
+      svgText(svg,320,358,'existing pods evicted',8.5,400,'#94a3b8');
+      roundRect(svg,420,320,160,55,'#1a1a1a','#475569',6,1);
+      svgText(svg,500,342,'TERMINATED',10,700,'#475569');
+      svgText(svg,500,358,'node removed from ASG',8.5,400,'#64748b');
+    }
+  },
+  {
+    title: 'AWS Fargate — five properties',
+    section: 'Data Plane',
+    narration: 'Fargate is Native, Rightsized, Fast and simple, Transparent, and Optimized. Each pod gets its own isolated micro-VM — no shared kernel, no node to manage.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,38,'AWS Fargate — 5 Properties',13,700,'#F39C12');
+      const props = [
+        {label:'Native', detail:'First-class EKS integration.\nPods appear as regular K8s pods.'},
+        {label:'Rightsized', detail:'Compute matches Pod CPU/memory request\nexactly. No over-provisioning.'},
+        {label:'Fast & Simple', detail:'No node bootstrapping or AMI selection.\nJust define Fargate profiles.'},
+        {label:'Transparent', detail:'No special code in your apps.\nPods work identically to EC2 pods.'},
+        {label:'Optimized', detail:'Pay only for what your pod requests.\nNo idle capacity cost.'},
+      ];
+      props.forEach(({label,detail},i)=>{
+        const col = i < 3 ? 60 : 60+(i-3)*280;
+        const row = i < 3 ? 70+i*120 : 430;
+        roundRect(svg,col,row,240,90,'#2a1a0a','#F39C12',8,1.5);
+        svgText(svg,col+120,row+26,label,13,700,'#F39C12');
+        detail.split('\n').forEach((l,j)=>svgText(svg,col+120,row+46+j*16,l,9.5,400,'#94a3b8'));
+      });
+      // 1:1 Pod:VM callout
+      roundRect(svg,440,70,340,160,'#1a1a0a','#818cf8',10,1.5);
+      svgText(svg,610,100,'1 Pod = 1 Micro-VM',13,700,'#818cf8');
+      svgText(svg,610,118,'Isolated at kernel level',10,400,'#94a3b8');
+      svgText(svg,610,138,'No other pods share the VM',10,400,'#94a3b8');
+      svgText(svg,610,158,'Eliminates container-escape risk',10,400,'#94a3b8');
+      svgText(svg,610,178,'✓ Best for compliance workloads',10,700,'#27AE60');
+    }
+  },
+  {
+    title: 'Fargate profiles — what they contain',
+    section: 'Data Plane',
+    narration: 'A Fargate profile tells EKS which pods to schedule on Fargate. It matches pods by namespace and optional labels. Private subnets only — no public subnets.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,30,'Fargate Profile — Structure',12,700,'#F39C12');
+      // JSON profile
+      roundRect(svg,60,50,400,300,'#03050a','#F39C12',8,1.5);
+      svgText(svg,260,75,'Fargate Profile JSON',11,700,'#F39C12');
+      const lines = [
+        '{',
+        '  "fargateProfileName": "myprofile",',
+        '  "clusterName":        "mycluster",',
+        '  "podExecutionRoleArn": "iam-role-xyz",',
+        '  "subnets": ["subnet-0ad888345"],',
+        '  "selectors": [',
+        '    {',
+        '      "namespace": "prod",',
+        '      "labels": { "stack": "frontend" }',
+        '    }',
+        '  ]',
+        '}',
+      ];
+      lines.forEach((l,i)=>svgText(svg,80,100+i*17,l,9.5,400,'#c5e478',{anchor:'start'}));
+      // Callouts
+      const callouts = [
+        {y:102, txt:'Profile name + cluster', c:'#38bdf8'},
+        {y:119, txt:'' },
+        {y:136, txt:'IAM role for Fargate runtime', c:'#818cf8'},
+        {y:153, txt:'PRIVATE subnets only!', c:'#E74C3C'},
+        {y:170, txt:'Selector: namespace + labels', c:'#27AE60'},
+      ];
+      callouts.forEach(({y,txt,c})=>{
+        if(txt && c) {
+          svgText(svg,500,y,txt,9.5,700,c);
+          line(svg,460,y-3,470,y-3,c);
+        }
+      });
+      // constraint note
+      roundRect(svg,470,70,320,80,'#2a0505','#E74C3C',8,1.5);
+      svgText(svg,630,95,'⚠ Private subnets ONLY',11,700,'#E74C3C');
+      svgText(svg,630,111,'Fargate pods cannot run in',9.5,400,'#94a3b8');
+      svgText(svg,630,127,'public subnets — ever.',9.5,400,'#94a3b8');
+      // IAM role box
+      roundRect(svg,470,170,320,60,'#1a0a2a','#818cf8',8,1);
+      svgText(svg,630,196,'podExecutionRoleArn',11,700,'#818cf8');
+      svgText(svg,630,212,'Used by Fargate runtime (not app)',9.5,400,'#94a3b8');
+      // Selector box
+      roundRect(svg,470,250,320,80,'#0a1a0a','#27AE60',8,1);
+      svgText(svg,630,276,'Selector: namespace required',11,700,'#27AE60');
+      svgText(svg,630,292,'Labels: optional additional filter',9.5,400,'#94a3b8');
+      svgText(svg,630,308,'First matching profile wins',9.5,400,'#64748b');
+    }
+  },
+  {
+    title: 'How Fargate profile scheduling works',
+    section: 'Data Plane',
+    narration: 'When a pod is created, EKS checks it against all Fargate profiles. If namespace and labels match a profile selector, EKS provisions a micro-VM. No match → EC2 node.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Fargate Profile — Pod Scheduling Flow',12,700,'#F39C12');
+      // Pod being created
+      roundRect(svg,30,60,180,100,'#1a0a2a','#818cf8',8,1.5);
+      svgText(svg,120,90,'New Pod',12,700,'#818cf8');
+      svgText(svg,120,108,'namespace: prod',9,400,'#94a3b8');
+      svgText(svg,120,122,'label: stack=frontend',9,400,'#94a3b8');
+      svgText(svg,120,136,'(just created)',8,400,'#475569');
+      // Arrow to check
+      arrowH(svg,212,110,280,110,'#F39C12');
+      svgText(svg,246,104,'check',8,700,'#F39C12');
+      // Profile check box
+      roundRect(svg,282,60,220,100,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,392,85,'Profile: myprofile',11,700,'#38bdf8');
+      svgText(svg,392,103,'namespace = prod',9,400,'#94a3b8');
+      svgText(svg,392,119,'stack = frontend',9,400,'#94a3b8');
+      svgText(svg,392,137,'✓ MATCH',10,700,'#27AE60');
+      // Arrow → Fargate
+      arrowV(svg,392,162,392,205,'#27AE60');
+      // Fargate micro-VM
+      roundRect(svg,282,207,220,85,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,392,233,'Fargate micro-VM',11,700,'#27AE60');
+      svgText(svg,392,249,'private subnet · isolated',9.5,400,'#94a3b8');
+      svgText(svg,392,265,'Pod scheduled ✓',9,400,'#86efac');
+      // No match path
+      roundRect(svg,560,60,220,100,'#1a1a1a','#475569',8,1.5);
+      svgText(svg,670,85,'Profile: otherprofile',11,700,'#475569');
+      svgText(svg,670,103,'namespace = staging',9,400,'#64748b');
+      svgText(svg,670,119,'✗ NO MATCH',10,700,'#E74C3C');
+      arrowH(svg,504,110,558,110,'#475569');
+      // EC2 fallback
+      arrowV(svg,670,162,670,205,'#475569');
+      roundRect(svg,560,207,220,85,'#0a1a0a','#475569',8,1);
+      svgText(svg,670,233,'EC2 Node Group',11,700,'#475569');
+      svgText(svg,670,249,'(if nodes available)',9.5,400,'#64748b');
+      svgText(svg,670,265,'OR → Pending',9,400,'#E74C3C');
+    }
+  },
+  {
+    title: 'Fargate vs Node Groups — when to use each',
+    section: 'Data Plane',
+    narration: 'Neither is universally better. Use Fargate for compliance, simplicity, and variable workloads. Use node groups for privileged pods, public subnets, and faster pod starts.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Fargate vs Node Groups — Decision Guide',12,700,'#94a3b8');
+      // Fargate column
+      roundRect(svg,40,50,360,420,'#2a1a0a','#F39C12',10,1.5);
+      svgText(svg,220,76,'Use Fargate when…',12,700,'#F39C12');
+      const fg = [
+        'Reduce scheduling complexity',
+        'Security: 1 Pod per micro-VM',
+        'Compliance isolation needed',
+        'Reduce variable cost',
+        'Eliminate infra management',
+      ];
+      fg.forEach((t,i)=>{
+        svgText(svg,70,115+i*66,'✓',12,700,'#27AE60');
+        svgText(svg,85,115+i*66,t,10.5,700,'#f1f5f9');
+        svgText(svg,85,131+i*66,['No affinity/taints to tune','No shared node kernel','HIPAA, PCI workloads','Pay per pod, not per node','No AMIs or OS patches'][i],9.5,400,'#94a3b8');
+      });
+      // Node groups column
+      roundRect(svg,420,50,360,420,'#0c2a3a','#38bdf8',10,1.5);
+      svgText(svg,600,76,'Use Node Groups when…',12,700,'#38bdf8');
+      const ng = [
+        'Need privileged containers',
+        'Nodes in public subnets',
+        'Control workload disruptions',
+        'Faster Pod start times',
+        'DaemonSets required',
+      ];
+      ng.forEach((t,i)=>{
+        svgText(svg,450,115+i*66,'✓',12,700,'#27AE60');
+        svgText(svg,465,115+i*66,t,10.5,700,'#f1f5f9');
+        svgText(svg,465,131+i*66,['Fargate: no privileged=true','Fargate: private subnets only','PodDisruptionBudgets on EC2','EC2 pre-warmed, Fargate ~60s cold start','Fargate: no DaemonSets'][i],9.5,400,'#94a3b8');
+      });
+    }
+  },
+  {
+    title: 'Two APIs overview',
+    section: 'Two APIs',
+    narration: 'EKS exposes two completely different APIs. The Kubernetes API manages what runs inside the cluster. The Amazon EKS API manages the cluster infrastructure itself.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,30,'Two APIs — Never Confuse These',13,700,'#94a3b8');
+      line(svg,410,50,410,540,'#1f2738');
+      // Left: K8s API
+      svgText(svg,205,60,'Kubernetes API',13,700,'#38bdf8');
+      svgText(svg,205,80,'via kubectl',10,400,'#94a3b8');
+      roundRect(svg,30,100,360,140,'#0c2a3a','#38bdf8',8,1.5);
+      const k8s = ['Pods · Deployments · Services','Namespaces · ConfigMaps · Secrets','Labels and annotations','Custom Resources (CRDs)'];
+      k8s.forEach((t,i)=>svgText(svg,210,130+i*26,t,10.5,400,'#f1f5f9'));
+      // Right: EKS API
+      svgText(svg,610,60,'Amazon EKS API',13,700,'#F39C12');
+      svgText(svg,610,80,'via eksctl / AWS CLI / Console',10,400,'#94a3b8');
+      roundRect(svg,430,100,360,140,'#2a1a0a','#F39C12',8,1.5);
+      const eks = ['Clusters (create/delete/upgrade)','Managed node groups','Fargate profiles','Add-ons (CoreDNS, VPC CNI, EBS CSI)','OIDC identity provider config'];
+      eks.forEach((t,i)=>svgText(svg,610,130+i*26,t,10.5,400,'#f1f5f9'));
+      // Arrows down to cluster
+      roundRect(svg,280,300,300,55,'#0a1020','#475569',8,1.5);
+      svgText(svg,430,320,'EKS Cluster',12,700,'#94a3b8');
+      svgText(svg,430,338,'(where both APIs meet)',9.5,400,'#475569');
+      arrowV(svg,210,243,360,298,'#38bdf8');
+      arrowV(svg,610,243,500,298,'#F39C12');
+      // Memory hook
+      roundRect(svg,100,390,620,60,'#0a1020','#27AE60',8,1);
+      svgText(svg,410,413,'Memory hook:',10,700,'#27AE60');
+      svgText(svg,410,431,'kubectl = what runs INSIDE · eksctl = cluster INFRASTRUCTURE',10,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'Kubernetes API — what it manages',
+    section: 'Two APIs',
+    narration: 'kubectl talks to the Kubernetes API. Use it to deploy apps, create services, manage namespaces, and work with Kubernetes objects — never to manage the cluster infrastructure.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Kubernetes API — Objects INSIDE the Cluster',12,700,'#38bdf8');
+      // kubectl box
+      roundRect(svg,60,60,200,60,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,160,86,'kubectl',14,700,'#38bdf8');
+      svgText(svg,160,104,'→ Kubernetes API server',10,400,'#94a3b8');
+      arrowH(svg,262,90,330,90,'#38bdf8');
+      // cluster boundary
+      roundRect(svg,330,50,450,460,'#0a1020','#1f2738',12,1);
+      svgText(svg,555,75,'EKS Cluster (your namespace)',10,700,'#475569');
+      // Objects
+      const objs = [
+        {y:100, label:'Pod', detail:'Container runtime unit'},
+        {y:160, label:'Deployment', detail:'Manages ReplicaSets'},
+        {y:220, label:'Service', detail:'Network endpoint'},
+        {y:280, label:'ConfigMap / Secret', detail:'Config + credentials'},
+        {y:340, label:'Namespace', detail:'Logical isolation'},
+        {y:400, label:'CustomResource (CRD)', detail:'Extensibility'},
+      ];
+      objs.forEach(({y,label,detail})=>{
+        roundRect(svg,350,y,400,48,'#0c2a3a','#38bdf8',6,1);
+        svgText(svg,550,y+20,label,11,700,'#38bdf8');
+        svgText(svg,550,y+36,detail,9.5,400,'#94a3b8');
+      });
+      // example command
+      roundRect(svg,60,160,250,45,'#03050a','#27AE60',6,1);
+      svgText(svg,185,178,'$ kubectl apply -f app.yaml',9.5,400,'#c5e478');
+      svgText(svg,185,193,'$ kubectl get pods -n prod',9.5,400,'#c5e478');
+    }
+  },
+  {
+    title: 'Amazon EKS API — infrastructure management',
+    section: 'Two APIs',
+    narration: 'eksctl and the AWS CLI talk to the Amazon EKS API. Use it to create clusters, add node groups, manage Fargate profiles, and install managed add-ons — not for app deployment.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'Amazon EKS API — Cluster INFRASTRUCTURE',12,700,'#F39C12');
+      // eksctl
+      roundRect(svg,30,60,200,60,'#2a1a0a','#F39C12',8,1.5);
+      svgText(svg,130,86,'eksctl / AWS CLI',12,700,'#F39C12');
+      svgText(svg,130,104,'→ Amazon EKS API',10,400,'#94a3b8');
+      arrowH(svg,232,90,300,90,'#F39C12');
+      // EKS API domain
+      roundRect(svg,300,50,480,460,'#0a1020','#1f2738',12,1);
+      svgText(svg,540,75,'Amazon EKS API',10,700,'#475569');
+      // Resources
+      const res = [
+        {y:100, label:'Cluster', detail:'Create / upgrade / delete'},
+        {y:165, label:'Managed Node Group', detail:'Provision + rolling updates'},
+        {y:230, label:'Fargate Profile', detail:'Serverless pod scheduling rules'},
+        {y:295, label:'Add-ons', detail:'CoreDNS, VPC CNI, kube-proxy, EBS CSI'},
+        {y:360, label:'Identity Provider (OIDC)', detail:'IAM federation for IRSA'},
+        {y:425, label:'Resource Tags', detail:'Cost allocation + org policies'},
+      ];
+      res.forEach(({y,label,detail})=>{
+        roundRect(svg,320,y,440,52,'#2a1a0a','#F39C12',6,1);
+        svgText(svg,540,y+22,label,11,700,'#F39C12');
+        svgText(svg,540,y+38,detail,9.5,400,'#94a3b8');
+      });
+      // example commands
+      roundRect(svg,30,160,250,80,'#03050a','#27AE60',6,1);
+      const cmds = ['$ eksctl create cluster -f cluster.yaml','$ eksctl create nodegroup --cluster prod','$ eksctl upgrade cluster --name prod'];
+      cmds.forEach((c,i)=>svgText(svg,155,178+i*20,c,8.5,400,'#c5e478'));
+    }
+  },
+  {
+    title: 'EKS add-ons',
+    section: 'Two APIs',
+    narration: 'EKS add-ons are managed operational components — CoreDNS, VPC CNI, kube-proxy, EBS CSI driver. Managed via the EKS API; you no longer manually apply their YAML.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,28,'EKS Add-ons — Managed via EKS API',12,700,'#F39C12');
+      const addons = [
+        {label:'CoreDNS', detail:'DNS resolution inside the cluster\n(svc.cluster.local)', c:'#38bdf8'},
+        {label:'VPC CNI', detail:'Assigns VPC IPs to pods\n(aws-node DaemonSet)', c:'#27AE60'},
+        {label:'kube-proxy', detail:'iptables rules for Service routing\n(runs on every node)', c:'#818cf8'},
+        {label:'EBS CSI Driver', detail:'Provisions EBS volumes for PVCs\n(ebs.csi.aws.com)', c:'#F39C12'},
+      ];
+      addons.forEach(({label,detail,c},i)=>{
+        const x = (i%2)*400+30;
+        const y = Math.floor(i/2)*180+70;
+        roundRect(svg,x,y,360,140,c.replace('#','#0a')+'10','#'+c.slice(1),8,1.5);
+        svgText(svg,x+180,y+34,label,14,700,c);
+        detail.split('\n').forEach((l,j)=>svgText(svg,x+180,y+58+j*18,l,10,400,'#94a3b8'));
+        // "managed by EKS"
+        roundRect(svg,x+60,y+98,240,28,'#0a1020','#27AE60',4,1);
+        svgText(svg,x+180,y+116,'✓ EKS API manages version + lifecycle',9,700,'#27AE60');
+      });
+    }
+  },
+  {
+    title: 'Admission Controllers',
+    section: 'Permissions',
+    narration: 'Admission controllers intercept API requests after auth but before object persistence. They can validate (allow/deny) or mutate (modify) objects — enforcing cluster policies.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Admission Controllers — Cluster Policy Enforcement',12,700,'#818cf8');
+      // request flow
+      const flow = [{x:30,label:'kubectl\napply',c:'#38bdf8'},{x:180,label:'Auth\n(IAM)',c:'#F39C12'},{x:330,label:'Admission\nControllers',c:'#818cf8'},{x:500,label:'Persist\n(etcd)',c:'#27AE60'},{x:660,label:'Object\nCreated',c:'#f1f5f9'}];
+      flow.forEach(({x,label,c},i)=>{
+        roundRect(svg,x,60,120,80,c+'08',c,8,1.5);
+        label.split('\n').forEach((l,j)=>svgText(svg,x+60,88+j*18,l,11,700,c));
+        if(i<flow.length-1) arrowH(svg,x+122,100,x+178,100,c);
+      });
+      // admission controller types
+      roundRect(svg,60,180,680,80,'#1a0a2a','#818cf8',8,1.5);
+      svgText(svg,400,205,'Validating Admission Webhook',11,700,'#818cf8');
+      svgText(svg,400,221,'Allows or REJECTS the request. Example: reject pods without resource limits.',10,400,'#94a3b8');
+      svgText(svg,400,237,'Does NOT change the object.',9.5,400,'#64748b');
+      roundRect(svg,60,280,680,80,'#1a0a2a','#F39C12',8,1.5);
+      svgText(svg,400,305,'MutatingAdmissionWebhook',11,700,'#F39C12');
+      svgText(svg,400,321,'MODIFIES the object before persistence. Example: inject sidecar containers,',10,400,'#94a3b8');
+      svgText(svg,400,337,'add annotations, set default labels. Calls external HTTP webhook.',9.5,400,'#64748b');
+      // examples
+      roundRect(svg,60,390,680,60,'#0a1020','#27AE60',8,1);
+      svgText(svg,400,413,'Real examples:  PodSecurityAdmission (validate) · Istio sidecar injector (mutate)',10,700,'#27AE60');
+      svgText(svg,400,430,'kyverno · OPA Gatekeeper · cert-manager webhook',10,400,'#94a3b8');
+    }
+  },
+  {
+    title: 'kubeconfig and node join auth',
+    section: 'Permissions',
+    narration: 'To connect to the K8s API server, you need a kubeconfig file. To add a node to the cluster, it needs both an IAM role (for AWS API calls) AND kubeconfig (to register with K8s).',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Permissions Review — kubeconfig + Node Join',12,700,'#94a3b8');
+      // kubeconfig
+      roundRect(svg,30,60,380,190,'#0c2a3a','#38bdf8',8,1.5);
+      svgText(svg,220,84,'kubeconfig file',12,700,'#38bdf8');
+      svgText(svg,220,103,'Connect to the Kubernetes API server',10,400,'#94a3b8');
+      const kc = ['• Cluster API endpoint URL','• Cluster CA certificate','• User credentials / token','• Context (cluster + user + namespace)'];
+      kc.forEach((l,i)=>svgText(svg,220,128+i*20,l,9.5,400,'#f1f5f9'));
+      roundRect(svg,50,210,340,30,'#03050a','#27AE60',4,1);
+      svgText(svg,220,229,'$ aws eks update-kubeconfig --name mycluster',9,400,'#c5e478');
+      // node join
+      roundRect(svg,430,60,360,190,'#0a1a0a','#27AE60',8,1.5);
+      svgText(svg,610,84,'Node joining cluster',12,700,'#27AE60');
+      svgText(svg,610,103,'Requires BOTH:',10,700,'#94a3b8');
+      roundRect(svg,450,120,320,50,'#2a1a0a','#F39C12',6,1);
+      svgText(svg,610,140,'IAM Role (node IAM role)',10,700,'#F39C12');
+      svgText(svg,610,156,'AWS API calls: ECR pull, CloudWatch logs',9,400,'#94a3b8');
+      roundRect(svg,450,185,320,50,'#0c2a3a','#38bdf8',6,1);
+      svgText(svg,610,205,'kubeconfig / bootstrap token',10,700,'#38bdf8');
+      svgText(svg,610,221,'Register with K8s API as node object',9,400,'#94a3b8');
+      // Permission mapping table
+      roundRect(svg,30,280,760,200,'#0a1020','#1f2738',8,1);
+      svgText(svg,410,302,'Permissions Quick Reference',11,700,'#94a3b8');
+      const rows = [
+        ['Enforce how apps run in cluster','Admission Controller'],
+        ['Auto-add annotations at creation time','MutatingAdmissionWebhook'],
+        ['Connect to Kubernetes API server','kubeconfig file'],
+        ['Add a node to the cluster','IAM role + kubeconfig'],
+      ];
+      rows.forEach(([action,config],i)=>{
+        roundRect(svg,40,320+i*38,440,30,'#11151c','#1f2738',4,1);
+        svgText(svg,260,339+i*38,action,9.5,400,'#f1f5f9');
+        roundRect(svg,490,320+i*38,290,30,'#0c2a3a','#38bdf8',4,1);
+        svgText(svg,635,339+i*38,config,9.5,700,'#38bdf8');
+      });
+    }
+  },
+  {
+    title: 'Module summary',
+    section: 'Summary',
+    narration: 'Amazon EKS manages the control plane. Managed node groups manage your data plane while still giving you control. AWS fully manages AWS Fargate nodes. Two APIs: kubectl for apps, eksctl for infrastructure.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,30,'Module 02 — Key Takeaways',13,700,'#f1f5f9');
+      const pts = [
+        {c:'#38bdf8', title:'EKS manages the control plane', detail:'API server · etcd · scheduler · controller manager · multi-AZ · auto-repaired'},
+        {c:'#27AE60', title:'Managed node groups handle data plane lifecycle', detail:'Provisioning · updating · scaling · eksctl support · cordon/drain/terminate'},
+        {c:'#F39C12', title:'AWS Fargate = zero node management', detail:'Match pods via profiles (namespace + labels) · 1 Pod per micro-VM · private subnets only'},
+        {c:'#818cf8', title:'Fargate vs node groups: know the 8 signals', detail:'Fargate: compliance, simplicity, variable cost · Nodes: privileged, public subnet, speed'},
+        {c:'#ED7100', title:'Two APIs — never confuse', detail:'kubectl → Kubernetes API (objects inside) · eksctl → EKS API (infrastructure)'},
+        {c:'#E74C3C', title:'Permissions: 4 mechanisms', detail:'Admission Controller · MutatingAdmissionWebhook · kubeconfig · IAM+kubeconfig for nodes'},
+      ];
+      pts.forEach(({c,title,detail},i)=>{
+        roundRect(svg,30,55+i*88,760,76,c.replace('#','#06')+'08',c,8,1.5);
+        svgText(svg,55,82+i*88,title,12,700,c,{anchor:'start'});
+        svgText(svg,55,100+i*88,detail,9.5,400,'#94a3b8',{anchor:'start'});
+      });
+    }
+  },
+  {
+    title: 'Knowledge checks — official Q&A',
+    section: 'Review',
+    narration: 'Two knowledge checks from the course. KC1: EKS always manages the control plane. KC2: EKS (not you, not Kubernetes) manages etcd availability.',
+    render(svg) {
+      clear(svg);
+      svgText(svg,410,25,'Module 02 — Knowledge Checks',12,700,'#94a3b8');
+      // KC1
+      roundRect(svg,30,50,760,120,'#0c1018','#38bdf8',8,1.5);
+      svgText(svg,410,74,'KC1: Which component is ALWAYS managed by Amazon EKS?',11,700,'#38bdf8');
+      const kc1 = [
+        {l:'A. Kubernetes control plane', correct:true},
+        {l:'B. Kubernetes data plane', correct:false},
+        {l:'C. Kubernetes container', correct:false},
+        {l:'D. Kubernetes service', correct:false},
+      ];
+      kc1.forEach(({l,correct},i)=>{
+        const c = correct ? '#27AE60' : '#475569';
+        svgText(svg,420,98+i*16,`${correct?'✓':' '} ${l}`,9.5,correct?700:400,c);
+      });
+      svgText(svg,410,166,'Answer: A — EKS always manages the control plane. You never manage it.',10,700,'#27AE60');
+      // KC2
+      roundRect(svg,30,195,760,120,'#0c1018','#818cf8',8,1.5);
+      svgText(svg,410,219,'KC2: Who manages the availability of etcd in Amazon EKS?',11,700,'#818cf8');
+      const kc2 = [
+        {l:'A. Amazon EKS', correct:true},
+        {l:'B. Kubernetes', correct:false},
+        {l:'C. You', correct:false},
+      ];
+      kc2.forEach(({l,correct},i)=>{
+        const c = correct ? '#27AE60' : '#475569';
+        svgText(svg,420,243+i*16,`${correct?'✓':' '} ${l}`,9.5,correct?700:400,c);
+      });
+      svgText(svg,410,306,'Answer: A — etcd is part of the control plane. EKS manages it. You have no access to it.',10,700,'#27AE60');
+      // exam traps
+      roundRect(svg,30,340,760,200,'#0a1020','#E74C3C',8,1);
+      svgText(svg,410,362,'Common Exam Traps',11,700,'#E74C3C');
+      const traps = [
+        '⚠ Fargate pods → private subnets only (no public subnets ever)',
+        '⚠ kubectl talks to Kubernetes API · eksctl talks to EKS API (never mix these up)',
+        '⚠ MutatingAdmissionWebhook MODIFIES · ValidatingAdmissionWebhook ALLOWS/REJECTS',
+        '⚠ Node joining needs IAM role (AWS) AND kubeconfig (K8s) — both required',
+        '⚠ podExecutionRoleArn = Fargate runtime IAM, not your app IAM',
+      ];
+      traps.forEach((t,i)=>svgText(svg,410,386+i*26,t,9.5,400,'#f1f5f9'));
+    }
+  },
+];
+
+// ============================================================
+// SVG HELPERS
+// ============================================================
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag,attrs){
+  const e = document.createElementNS(NS,tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function roundRect(svg,x,y,w,h,fill,stroke,rx=8,sw=1.5){
+  svg.appendChild(el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':sw}));
+}
+function svgText(svg,x,y,txt,size=11,weight=400,fill='#f1f5f9',opts={}){
+  const t = el('text',{x,y,'font-size':size,'font-weight':weight,fill,
+    'font-family':'system-ui,sans-serif','text-anchor':opts.anchor||'middle'});
+  t.textContent=txt; svg.appendChild(t); return t;
+}
+function line(svg,x1,y1,x2,y2,stroke='#475569'){
+  svg.appendChild(el('line',{x1,y1,x2,y2,stroke,'stroke-width':1.5}));
+}
+function arrow(svg,x1,y1,x2,y2,color='#38bdf8'){
+  const id='a'+Math.random().toString(36).slice(2);
+  let defs=svg.querySelector('defs');
+  if(!defs){defs=el('defs');svg.insertBefore(defs,svg.firstChild);}
+  const mk=el('marker',{id,markerWidth:7,markerHeight:7,refX:5,refY:3,orient:'auto'});
+  const p=el('polygon',{points:'0 0,7 3,0 6',fill:color}); mk.appendChild(p); defs.appendChild(mk);
+  svg.appendChild(el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,'marker-end':`url(#${id})`}));
+}
+function arrowH(svg,x1,y1,x2,y2,c='#38bdf8'){ arrow(svg,x1,y1,x2-4,y2,c); }
+function arrowV(svg,x1,y1,x2,y2,c='#38bdf8'){ arrow(svg,x1,y1,x2,y2-4,c); }
+
+// ============================================================
+// STATE + RENDER
+// ============================================================
+let current = 0;
+let playing = false;
+let timer = null;
+const TOTAL = STEPS.length;
+const svg = document.getElementById('main-svg');
+
+function go(idx){
+  current = Math.max(0, Math.min(TOTAL-1, idx));
+  render();
+}
+function render(){
+  const s = STEPS[current];
+  // Update nav
+  document.getElementById('nav-title').textContent = s.title;
+  document.getElementById('nav-narration').textContent = s.narration;
+  document.getElementById('counter').textContent = `${current+1} / ${TOTAL}`;
+  document.getElementById('progress-fill').style.width = `${((current+1)/TOTAL)*100}%`;
+  // Buttons
+  document.getElementById('btn-prev').disabled = current === 0;
+  document.getElementById('btn-next').disabled = current === TOTAL-1;
+  // Step list
+  document.querySelectorAll('.step-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===current);
+    el.classList.toggle('done', i<current);
+  });
+  // Scroll step into view
+  const activeEl = document.querySelector('.step-item.active');
+  if(activeEl) activeEl.scrollIntoView({block:'nearest',behavior:'smooth'});
+  // Render SVG
+  s.render(svg);
+}
+function togglePlay(){
+  playing=!playing;
+  const btn=document.getElementById('btn-play');
+  btn.textContent = playing ? '⏸ Pause' : '▶ Auto-play';
+  if(playing) tick(); else clearTimeout(timer);
+}
+function tick(){
+  clearTimeout(timer);
+  if(!playing) return;
+  if(current >= TOTAL-1){ playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; return; }
+  timer = setTimeout(()=>{ go(current+1); if(playing) tick(); }, 3500);
+}
+
+// ============================================================
+// STEP LIST
+// ============================================================
+function buildStepList(){
+  const container = document.getElementById('step-list');
+  let lastSection = '';
+  STEPS.forEach((s,i)=>{
+    if(s.section !== lastSection){
+      const h = document.createElement('div');
+      h.style.cssText='font-size:0.68em;color:#475569;text-transform:uppercase;letter-spacing:.08em;padding:8px 10px 2px;';
+      h.textContent = s.section;
+      container.appendChild(h);
+      lastSection = s.section;
+    }
+    const item = document.createElement('div');
+    item.className = 'step-item';
+    item.innerHTML = `<div class="step-num">${i+1}</div><div class="step-label">${s.title}</div>`;
+    item.addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(i); });
+    container.appendChild(item);
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.getElementById('btn-prev').addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current-1); });
+document.getElementById('btn-next').addEventListener('click',()=>{ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current+1); });
+document.getElementById('btn-play').addEventListener('click',togglePlay);
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='l'){ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current+1); }
+  else if(e.key==='ArrowLeft'||e.key==='h'){ clearTimeout(timer); playing=false; document.getElementById('btn-play').textContent='▶ Auto-play'; go(current-1); }
+  else if(e.key===' '){ e.preventDefault(); togglePlay(); }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+buildStepList();
+render();
+</script>
+</body>
+</html>

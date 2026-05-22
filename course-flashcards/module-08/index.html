@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 08 — Managing Storage in Amazon EKS · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 08: StatefulSets, PV/PVC/StorageClass, EBS, EFS, CSI drivers, Kubernetes Secrets, AWS Secrets Manager ASCP.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-08 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+.split-box .box .warn { color:var(--warning); }
+.split-box .box .good { color:#27AE60; }
+
+.decision-table { width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:24px; }
+.decision-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:8px 12px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.decision-table td {
+  padding:8px 12px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.decision-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+.bad-badge  { color:#E74C3C; font-weight:700; font-size:0.8em; }
+
+.storage-pills {
+  display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px;
+}
+.s-pill {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:12px 18px; flex:1; min-width:160px;
+}
+.s-pill .label { font-size:0.7em; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.s-pill .title { font-size:1em; font-weight:700; }
+.s-pill .sub { font-size:0.82em; color:var(--muted); margin-top:4px; }
+.s-pill.ebs .title { color:#38bdf8; }
+.s-pill.efs .title { color:#27AE60; }
+.s-pill.fsx .title { color:#818cf8; }
+
+.code-block {
+  background:#0c1018; border:1px solid #1f2738;
+  border-radius:8px; padding:14px 16px; margin:14px 0 20px;
+  font-family:'Menlo','Consolas',monospace; font-size:0.82em;
+  color:#94a3b8; line-height:1.7; overflow-x:auto;
+}
+.code-block .kw  { color:#38bdf8; }
+.code-block .val { color:#86efac; }
+.code-block .cmt { color:#475569; }
+
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .storage-pills{ flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 08
+  </div>
+  <h1>💾 Module 08 — Managing Storage in Amazon EKS</h1>
+  <p>StatefulSets · PV / PVC / StorageClass · EBS · EFS · FSx · CSI drivers · Kubernetes Secrets · AWS Secrets Manager ASCP.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Stateless vs stateful apps</a></li>
+      <li><a href="#topic-2">StatefulSets</a></li>
+      <li><a href="#topic-3">Kubernetes storage objects (PV, PVC, StorageClass)</a></li>
+      <li><a href="#topic-4">AWS storage options (EBS, EFS, FSx)</a></li>
+      <li><a href="#topic-5">CSI drivers</a></li>
+      <li><a href="#topic-6">Storage scenario decision guide</a></li>
+      <li><a href="#topic-7">Kubernetes Secrets</a></li>
+      <li><a href="#topic-8">AWS Secrets Manager + ASCP</a></li>
+      <li><a href="#topic-9">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — Stateless vs Stateful                     -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Stateless vs stateful apps</h2>
+    <p class="lede">
+      The core question for storage design is: does your app need to <strong>remember data</strong> between restarts? <em>Stateless</em> apps can use ephemeral storage and be freely replaced. <em>Stateful</em> apps require that data outlive the container, the pod, and even the node.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Stateless</h4>
+        <ul>
+          <li>All replicas are <strong>interchangeable</strong></li>
+          <li>Data is <strong>transient</strong> — can be rebuilt</li>
+          <li>Ephemeral storage is fine</li>
+          <li>Examples: web frontends, REST APIs, batch processors</li>
+          <li class="good">Scale freely: kill/replace any replica</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Stateful</h4>
+        <ul>
+          <li>Each replica has a <strong>unique identity</strong></li>
+          <li>Data must <strong>persist</strong> across restarts</li>
+          <li>Persistent volume required</li>
+          <li>Examples: databases, message brokers, caches</li>
+          <li class="warn">Storage must match app design exactly</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the three stateful requirements the course identifies?</div>
+          <div class="footer"><span class="tag">stateful</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Consistent access per instance</strong> — each pod accesses its own data, not shared data<br>
+            2. <strong>Data persistence independent of container/node</strong> — data survives crashes and rescheduling<br>
+            3. <strong>Storage suited for app design</strong> — block vs file vs object depending on the workload
+          </div>
+          <div class="footer"><span class="tag">requirements</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can you use ephemeral storage (emptyDir) for a stateful database pod?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>No.</strong> An <code>emptyDir</code> volume is created when the pod is scheduled and <em>deleted</em> when the pod is removed — even if the pod restarts. All database data would be lost. Use a PersistentVolumeClaim backed by EBS or EFS instead.</div>
+          <div class="footer"><span class="tag">emptyDir lifecycle</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What kind of storage is appropriate for a scratch/cache volume that doesn't need to persist?</div>
+          <div class="footer"><span class="tag">ephemeral</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Ephemeral volume (emptyDir)</strong>. Declared in the pod spec under <code>volumes:</code> with <code>emptyDir: {}</code>. It is fast (can be backed by memory with <code>medium: Memory</code>), temporary, and requires no provisioning — perfect for caching or inter-container scratch space.</div>
+          <div class="footer"><span class="tag">emptyDir use case</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — StatefulSets                              -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> StatefulSets</h2>
+    <p class="lede">
+      A <strong>StatefulSet</strong> is like a Deployment, but for workloads that need <em>stable identities</em>. Each pod gets a <strong>persistent ordinal name</strong> (e.g., <code>mysql-0</code>, <code>mysql-1</code>) that never changes, and its own PersistentVolumeClaim that travels with it across reschedules.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Deployment</h4>
+        <ul>
+          <li>Pods are <strong>interchangeable</strong></li>
+          <li>Names are random hashes</li>
+          <li>All pods share one PVC (or no PVC)</li>
+          <li>Parallel scale-up/scale-down</li>
+          <li>Any pod can be deleted/replaced</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>StatefulSet</h4>
+        <ul>
+          <li>Pods have <strong>unique, stable identities</strong></li>
+          <li>Names: <em>name-0</em>, <em>name-1</em>…</li>
+          <li>Each pod gets its <strong>own PVC</strong></li>
+          <li>Ordered deploy, scale, update</li>
+          <li>PVC retained even if pod is deleted</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name four use cases that call for a StatefulSet over a Deployment.</div>
+          <div class="footer"><span class="tag">StatefulSet</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Stable network IDs</strong> — pod DNS name must be predictable (e.g., mysql-0.mysql-svc)<br>
+            2. <strong>Persistent storage per pod</strong> — each replica owns its data<br>
+            3. <strong>Ordered deployment/scaling</strong> — pod N must be Running before pod N+1 starts<br>
+            4. <strong>Ordered rolling updates</strong> — updates proceed in reverse ordinal order
+          </div>
+          <div class="footer"><span class="tag">4 use cases</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What happens to a StatefulSet pod's PVC when the pod is deleted?</div>
+          <div class="footer"><span class="tag">PVC lifecycle</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>The PVC is retained</strong> — it is NOT deleted with the pod. When the pod is rescheduled (same ordinal), Kubernetes re-attaches the same PVC. This guarantees data continuity across reschedules and node failures.</div>
+          <div class="footer"><span class="tag">data continuity</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does a StatefulSet pod name differ from a Deployment pod name?</div>
+          <div class="footer"><span class="tag">naming</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>StatefulSet:</strong> <code>&lt;name&gt;-&lt;ordinal&gt;</code> — e.g., <code>mysql-0</code>, <code>mysql-1</code>. The ordinal is stable; if <code>mysql-1</code> is killed, its replacement is also named <code>mysql-1</code>.<br><br><strong>Deployment:</strong> <code>&lt;name&gt;-&lt;replicaset-hash&gt;-&lt;random&gt;</code> — no stable identity.</div>
+          <div class="footer"><span class="tag">pod identity</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Kubernetes storage objects                -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Kubernetes storage objects</h2>
+    <p class="lede">
+      Four objects form the Kubernetes storage model. They separate the concerns of <em>who provides the storage</em>, <em>who requests it</em>, and <em>how it's provisioned</em>.
+    </p>
+
+    <!-- Animation: PV lifecycle -->
+    <div class="anim-player" data-anim-id="pv-lifecycle">
+      <div class="anim-title">Animation · PersistentVolume lifecycle — from creation to pod mount</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-pv-lifecycle" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Object</th>
+          <th>What it represents</th>
+          <th>Created by</th>
+          <th>YAML kind</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>emptyDir</strong></td>
+          <td>Ephemeral scratch volume; lives and dies with the pod</td>
+          <td>Declared inline in pod spec</td>
+          <td><code>volumes[].emptyDir</code></td>
+        </tr>
+        <tr>
+          <td><strong>PersistentVolume (PV)</strong></td>
+          <td>Cluster-level resource representing actual storage (EBS vol, EFS mount, etc.)</td>
+          <td>Admin or dynamically by StorageClass</td>
+          <td><code>PersistentVolume</code></td>
+        </tr>
+        <tr>
+          <td><strong>PersistentVolumeClaim (PVC)</strong></td>
+          <td>User request for storage (capacity, access mode). Binds to a matching PV.</td>
+          <td>Developer / pod spec</td>
+          <td><code>PersistentVolumeClaim</code></td>
+        </tr>
+        <tr>
+          <td><strong>StorageClass</strong></td>
+          <td>Defines a "tier" of storage. Enables dynamic PV provisioning on demand.</td>
+          <td>Cluster admin</td>
+          <td><code>StorageClass</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+<span class="cmt"># StorageClass — defines how EBS volumes are provisioned</span>
+<span class="kw">apiVersion:</span> <span class="val">storage.k8s.io/v1</span>
+<span class="kw">kind:</span> <span class="val">StorageClass</span>
+<span class="kw">metadata:</span>
+  <span class="kw">name:</span> <span class="val">ebs-gp3</span>
+<span class="kw">provisioner:</span> <span class="val">ebs.csi.aws.com</span>
+<span class="kw">volumeBindingMode:</span> <span class="val">WaitForFirstConsumer</span>  <span class="cmt"># wait until pod is scheduled</span>
+<span class="kw">allowVolumeExpansion:</span> <span class="val">true</span>
+<span class="kw">parameters:</span>
+  <span class="kw">type:</span> <span class="val">gp3</span>
+  <span class="kw">encrypted:</span> <span class="val">"true"</span>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the difference between a PV and a PVC?</div>
+          <div class="footer"><span class="tag">PV vs PVC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>PV (PersistentVolume)</strong> is a cluster-level resource that represents <em>actual storage</em> — an EBS volume, EFS mount point, etc. It is provisioned by an admin or dynamically.<br><br><strong>PVC (PersistentVolumeClaim)</strong> is a <em>request</em> for storage by a user — specifying size and access mode. Kubernetes binds the PVC to a suitable PV automatically.</div>
+          <div class="footer"><span class="tag">key distinction</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <code>volumeBindingMode: WaitForFirstConsumer</code> do?</div>
+          <div class="footer"><span class="tag">StorageClass</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It tells Kubernetes to <strong>delay PV creation</strong> until a pod using the PVC is actually scheduled to a node. This ensures the EBS volume is created in the <em>same Availability Zone</em> as the pod — without this, the volume might be created in a different AZ, causing the pod to be unable to mount it.</div>
+          <div class="footer"><span class="tag">AZ alignment</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which object should an app developer reference in a pod manifest — PV or PVC?</div>
+          <div class="footer"><span class="tag">best practice</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>PVC only.</strong> Developers use PVCs in pod specs (<code>volumes[].persistentVolumeClaim.claimName</code>). PVs are an admin/infrastructure concern. This separation of concerns means developers don't need to know the underlying storage type or backend.</div>
+          <div class="footer"><span class="tag">role separation</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the three access modes for a PersistentVolume?</div>
+          <div class="footer"><span class="tag">access modes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>ReadWriteOnce (RWO)</strong> — one node mounts read-write (EBS)<br>
+            <strong>ReadOnlyMany (ROX)</strong> — many nodes mount read-only<br>
+            <strong>ReadWriteMany (RWX)</strong> — many nodes mount read-write (EFS)<br><br>
+            Note: EBS only supports RWO. EFS supports RWX.
+          </div>
+          <div class="footer"><span class="tag">RWO / ROX / RWX</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does <code>allowVolumeExpansion: true</code> in a StorageClass enable?</div>
+          <div class="footer"><span class="tag">StorageClass</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">It allows users to <strong>resize an existing PVC</strong> by editing its <code>spec.resources.requests.storage</code> to a larger value. The EBS CSI driver will expand the underlying EBS volume without needing to delete and recreate the PVC or the pod.</div>
+          <div class="footer"><span class="tag">dynamic resize</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — AWS Storage Options                       -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> AWS storage options — EBS, EFS, FSx</h2>
+    <p class="lede">
+      EKS supports three families of AWS persistent storage. Choosing the right one depends on whether your workload needs <strong>block storage</strong>, <strong>shared file access</strong>, or <strong>specialized file system features</strong>.
+    </p>
+
+    <!-- Animation: EBS vs EFS -->
+    <div class="anim-player" data-anim-id="ebs-vs-efs">
+      <div class="anim-title">Animation · EBS (ReadWriteOnce) vs EFS (ReadWriteMany)</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ebs-vs-efs" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="storage-pills">
+      <div class="s-pill ebs">
+        <div class="label">AWS EBS</div>
+        <div class="title">Elastic Block Store</div>
+        <div class="sub">Block storage. One EC2 instance at a time (RWO). SSD + HDD tiers. Independent lifecycle from EC2. Dynamic resize.</div>
+      </div>
+      <div class="s-pill efs">
+        <div class="label">AWS EFS</div>
+        <div class="title">Elastic File System</div>
+        <div class="sub">Shared NFS (v4). Multiple pods/nodes simultaneously (RWX). Elastic — scales automatically. Fargate compatible.</div>
+      </div>
+      <div class="s-pill fsx">
+        <div class="label">AWS FSx</div>
+        <div class="title">Amazon FSx</div>
+        <div class="sub">Four types: Lustre, Windows File Server, NetApp ONTAP, OpenZFS. For specialized HPC and enterprise file system needs.</div>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>EBS</th>
+          <th>EFS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Type</td>
+          <td>Block storage (SSD/HDD)</td>
+          <td>Managed NFS file system</td>
+        </tr>
+        <tr>
+          <td>Access mode</td>
+          <td><strong>ReadWriteOnce</strong> (one node)</td>
+          <td><strong>ReadWriteMany</strong> (many pods/nodes)</td>
+        </tr>
+        <tr>
+          <td>Protocol</td>
+          <td>Block device</td>
+          <td>NFSv4</td>
+        </tr>
+        <tr>
+          <td>Fargate support</td>
+          <td><span class="bad-badge">✗ Not supported</span></td>
+          <td><span class="good-badge">✓ Supported</span></td>
+        </tr>
+        <tr>
+          <td>Capacity</td>
+          <td>Fixed at creation (expandable)</td>
+          <td>Elastic — grows/shrinks automatically</td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Databases, single-replica stateful apps</td>
+          <td>Shared content, ML training datasets, CMS</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);font-size:0.95em;margin-top:24px;margin-bottom:12px;">EBS volume types</h3>
+    <table class="decision-table">
+      <thead>
+        <tr><th>Type</th><th>Category</th><th>Use case</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>gp2 / gp3</code></td><td>General purpose SSD</td><td>Most workloads — default choice</td></tr>
+        <tr><td><code>io1 / io2</code></td><td>Provisioned IOPS SSD</td><td>High-performance databases (io2 includes Block Express)</td></tr>
+        <tr><td><code>st1</code></td><td>Throughput HDD</td><td>Big data, log processing, large sequential reads</td></tr>
+        <tr><td><code>sc1</code></td><td>Cold HDD</td><td>Infrequently accessed data, lowest cost</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You have a Fargate pod that needs persistent storage. Which AWS service can you use?</div>
+          <div class="footer"><span class="tag">Fargate + storage</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EFS only.</strong> EBS is not supported on Fargate pods — EBS requires attaching to an EC2 instance. EFS uses NFS over the network and is fully compatible with Fargate. You must use the EFS CSI driver and mount an EFS access point.</div>
+          <div class="footer"><span class="tag">key constraint</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the default recommended EBS volume type for EKS StorageClasses?</div>
+          <div class="footer"><span class="tag">EBS types</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>gp3</strong> — the newest general-purpose SSD type. It provides better baseline performance than gp2 and lets you provision IOPS and throughput independently. AWS recommends gp3 as the default in new StorageClass configurations (<code>parameters.type: gp3</code>).</div>
+          <div class="footer"><span class="tag">gp3</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Multiple replicas of a machine-learning training job need to read the same dataset simultaneously. Which storage?</div>
+          <div class="footer"><span class="tag">scenario</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EFS</strong> — because it supports <code>ReadWriteMany</code>, allowing multiple pods across multiple nodes to mount and read the same file system concurrently. EBS (RWO) can only be mounted by one node at a time.</div>
+          <div class="footer"><span class="tag">RWX requirement</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the four FSx types supported by EKS?</div>
+          <div class="footer"><span class="tag">FSx</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>FSx for Lustre</strong> — HPC, ML, high-throughput parallel access<br>
+            2. <strong>FSx for Windows File Server</strong> — SMB/NTFS, Windows workloads<br>
+            3. <strong>FSx for NetApp ONTAP</strong> — enterprise NAS features, multi-protocol<br>
+            4. <strong>FSx for OpenZFS</strong> — ZFS features, low-latency NFS access
+          </div>
+          <div class="footer"><span class="tag">4 types</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — CSI Drivers                               -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> CSI drivers</h2>
+    <p class="lede">
+      The <strong>Container Storage Interface (CSI)</strong> is a standard API that lets Kubernetes communicate with any storage system through a consistent interface — without needing storage-specific code inside Kubernetes itself. Each storage type installs its own CSI driver as an EKS add-on.
+    </p>
+
+    <!-- Animation: CSI driver flow -->
+    <div class="anim-player" data-anim-id="csi-driver">
+      <div class="anim-title">Animation · How the EBS CSI driver provisions a volume</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-csi-driver" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>EBS CSI Driver</h4>
+        <ul>
+          <li>Provisioner: <code>ebs.csi.aws.com</code></li>
+          <li>EKS managed add-on</li>
+          <li>Supports gp2, gp3, io1, io2, st1, sc1</li>
+          <li>Requires IRSA for IAM permissions</li>
+          <li>Supports volume snapshots</li>
+          <li>Supports volume expansion</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>EFS CSI Driver</h4>
+        <ul>
+          <li>Provisioner: <code>efs.csi.aws.com</code></li>
+          <li>EKS managed add-on</li>
+          <li>Supports ReadWriteMany across pods</li>
+          <li>Works on Fargate pods</li>
+          <li>Requires IRSA for IAM permissions</li>
+          <li>Uses EFS access points per PVC</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the Container Storage Interface (CSI)?</div>
+          <div class="footer"><span class="tag">CSI definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">CSI is a <strong>standardized interface</strong> between container orchestrators (Kubernetes) and storage providers. Before CSI, storage code was baked into the Kubernetes source. Now, each storage vendor ships their own CSI driver — installed separately — and Kubernetes calls it through the standard API.</div>
+          <div class="footer"><span class="tag">standardization</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the provisioner string for the EBS CSI driver?</div>
+          <div class="footer"><span class="tag">EBS CSI</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>ebs.csi.aws.com</code><br><br>Used in the <code>StorageClass.provisioner</code> field. Similarly for EFS: <code>efs.csi.aws.com</code>. These strings tell the dynamic provisioner which CSI driver to call when a PVC is created.</div>
+          <div class="footer"><span class="tag">driver name</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does the EBS CSI driver authenticate to AWS APIs?</div>
+          <div class="footer"><span class="tag">CSI + IAM</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Via <strong>IRSA (IAM Roles for Service Accounts)</strong>. The EBS CSI driver runs as a pod with a Kubernetes service account annotated with an IAM role ARN. The role has permissions to call EC2 APIs (<code>ec2:CreateVolume</code>, <code>ec2:AttachVolume</code>, etc.). No long-lived credentials needed.</div>
+          <div class="footer"><span class="tag">IRSA</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you install the EBS CSI driver in EKS?</div>
+          <div class="footer"><span class="tag">installation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Install it as an <strong>EKS managed add-on</strong>: via the AWS Console, <code>eksctl</code>, or the AWS CLI (<code>aws eks create-addon --addon-name aws-ebs-csi-driver</code>). EKS handles version upgrades. You must also configure an IRSA role for the driver's service account before or after installation.</div>
+          <div class="footer"><span class="tag">add-on</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Storage scenario decision guide           -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Storage scenario decision guide</h2>
+    <p class="lede">
+      The course gives four canonical scenarios that map directly to storage choices. Know these patterns — they are common exam questions.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Storage type</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stateless multi-replica app needs scratch space</td>
+          <td><strong>Volume (emptyDir)</strong></td>
+          <td>No persistence needed; data is transient per pod</td>
+        </tr>
+        <tr>
+          <td>Stateful replicas need <em>shared</em> data access</td>
+          <td><strong>Amazon EFS</strong></td>
+          <td>ReadWriteMany; all replicas mount the same file system</td>
+        </tr>
+        <tr>
+          <td>Each stateful replica needs <em>independent</em> storage with expansion</td>
+          <td><strong>Amazon EBS</strong></td>
+          <td>ReadWriteOnce per pod; supports dynamic resizing</td>
+        </tr>
+        <tr>
+          <td>Fargate pods need persistent storage</td>
+          <td><strong>Amazon EFS</strong></td>
+          <td>EBS is not supported on Fargate; EFS NFS works over network</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>App developer guidelines</h4>
+        <ul>
+          <li>Use <strong>PVC</strong> in manifests (not PV directly)</li>
+          <li>Specify the correct <strong>StorageClass</strong></li>
+          <li>Adhere to namespace storage <strong>quotas</strong></li>
+          <li>Request minimum storage needed</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Cluster admin guidelines</h4>
+        <ul>
+          <li>Define and maintain <strong>StorageClasses</strong></li>
+          <li>Set a <strong>default StorageClass</strong> for the cluster</li>
+          <li>Monitor <strong>unbound PVCs</strong> (misconfigured requests)</li>
+          <li>Define and enforce storage <strong>quotas</strong> per namespace</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC scenario: a MySQL StatefulSet has 3 replicas. Each needs its own 20Gi database volume that survives pod restarts and can grow. What storage?</div>
+          <div class="footer"><span class="tag">scenario</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EBS (gp3)</strong> with <code>allowVolumeExpansion: true</code> in the StorageClass.<br>Each StatefulSet replica gets its own PVC via <code>volumeClaimTemplates</code> → one EBS volume per pod, independent lifecycle, expandable. EFS would be shared across all replicas (wrong for database isolation).</div>
+          <div class="footer"><span class="tag">StatefulSet + EBS</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC scenario: a content management system has 10 web server pods that all need to read/write shared media files. What storage?</div>
+          <div class="footer"><span class="tag">scenario</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EFS</strong> — ReadWriteMany access mode lets all 10 pods mount the same EFS file system simultaneously. EBS (RWO) can only be mounted by one node at a time and would not allow shared writes across replicas.</div>
+          <div class="footer"><span class="tag">RWX use case</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — Kubernetes Secrets                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Kubernetes Secrets</h2>
+    <p class="lede">
+      Kubernetes Secrets store sensitive data — passwords, API tokens, SSH keys, TLS certificates. The most important thing to know: Kubernetes Secrets are <strong>NOT encrypted by default</strong> — they are only <strong>base64 encoded</strong>, which is trivially reversible.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>What Secrets store</h4>
+        <ul>
+          <li>Database credentials</li>
+          <li>API tokens &amp; OAuth keys</li>
+          <li>SSH private keys</li>
+          <li>TLS certificates</li>
+          <li>Docker registry credentials (<code>imagePullSecret</code>)</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>How Secrets work by default</h4>
+        <ul>
+          <li>Values are <strong>base64 encoded</strong> (not encrypted)</li>
+          <li>Stored in <strong>etcd</strong> (on encrypted volume)</li>
+          <li>Injected into pods as <strong>env vars</strong> or <strong>mounted files</strong></li>
+          <li>Optional: enable <strong>KMS envelope encryption</strong> for etcd at rest</li>
+          <li class="warn">base64 ≠ encryption — anyone with etcd access can decode</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — What is the default behavior for Kubernetes Secrets?<br><em>A. Plaintext in etcd &nbsp; B. AES-256 encrypted &nbsp; C. base64 encoded, stored in etcd on encrypted volume &nbsp; D. Stored in AWS KMS</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ C — base64 encoded, stored in etcd on encrypted volume</span><br><br>The etcd volume is encrypted (disk-level), but the secret <em>values</em> themselves are only base64 encoded — not encrypted. KMS envelope encryption (option D) is an optional additional layer you can enable, but it is not the default.</div>
+          <div class="footer"><span class="tag">base64 trap</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why is "base64 encoded" NOT the same as "encrypted"?</div>
+          <div class="footer"><span class="tag">security</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Base64 is an <strong>encoding scheme</strong>, not an encryption scheme. It has no key and is trivially reversible: <code>echo "dXNlcjpwYXNz" | base64 -d</code> → <code>user:pass</code>. Anyone who can read the etcd data or the Kubernetes API can immediately decode any Secret value without any key material.</div>
+          <div class="footer"><span class="tag">encoding vs encryption</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How can you add true encryption for Kubernetes Secrets at rest?</div>
+          <div class="footer"><span class="tag">KMS</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Enable <strong>KMS envelope encryption</strong> for etcd. In EKS, configure a <code>EncryptionConfig</code> with an AWS KMS key ARN when creating the cluster. Kubernetes then encrypts secret values with a data key, and AWS KMS protects the envelope key. This adds a true encryption layer on top of the base64 encoding.</div>
+          <div class="footer"><span class="tag">envelope encryption</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the two ways to expose a Kubernetes Secret to a pod?</div>
+          <div class="footer"><span class="tag">secret injection</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Environment variable</strong> — <code>env.valueFrom.secretKeyRef</code>. Simple, but the value is visible in <code>kubectl describe pod</code> and in the process environment.<br>
+            2. <strong>Mounted volume (file)</strong> — <code>volumes[].secret.secretName</code> + <code>volumeMounts</code>. The secret value appears as a file in the container; more secure and supports automatic rotation with ASCP.
+          </div>
+          <div class="footer"><span class="tag">env vs volume mount</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — AWS Secrets Manager + ASCP                -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> AWS Secrets Manager + ASCP</h2>
+    <p class="lede">
+      The <strong>AWS Secrets and Configuration Provider (ASCP)</strong> bridges AWS Secrets Manager (and SSM Parameter Store) with Kubernetes pods. Secrets are stored and rotated in AWS — pods see them as mounted files or Kubernetes Secret objects, without manual syncing.
+    </p>
+
+    <!-- Animation: ASCP secrets flow -->
+    <div class="anim-player" data-anim-id="ascp-secrets">
+      <div class="anim-title">Animation · ASCP: how a pod gets a secret from AWS Secrets Manager</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-ascp-secrets" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="cmt"># SecretProviderClass — tells ASCP where the secret lives</span>
+<span class="kw">apiVersion:</span> <span class="val">secrets-store.csi.x-k8s.io/v1</span>
+<span class="kw">kind:</span> <span class="val">SecretProviderClass</span>
+<span class="kw">metadata:</span>
+  <span class="kw">name:</span> <span class="val">my-aws-secret</span>
+<span class="kw">spec:</span>
+  <span class="kw">provider:</span> <span class="val">aws</span>
+  <span class="kw">parameters:</span>
+    <span class="kw">objects:</span> <span class="val">|</span>
+      <span class="val">- objectName: "MyDbPassword"</span>
+        <span class="val">objectType: "secretsmanager"</span>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>What ASCP provides</h4>
+        <ul>
+          <li>Mounts secrets as <strong>files</strong> in pod volumes</li>
+          <li>OR syncs to <strong>Kubernetes Secret objects</strong></li>
+          <li>Supports <strong>automatic key rotation</strong></li>
+          <li>Works with Secrets Manager <em>and</em> SSM Parameter Store</li>
+          <li>Uses <strong>IRSA</strong> — no IAM keys in the cluster</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Components required</h4>
+        <ul>
+          <li><strong>Secrets Store CSI Driver</strong> (<code>secrets-store.csi.k8s.io</code>)</li>
+          <li><strong>ASCP provider plugin</strong> for AWS</li>
+          <li><strong>IRSA role</strong> on the pod's service account</li>
+          <li><strong>SecretProviderClass</strong> custom resource</li>
+          <li>Pod spec: <code>volumes[].csi.driver: secrets-store.csi.k8s.io</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is ASCP and what problem does it solve?</div>
+          <div class="footer"><span class="tag">ASCP</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ASCP (AWS Secrets &amp; Configuration Provider)</strong> is a plugin for the Secrets Store CSI Driver that fetches secrets from AWS Secrets Manager or SSM Parameter Store and delivers them to pods as volume-mounted files or as Kubernetes Secret objects. It solves the problem of storing sensitive data in Kubernetes etcd — secrets live in AWS with proper encryption and rotation.</div>
+          <div class="footer"><span class="tag">problem solved</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does ASCP restrict which pods can access a specific AWS secret?</div>
+          <div class="footer"><span class="tag">access control</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Via <strong>IRSA (IAM Roles for Service Accounts)</strong>. The pod's service account is annotated with an IAM role ARN. The IAM role has a policy that permits <code>secretsmanager:GetSecretValue</code> for only specific secret ARNs. Only pods with that service account can retrieve those secrets — no other pod can.</div>
+          <div class="footer"><span class="tag">IRSA + least privilege</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a SecretProviderClass?</div>
+          <div class="footer"><span class="tag">SecretProviderClass</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>SecretProviderClass</strong> is a custom Kubernetes resource (CRD) that defines <em>which</em> secrets to fetch from AWS. It specifies: the <code>provider: aws</code>, the secret names/paths in Secrets Manager or SSM, and optional sync-to-Kubernetes-Secret configuration. Each pod that needs the secrets references a SecretProviderClass by name in its volume spec.</div>
+          <div class="footer"><span class="tag">CRD</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What CSI driver name does the Secrets Store use?</div>
+          <div class="footer"><span class="tag">driver name</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>secrets-store.csi.k8s.io</code><br><br>Referenced in the pod's volume spec under <code>volumes[].csi.driver</code>. This is separate from the EBS CSI driver (<code>ebs.csi.aws.com</code>) and EFS CSI driver (<code>efs.csi.aws.com</code>) — it is a general-purpose secrets bridge, not a storage driver.</div>
+          <div class="footer"><span class="tag">csi driver</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What two delivery modes can ASCP use to expose a secret to a pod?</div>
+          <div class="footer"><span class="tag">delivery modes</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Volume mount (file)</strong> — the secret value appears as a file at a path in the container (e.g., <code>/mnt/secrets/MyDbPassword</code>). This is the primary ASCP delivery method.<br>
+            2. <strong>Kubernetes Secret sync</strong> — ASCP can optionally create a Kubernetes Secret object that mirrors the AWS secret, so existing code that reads from env vars or K8s Secrets continues to work unchanged.
+          </div>
+          <div class="footer"><span class="tag">file vs K8s Secret</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Does ASCP support automatic secret rotation?</div>
+          <div class="footer"><span class="tag">rotation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Yes.</strong> ASCP periodically re-fetches secrets from Secrets Manager. When AWS Secrets Manager rotates a secret, ASCP will pick up the new value on its next refresh cycle and update the mounted file. The application can re-read the file without restarting. This is a significant advantage over baking secrets into Kubernetes Secret objects manually.</div>
+          <div class="footer"><span class="tag">rotation support</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 9 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> Knowledge checks (from the course)</h2>
+    <p class="lede">Official course knowledge-check questions plus common exam traps for Module 08. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC — What is the default behavior for a Kubernetes Secret?<br><em>A. Plaintext &nbsp; B. AES-256 encrypted &nbsp; C. base64 encoded, stored in etcd on encrypted volume &nbsp; D. AWS KMS encrypted</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ C</span> — base64 encoded, stored in etcd on encrypted volume.<br><br>The etcd disk is encrypted but the secret <em>values</em> are only base64 encoded — reversible without a key. KMS encryption (D) is an optional add-on, not the default.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which Kubernetes workload controller gives each pod a stable, persistent identity?</div>
+          <div class="footer"><span class="tag">KC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>StatefulSet.</strong> Each pod gets an ordinal name (<code>name-0</code>, <code>name-1</code>) and its own PersistentVolumeClaim that survives pod deletion. Deployments give pods random names and share (or forgo) PVCs.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You need persistent storage for a Fargate pod. Which AWS storage service must you use?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EFS.</strong> EBS requires EC2 instance attachment and is not available on Fargate. EFS uses NFS over the network, which works with Fargate pods. Ensure you use the EFS CSI driver and configure an EFS access point per PVC.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the ASCP use to ensure only specific pods can access a secret?</div>
+          <div class="footer"><span class="tag">KC</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>IRSA (IAM Roles for Service Accounts).</strong> The pod's Kubernetes service account is annotated with an IAM role. The IAM policy grants <code>secretsmanager:GetSecretValue</code> only for specific secret ARNs. Pods without that service account cannot retrieve the secret.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the access mode for Amazon EBS when used with Kubernetes?</div>
+          <div class="footer"><span class="tag">access mode</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ReadWriteOnce (RWO)</strong> — one node can mount the volume read-write at a time. EBS is block storage and must be attached to a single EC2 instance. If you need multiple pods to write simultaneously, use EFS (ReadWriteMany).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the provisioner name for the Amazon EBS CSI driver?</div>
+          <div class="footer"><span class="tag">exam detail</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>ebs.csi.aws.com</code> — referenced in the StorageClass <code>provisioner</code> field.<br>EFS: <code>efs.csi.aws.com</code><br>Secrets Store: <code>secrets-store.csi.k8s.io</code></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Lab 5 preview: what does Lab 5 exercise?</div>
+          <div class="footer"><span class="tag">lab preview</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Lab 5 exercises the <strong>full PVC lifecycle</strong>: (1) create a PVC using pre-created StorageClasses, (2) assign the PVC to a pod, (3) write data through the mounted volume, (4) delete and recreate the pod to confirm data persists, (5) manage storage lifecycle — cleanup and verification.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 08 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r=8) {
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts={}) {
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function line(svg, x1,y1,x2,y2, color='#475569', dash='') {
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':1.5,
+    'stroke-dasharray':dash}));
+}
+function arrow(svg, x1,y1,x2,y2, color='#38bdf8') {
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':`url(#${id})`}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: PV lifecycle ────────────────────────
+window.ANIMATIONS['pv-lifecycle'] = [
+  {
+    narration: 'Five stages in the PersistentVolume lifecycle. We start with an EBS volume existing in AWS, but no Kubernetes objects yet.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'PersistentVolume lifecycle',{size:13,weight:'700',color:'#94a3b8'});
+      // EBS volume in AWS
+      box(svg,270,40,160,50,'#0c2a3a','#38bdf8',8);
+      text(svg,350,60,'EBS vol-09568627',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,350,78,'5Gi · AWS account',{size:9,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Stage 1: Admin creates a PersistentVolume object in Kubernetes that references the EBS volume by its volumeHandle.',
+    apply(svg){
+      box(svg,80,120,200,60,'#0c1a30','#818cf8',8);
+      text(svg,180,145,'PersistentVolume',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,180,160,'capacity: 5Gi · RWO',{size:9,color:'#94a3b8'});
+      text(svg,180,174,'ebs.csi.aws.com',{size:8.5,color:'#64748b'});
+      arrow(svg,270,68,220,118,'#818cf8');
+      // Status label
+      box(svg,80,190,200,22,'#1a0a2a','#818cf8',4);
+      text(svg,180,205,'Status: Available',{size:9,color:'#818cf8'});
+    }
+  },
+  {
+    narration: 'Stage 2: A developer creates a PersistentVolumeClaim requesting 5Gi with ReadWriteOnce. It remains Pending until bound.',
+    apply(svg){
+      box(svg,420,120,200,60,'#0a1a0a','#27AE60',8);
+      text(svg,520,145,'PersistentVolumeClaim',{size:9.5,weight:'700',color:'#27AE60'});
+      text(svg,520,160,'requests: 5Gi',{size:9,color:'#94a3b8'});
+      text(svg,520,174,'accessMode: RWO',{size:8.5,color:'#64748b'});
+      box(svg,420,190,200,22,'#0a1a0a','#F39C12',4);
+      text(svg,520,205,'Status: Pending',{size:9,color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'Stage 3: Kubernetes binds the PVC to the PV — they match on capacity and access mode. Both enter Bound state.',
+    apply(svg){
+      // Binding arrow
+      arrow(svg,282,150,418,150,'#27AE60');
+      arrow(svg,418,160,282,160,'#818cf8');
+      text(svg,350,143,'BIND',{size:10,weight:'700',color:'#27AE60'});
+      // Update status boxes
+      box(svg,80,190,200,22,'#0a2a0a','#27AE60',4);
+      text(svg,180,205,'Status: Bound',{size:9,color:'#27AE60'});
+      box(svg,420,190,200,22,'#0a2a0a','#27AE60',4);
+      text(svg,520,205,'Status: Bound',{size:9,color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'Stage 4: A Pod mounts the PVC as a volume. The EBS volume is attached to the EC2 node and presented as a filesystem path in the container.',
+    apply(svg){
+      box(svg,270,40,160,40,'#1a0a2a','#818cf8',6);
+      text(svg,350,56,'Pod',{size:11,weight:'700',color:'#818cf8'});
+      text(svg,350,70,'/data (mounted)',{size:8.5,color:'#94a3b8'});
+      arrow(svg,350,82,350,118,'#27AE60');
+    }
+  },
+  {
+    narration: 'Stage 5: Pod is deleted. PVC is deleted. PV enters Released state — the EBS volume still exists in AWS and can be reclaimed or deleted by the admin.',
+    apply(svg){
+      box(svg,80,120,200,60,'#2a1a0a','#F39C12',8);
+      text(svg,180,145,'PersistentVolume',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,180,160,'volume still exists',{size:9,color:'#94a3b8'});
+      box(svg,80,190,200,22,'#2a1a0a','#F39C12',4);
+      text(svg,180,205,'Status: Released',{size:9,color:'#F39C12'});
+      box(svg,420,120,200,60,'#1a1a1a','#475569',8);
+      text(svg,520,145,'PVC',{size:10,color:'#475569'});
+      text(svg,520,160,'DELETED',{size:10,weight:'700',color:'#475569'});
+      text(svg,350,210,'EBS volume persists — admin must reclaim or delete',{size:9,color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 2: EBS vs EFS ──────────────────────────
+window.ANIMATIONS['ebs-vs-efs'] = [
+  {
+    narration: 'Two AWS storage services, two very different access models. Left: EBS. Right: EFS.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'EBS vs EFS — access model comparison',{size:13,weight:'700',color:'#94a3b8'});
+      line(svg,350,30,350,220,'#1f2738');
+      // EBS label
+      text(svg,175,40,'Amazon EBS',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,175,55,'ReadWriteOnce',{size:9.5,color:'#94a3b8'});
+      // EFS label
+      text(svg,525,40,'Amazon EFS',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,525,55,'ReadWriteMany',{size:9.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'EBS: one EBS volume attaches to one EC2 node at a time. Only pods on that node can mount it.',
+    apply(svg){
+      // EBS volume
+      box(svg,100,160,150,45,'#0c2a3a','#38bdf8',8);
+      text(svg,175,178,'EBS Volume',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,175,194,'5Gi gp3',{size:9,color:'#94a3b8'});
+      // One node
+      box(svg,80,85,190,50,'#0a1a0a','#27AE60',6);
+      text(svg,175,107,'Node + Pod',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,175,121,'(one at a time)',{size:8.5,color:'#94a3b8'});
+      arrow(svg,175,137,175,158,'#38bdf8');
+    }
+  },
+  {
+    narration: 'EBS: a second pod on a different node CANNOT mount the same volume simultaneously — RWO means one node only.',
+    apply(svg){
+      box(svg,80,45,190,30,'#2a0a0a','#E74C3C',6);
+      text(svg,175,65,'Other Node — BLOCKED',{size:9,weight:'700',color:'#E74C3C'});
+      // Blocked arrow (dashed)
+      svg.appendChild(svgEl('line',{x1:175,y1:77,x2:175,y2:83,stroke:'#E74C3C','stroke-width':2,'stroke-dasharray':'4,3'}));
+      text(svg,175,220,'EBS = exclusive single-node attach',{size:9,weight:'700',color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'EFS: a single EFS file system can be mounted by dozens of pods across multiple nodes simultaneously — ReadWriteMany.',
+    apply(svg){
+      // EFS file system
+      box(svg,450,155,150,50,'#0a2a1a','#27AE60',8);
+      text(svg,525,175,'EFS File System',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,525,192,'NFS · elastic',{size:9,color:'#94a3b8'});
+      // Multiple pods/nodes
+      const pods = [{x:390,y:60,label:'Pod A / Node 1'},{x:510,y:60,label:'Pod B / Node 2'},{x:630,y:60,label:'Fargate Pod'}];
+      pods.forEach(p => {
+        box(svg,p.x-50,p.y,120,35,'#0a1a0a','#27AE60',5);
+        text(svg,p.x+10,p.y+17,p.label,{size:8,color:'#86efac'});
+        arrow(svg,p.x+10,p.y+37,525,153,'#27AE60');
+      });
+    }
+  },
+  {
+    narration: 'Summary: use EBS when each pod needs exclusive, high-performance block storage. Use EFS when multiple pods need shared file access — or when running on Fargate.',
+    apply(svg){
+      box(svg,370,200,295,28,'#0a2a1a','#27AE60',6);
+      text(svg,517,218,'EFS supports Fargate ✓',{size:9.5,weight:'700',color:'#86efac'});
+      box(svg,35,200,295,28,'#0c1a30','#38bdf8',6);
+      text(svg,183,218,'EBS: NOT supported on Fargate',{size:9,color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 3: CSI driver ──────────────────────────
+window.ANIMATIONS['csi-driver'] = [
+  {
+    narration: 'The CSI driver is the bridge between Kubernetes storage requests and AWS APIs. Let\'s trace a PVC through the full provisioning flow.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'EBS CSI driver — volume provisioning flow',{size:13,weight:'700',color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Step 1: A developer creates a PVC requesting 20Gi storage using the ebs-gp3 StorageClass.',
+    apply(svg){
+      box(svg,50,45,180,60,'#1a0a2a','#818cf8',8);
+      text(svg,140,68,'Developer',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,140,83,'kubectl apply PVC',{size:9,color:'#94a3b8'});
+      text(svg,140,98,'20Gi · ebs-gp3',{size:8.5,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Step 2: The Kubernetes control plane sees the PVC and looks up the StorageClass. It calls the registered CSI driver — ebs.csi.aws.com.',
+    apply(svg){
+      box(svg,270,45,160,60,'#0c1018','#38bdf8',8);
+      text(svg,350,68,'K8s Control Plane',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,350,83,'StorageClass lookup',{size:9,color:'#94a3b8'});
+      text(svg,350,98,'→ calls CSI driver',{size:8.5,color:'#64748b'});
+      arrow(svg,232,75,268,75,'#38bdf8');
+    }
+  },
+  {
+    narration: 'Step 3: The EBS CSI driver (running as a pod in kube-system) authenticates to AWS via IRSA and calls ec2:CreateVolume.',
+    apply(svg){
+      box(svg,270,140,160,55,'#0c2a3a','#38bdf8',8);
+      text(svg,350,160,'EBS CSI Driver',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,350,175,'ebs.csi.aws.com',{size:9,color:'#94a3b8'});
+      text(svg,350,190,'IRSA → AWS API',{size:8.5,color:'#64748b'});
+      arrow(svg,350,107,350,138,'#38bdf8');
+    }
+  },
+  {
+    narration: 'Step 4: AWS creates the EBS volume in the correct AZ. The CSI driver creates a PersistentVolume object and binds it to the PVC.',
+    apply(svg){
+      box(svg,490,140,170,55,'#0a1a0a','#27AE60',8);
+      text(svg,575,160,'AWS EBS',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,575,175,'vol-xxxxx created',{size:9,color:'#94a3b8'});
+      text(svg,575,190,'20Gi · gp3 · AZ matched',{size:8.5,color:'#64748b'});
+      arrow(svg,432,167,488,167,'#27AE60');
+    }
+  },
+  {
+    narration: 'Step 5: When the pod is scheduled, the CSI driver calls ec2:AttachVolume. The volume is mounted into the container at the specified path. Done.',
+    apply(svg){
+      box(svg,50,140,180,55,'#1a0a2a','#818cf8',8);
+      text(svg,140,160,'Pod',{size:11,weight:'700',color:'#818cf8'});
+      text(svg,140,175,'volume mounted at',{size:9,color:'#94a3b8'});
+      text(svg,140,190,'/data',{size:10,weight:'700',color:'#818cf8'});
+      arrow(svg,268,167,232,167,'#818cf8');
+      text(svg,350,210,'PVC → StorageClass → CSI Driver → EBS → Pod',{size:9,color:'#475569'});
+    }
+  }
+];
+
+// ── ANIMATION 4: ASCP secrets flow ──────────────────
+window.ANIMATIONS['ascp-secrets'] = [
+  {
+    narration: 'ASCP bridges AWS Secrets Manager and Kubernetes pods. Let\'s walk through the complete flow from secret creation to pod access.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'ASCP — secrets delivery flow',{size:13,weight:'700',color:'#94a3b8'});
+      // AWS Secrets Manager
+      box(svg,490,40,180,55,'#0a1a0a','#27AE60',8);
+      text(svg,580,62,'AWS Secrets Manager',{size:9.5,weight:'700',color:'#27AE60'});
+      text(svg,580,78,'"MyDbPassword"',{size:9,color:'#94a3b8'});
+      text(svg,580,92,'encrypted · rotatable',{size:8.5,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Step 1: An admin creates a SecretProviderClass custom resource that tells ASCP where the secret lives: objectName and objectType: secretsmanager.',
+    apply(svg){
+      box(svg,40,40,200,70,'#0c2a3a','#38bdf8',8);
+      text(svg,140,60,'SecretProviderClass',{size:9.5,weight:'700',color:'#38bdf8'});
+      text(svg,140,75,'provider: aws',{size:8.5,color:'#94a3b8'});
+      text(svg,140,89,'objectName: MyDbPassword',{size:8,color:'#64748b'});
+      text(svg,140,103,'objectType: secretsmanager',{size:8,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Step 2: A pod starts. It has a CSI volume mount referencing the SecretProviderClass and a service account with an IRSA role.',
+    apply(svg){
+      box(svg,40,145,200,65,'#1a0a2a','#818cf8',8);
+      text(svg,140,165,'Pod',{size:11,weight:'700',color:'#818cf8'});
+      text(svg,140,180,'csi.driver: secrets-store',{size:8.5,color:'#94a3b8'});
+      text(svg,140,194,'serviceAccount: my-sa',{size:8.5,color:'#94a3b8'});
+      text(svg,140,208,'(IRSA annotated)',{size:8,color:'#64748b'});
+      arrow(svg,140,112,140,143,'#818cf8');
+    }
+  },
+  {
+    narration: 'Step 3: The Secrets Store CSI Driver calls the ASCP provider. ASCP assumes the IRSA role and calls secretsmanager:GetSecretValue for MyDbPassword.',
+    apply(svg){
+      box(svg,270,100,160,60,'#0c1018','#F39C12',8);
+      text(svg,350,120,'CSI Driver',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,350,135,'+ ASCP provider',{size:9,color:'#94a3b8'});
+      text(svg,350,150,'IRSA → AWS',{size:8.5,color:'#64748b'});
+      arrow(svg,242,175,268,155,'#F39C12');
+      arrow(svg,432,130,488,82,'#27AE60');
+    }
+  },
+  {
+    narration: 'Step 4: Secrets Manager returns the secret value. ASCP mounts it as a file in the pod at the configured path. Optionally it also creates a K8s Secret object.',
+    apply(svg){
+      box(svg,270,185,160,45,'#0a2a1a','#27AE60',8);
+      text(svg,350,204,'Secret value returned',{size:9.5,weight:'700',color:'#27AE60'});
+      text(svg,350,220,'→ mounted as file',{size:9,color:'#94a3b8'});
+      arrow(svg,350,162,350,183,'#27AE60');
+      arrow(svg,268,210,242,200,'#818cf8');
+    }
+  },
+  {
+    narration: 'Step 5: The app inside the pod reads the secret from the mounted file path — e.g., /mnt/secrets/MyDbPassword. When Secrets Manager rotates the secret, ASCP automatically refreshes the file.',
+    apply(svg){
+      box(svg,40,225,200,20,'#0a2a1a','#27AE60',4);
+      text(svg,140,238,'/mnt/secrets/MyDbPassword ✓',{size:8.5,color:'#86efac'});
+      box(svg,430,225,240,20,'#0a1a2a','#38bdf8',4);
+      text(svg,550,238,'Auto-rotated on next refresh ↺',{size:8.5,color:'#38bdf8'});
+    }
+  }
+];
+</script>
+</body>
+</html>

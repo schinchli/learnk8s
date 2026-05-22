@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 02 — Amazon EKS Fundamentals · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 02: EKS control plane, data plane, managed node groups, Fargate, two APIs, permissions.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-02 extras ── */
+.split-box {
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;
+}
+.split-box .box {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:10px; padding:18px 20px;
+}
+.split-box .box h4 { margin:0 0 10px; font-size:0.95em; color:var(--accent); }
+.split-box .box ul { margin:0; padding-left:18px; color:var(--muted); font-size:0.88em; line-height:1.7; }
+.data-plane-pills {
+  display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px;
+}
+.dp-pill {
+  background:var(--panel); border:1px solid var(--panel-light);
+  border-radius:8px; padding:12px 18px; flex:1; min-width:160px;
+}
+.dp-pill .label { font-size:0.7em; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.dp-pill .title { font-size:1em; font-weight:700; color:var(--accent); }
+.dp-pill .sub { font-size:0.82em; color:var(--muted); margin-top:4px; }
+.decision-table { width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:24px; }
+.decision-table th {
+  background:var(--panel-light); color:var(--accent);
+  padding:8px 12px; text-align:left; font-size:0.8em; letter-spacing:.05em;
+  border:1px solid #2a3347;
+}
+.decision-table td {
+  padding:8px 12px; border:1px solid #2a3347; color:var(--muted); vertical-align:top;
+  line-height:1.5;
+}
+.decision-table tr:nth-child(even) td { background:rgba(255,255,255,0.02); }
+.good-badge { color:#27AE60; font-weight:700; font-size:0.8em; }
+.warn-badge { color:#F39C12; font-weight:700; font-size:0.8em; }
+@media(max-width:680px){
+  .split-box{ grid-template-columns:1fr; }
+  .data-plane-pills{ flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 02
+  </div>
+  <h1>🔶 Module 02 — Amazon EKS Fundamentals</h1>
+  <p>What EKS manages for you · control plane vs data plane · managed node groups · Fargate · the two APIs · permissions review.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">What is Amazon EKS</a></li>
+      <li><a href="#topic-2">EKS control plane</a></li>
+      <li><a href="#topic-3">EKS data plane options</a></li>
+      <li><a href="#topic-4">Managed node groups</a></li>
+      <li><a href="#topic-5">AWS Fargate &amp; Fargate profiles</a></li>
+      <li><a href="#topic-6">Fargate vs node groups — when to use each</a></li>
+      <li><a href="#topic-7">Two APIs: Kubernetes API vs EKS API</a></li>
+      <li><a href="#topic-8">Permissions &amp; access review</a></li>
+      <li><a href="#topic-9">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — What is Amazon EKS                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> What is Amazon EKS</h2>
+    <p class="lede">
+      Amazon EKS is a <strong>managed Kubernetes service</strong>. AWS runs the control plane for you — you supply the worker nodes (EC2 or Fargate). The control plane is built on <strong>Amazon EKS Distro</strong>, the same Kubernetes distribution AWS uses for its own internal workloads, and is patched, scaled, and kept highly available automatically.
+    </p>
+
+    <!-- Animation: EKS component overview -->
+    <div class="anim-player" data-anim-id="eks-intro">
+      <div class="anim-title">Animation · EKS: what each component does</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-eks-intro" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is Amazon EKS in one sentence?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EKS</strong> is a managed Kubernetes service that creates and operates the Kubernetes <em>control plane</em> on your behalf, so you only manage your own worker nodes (data plane).</div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is Amazon EKS Distro?</div>
+          <div class="footer"><span class="tag">EKS Distro</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>EKS Distro</strong> is the Kubernetes distribution that powers EKS clusters. It is open-source, security-patched, and the same distribution AWS runs internally. You can also run it on-premises.</div>
+          <div class="footer"><span class="tag">upstream K8s</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the four pillars of the EKS component set?</div>
+          <div class="footer"><span class="tag">components</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Amazon EKS</strong> — creates K8s clusters (EKS Distro)<br>
+            2. <strong>AWS Fargate</strong> — serverless container nodes<br>
+            3. <strong>Amazon EC2</strong> — traditional nodes for your cluster<br>
+            4. <strong>EKS Dashboard (console)</strong> — view and explore running K8s apps
+          </div>
+          <div class="footer"><span class="tag">pillars</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does "managed" actually mean in "managed Kubernetes"?</div>
+          <div class="footer"><span class="tag">managed</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">AWS handles <strong>control plane provisioning, scaling, patching, and high availability</strong>. You do not SSH into control plane nodes, you do not run etcd backups, you do not manage API server certificates. You just create the cluster; AWS does the rest for the control plane.</div>
+          <div class="footer"><span class="tag">shared responsibility</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — EKS Control Plane                         -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> EKS control plane</h2>
+    <p class="lede">
+      The control plane lives in an <strong>AWS-managed account</strong>, completely separate from your AWS account. It spans <strong>multiple Availability Zones</strong> and is monitored and automatically repaired. You get the API endpoint; AWS handles everything behind it — etcd, API server, scheduler, controller manager.
+    </p>
+
+    <!-- Animation: control plane architecture -->
+    <div class="anim-player" data-anim-id="control-plane">
+      <div class="anim-title">Animation · Inside the EKS control plane</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-control-plane" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>AWS manages (control plane)</h4>
+        <ul>
+          <li>kube-apiserver</li>
+          <li>etcd (cluster state store)</li>
+          <li>kube-scheduler</li>
+          <li>kube-controller-manager</li>
+          <li>Multi-AZ high availability</li>
+          <li>Auto-repair of unhealthy nodes</li>
+          <li>Certificate rotation</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>You manage (data plane)</h4>
+        <ul>
+          <li>Worker nodes (EC2 or Fargate)</li>
+          <li>kubelet on each node</li>
+          <li>kube-proxy on each node</li>
+          <li>Container runtime</li>
+          <li>Node OS patching (self-managed)</li>
+          <li>Application workloads</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Where does the EKS control plane run?</div>
+          <div class="footer"><span class="tag">infrastructure</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">In an <strong>AWS-managed AWS account</strong> — completely separate from your account. The control-plane EC2 instances are invisible to you. You access the cluster only via the <strong>API server endpoint</strong> that EKS exposes.</div>
+          <div class="footer"><span class="tag">isolation</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does EKS maintain high availability for the control plane?</div>
+          <div class="footer"><span class="tag">HA</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">EKS distributes control plane nodes across <strong>multiple Availability Zones</strong>. It continuously monitors health and <strong>automatically replaces</strong> unhealthy nodes. Etcd is also replicated across AZs. You never need to perform manual failover.</div>
+          <div class="footer"><span class="tag">multi-AZ</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Who manages etcd availability in an EKS cluster?</div>
+          <div class="footer"><span class="tag">etcd</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EKS</strong> manages etcd completely. You have no SSH access to etcd nodes and no responsibility for backups or replication. This is one of the key managed benefits — losing an etcd node does not require operator intervention.</div>
+          <div class="footer"><span class="tag">KC 2 answer</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the ENI injection and why does it matter?</div>
+          <div class="footer"><span class="tag">networking</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">EKS injects an <strong>Elastic Network Interface (ENI)</strong> into your VPC so the control plane can communicate with worker nodes. This means control plane → node traffic never leaves AWS's private backbone, and you control the VPC security groups around it.</div>
+          <div class="footer"><span class="tag">VPC integration</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the EKS pricing model look like?</div>
+          <div class="footer"><span class="tag">pricing</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">You pay a <strong>per-cluster hourly fee</strong> for the managed control plane (~$0.10/hr). Worker nodes are billed separately as standard EC2 or Fargate compute. There is no extra charge for multi-AZ control plane redundancy — that's included.</div>
+          <div class="footer"><span class="tag">cost</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Data plane options                        -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> EKS data plane options</h2>
+    <p class="lede">
+      EKS always manages the <strong>control plane</strong>. For the <strong>data plane</strong> (worker nodes), you choose one of three models: <em>self-managed nodes</em>, <em>managed node groups</em>, or <em>AWS Fargate</em>. Each trades operational control for automation at a different point.
+    </p>
+
+    <div class="data-plane-pills">
+      <div class="dp-pill">
+        <div class="label">OPTION 1</div>
+        <div class="title">Self-managed nodes</div>
+        <div class="sub">You launch EC2 instances, register them, patch them, and replace them — full control, full responsibility.</div>
+      </div>
+      <div class="dp-pill">
+        <div class="label">OPTION 2</div>
+        <div class="title">Managed node groups</div>
+        <div class="sub">EKS provisions, manages, updates, and scales nodes using Auto Scaling Groups. You still choose instance types.</div>
+      </div>
+      <div class="dp-pill">
+        <div class="label">OPTION 3</div>
+        <div class="title">AWS Fargate</div>
+        <div class="sub">No nodes to manage at all. Each Pod gets its own micro-VM. Fully serverless.</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the key difference between self-managed nodes and managed node groups?</div>
+          <div class="footer"><span class="tag">comparison</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Self-managed:</strong> you launch, register, patch, and replace EC2 instances manually (or via your own automation). <strong>Managed node groups:</strong> EKS handles provisioning, joining nodes to the cluster, OS patching, rolling upgrades, and scaling — all via the EKS API or console.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which data plane option gives you zero node management?</div>
+          <div class="footer"><span class="tag">serverless</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS Fargate</strong>. You never see or manage worker nodes. AWS provisions an isolated micro-VM for each Pod automatically. You only define Fargate profiles to tell EKS which Pods should run on Fargate.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — Managed node groups                       -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> Managed node groups</h2>
+    <p class="lede">
+      Managed node groups let EKS handle the heavy lifting of node lifecycle while still giving you control over instance types, sizes, and scaling policies. Under the hood, EKS uses an <strong>Auto Scaling Group</strong> and performs rolling updates that respect Pod Disruption Budgets.
+    </p>
+
+    <!-- Animation: rolling node group update -->
+    <div class="anim-player" data-anim-id="mng-update">
+      <div class="anim-title">Animation · Managed node group rolling update</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-mng-update" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does a managed node group help you with?</div>
+          <div class="footer"><span class="tag">MNG benefits</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>5 things MNG manages for you:</strong><br>
+            1. <em>Provisioning</em> — launches EC2 in an ASG<br>
+            2. <em>Managing</em> — joins nodes to the cluster<br>
+            3. <em>Updating</em> — rolling AMI/K8s version upgrades<br>
+            4. <em>Scaling</em> — min/max/desired count controls<br>
+            5. <em>eksctl support</em> — first-class CLI integration
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does EKS update a managed node group without downtime?</div>
+          <div class="footer"><span class="tag">rolling upgrade</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">EKS performs a <strong>rolling update</strong>: it adds new nodes (new AMI/version), then <strong>cordons and drains</strong> old nodes one at a time (respecting PodDisruptionBudgets), then terminates the old nodes. Workloads are always available during the upgrade.</div>
+          <div class="footer"><span class="tag">cordon / drain</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What CloudWatch event tells you a managed node group ran out of EC2 capacity?</div>
+          <div class="footer"><span class="tag">monitoring</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The event reason <code>InstanceLimitExceeded</code>. EKS surfaces node group health events in the EKS console and via the <code>DescribeNodegroup</code> API. You should also set CloudWatch alarms on the underlying Auto Scaling Group metrics.</div>
+          <div class="footer"><span class="tag">CloudWatch</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What tool provides first-class CLI support for managed node groups?</div>
+          <div class="footer"><span class="tag">tooling</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>eksctl</code> — the official CLI for EKS. With a single YAML config file, <code>eksctl create cluster</code> provisions the cluster and managed node group. You can also <code>eksctl upgrade nodegroup</code> to trigger a managed rolling update.</div>
+          <div class="footer"><span class="tag">eksctl</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — AWS Fargate & Fargate profiles            -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> AWS Fargate &amp; Fargate profiles</h2>
+    <p class="lede">
+      With Fargate, there are <strong>no nodes to provision or manage</strong>. Each Pod gets its own isolated micro-VM, sized exactly to its CPU and memory request. You define <strong>Fargate profiles</strong> (namespace + labels) to tell EKS which Pods should run on Fargate vs. EC2.
+    </p>
+
+    <!-- Animation: Fargate profile pod scheduling -->
+    <div class="anim-player" data-anim-id="fargate-schedule">
+      <div class="anim-title">Animation · How Fargate profiles route Pods</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-fargate-schedule" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the five Fargate properties the course lists?</div>
+          <div class="footer"><span class="tag">Fargate props</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Native</strong> — first-class EKS integration<br>
+            <strong>Rightsized</strong> — compute matches Pod CPU/memory request<br>
+            <strong>Fast and simple</strong> — no node bootstrapping<br>
+            <strong>Transparent</strong> — Pods look like K8s Pods; no special code<br>
+            <strong>Optimized</strong> — no over-provisioning; pay only for what Pod requests
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is a Fargate profile and what fields does it contain?</div>
+          <div class="footer"><span class="tag">profile fields</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            A Fargate profile tells EKS which Pods to schedule on Fargate.<br>
+            <strong>Fields:</strong><br>
+            • <code>fargateProfileName</code><br>
+            • <code>clusterName</code><br>
+            • <code>podExecutionRoleArn</code> — IAM role used by the Fargate runtime<br>
+            • <code>subnets</code> — private subnets only<br>
+            • <code>selectors</code> → <code>namespace</code> + optional <code>labels</code>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What subnet type is required for Fargate profiles?</div>
+          <div class="footer"><span class="tag">networking</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Private subnets only.</strong> Fargate Pods cannot run in public subnets — this is a hard requirement. This is also one reason you would choose EC2 node groups instead of Fargate if you need Pods in public subnets.</div>
+          <div class="footer"><span class="tag">subnet constraint</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does Fargate decide whether to schedule a Pod?</div>
+          <div class="footer"><span class="tag">scheduling logic</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When a Pod is created, EKS checks it against <em>all</em> Fargate profiles in the cluster. If the Pod's <strong>namespace</strong> and any specified <strong>labels</strong> match a profile's selector, it is scheduled on Fargate. If no profile matches, EKS schedules it on an EC2 node (if any exist).</div>
+          <div class="footer"><span class="tag">selector matching</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What IAM role does a Fargate profile need and why?</div>
+          <div class="footer"><span class="tag">IAM</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>Pod Execution Role</strong> — an IAM role that the Fargate infrastructure uses to pull images from ECR and write logs to CloudWatch. It is attached to the profile, not the Pod itself. Without it, the Fargate micro-VM cannot authenticate to AWS services.</div>
+          <div class="footer"><span class="tag">PodExecutionRoleArn</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Fargate vs Node Groups                    -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Fargate vs node groups — decision guide</h2>
+    <p class="lede">
+      Neither option is universally better. The course gives you eight concrete signals — four pointing to Fargate, four pointing to node groups. Know these for the exam and for real architecture decisions.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Use AWS Fargate when…</th>
+          <th>Use node groups when…</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>You want to <strong>reduce scheduling complexity</strong> (no affinity/taints to tune)</td>
+          <td>You need <strong>privileged Pods</strong> (Fargate does not allow privileged containers)</td>
+        </tr>
+        <tr>
+          <td>You need <strong>compliance / security isolation</strong> — 1 Pod per micro-VM</td>
+          <td>You must <strong>deploy nodes in public subnets</strong></td>
+        </tr>
+        <tr>
+          <td>You want to <strong>reduce variable cost</strong> (no idle node capacity)</td>
+          <td>You need fine-grained control over <strong>workload disruption</strong> during upgrades</td>
+        </tr>
+        <tr>
+          <td>You want to <strong>eliminate infrastructure management</strong></td>
+          <td>You need <strong>faster Pod start times</strong> (EC2 nodes are pre-warmed)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Can Fargate run privileged containers?</div>
+          <div class="footer"><span class="tag">Fargate limits</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>No.</strong> Fargate does not support privileged containers. If your Pod needs <code>privileged: true</code> in its security context (e.g., for DaemonSets like FluentD or host-network Pods), you must use EC2 node groups.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why does Fargate improve security compliance?</div>
+          <div class="footer"><span class="tag">security</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Each Fargate Pod runs in its <strong>own isolated micro-VM</strong> (1:1 Pod-to-VM ratio). Pods cannot share the kernel or process namespace with other workloads. This eliminates container-escape concerns that exist when many Pods share an EC2 node.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why do node groups offer faster Pod start times than Fargate?</div>
+          <div class="footer"><span class="tag">performance</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">On EC2 node groups, nodes are already running — a new Pod just needs to be scheduled and the container image pulled. On Fargate, EKS must <strong>provision a new micro-VM</strong> for each Pod, which adds cold-start latency (typically 30–60 seconds).</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — Two APIs                                  -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Two APIs: Kubernetes API vs Amazon EKS API</h2>
+    <p class="lede">
+      EKS exposes <strong>two distinct APIs</strong> for two distinct jobs. The <strong>Kubernetes API</strong> manages resources <em>inside</em> a cluster. The <strong>Amazon EKS API</strong> manages the <em>infrastructure</em> of a cluster. Confusing them is the most common EKS operations mistake.
+    </p>
+
+    <!-- Animation: two APIs -->
+    <div class="anim-player" data-anim-id="two-apis">
+      <div class="anim-title">Animation · kubectl vs eksctl — two different APIs</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-two-apis" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Kubernetes API</h4>
+        <ul>
+          <li>Pods, Deployments, Services</li>
+          <li>Namespaces</li>
+          <li>Labels and annotations</li>
+          <li>ConfigMaps &amp; Secrets</li>
+          <li>Custom Resources (CRDs)</li>
+          <li><strong>Tool:</strong> <code>kubectl</code></li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Amazon EKS API</h4>
+        <ul>
+          <li>Clusters (create / delete / upgrade)</li>
+          <li>Managed node groups</li>
+          <li>Fargate profiles</li>
+          <li>Add-ons (CoreDNS, VPC CNI, kube-proxy)</li>
+          <li>Identity provider config (OIDC)</li>
+          <li>Resource tagging</li>
+          <li><strong>Tools:</strong> <code>eksctl</code>, AWS Console, AWS CLI</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You want to deploy a new version of your app. Which API?</div>
+          <div class="footer"><span class="tag">API choice</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Kubernetes API</strong> via <code>kubectl</code>. You update the Deployment resource inside the cluster. The EKS API is not involved in workload changes — it only manages the cluster infrastructure.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You want to add a new node group to your cluster. Which API?</div>
+          <div class="footer"><span class="tag">API choice</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon EKS API</strong> via <code>eksctl create nodegroup</code> or the AWS Console. Node groups are EKS infrastructure constructs, not Kubernetes objects. You'd never create a node group with <code>kubectl</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are EKS "add-ons" and which API manages them?</div>
+          <div class="footer"><span class="tag">add-ons</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Add-ons</strong> are managed operational components: CoreDNS, kube-proxy, Amazon VPC CNI, and EBS CSI driver. The <strong>EKS API</strong> manages their installation and version upgrades — you no longer need to maintain them manually with <code>kubectl apply</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does the EKS API use to authenticate users to the K8s API?</div>
+          <div class="footer"><span class="tag">auth</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">EKS uses <strong>IAM for authentication</strong> (who you are) and maps IAM identities to Kubernetes RBAC roles for <strong>authorization</strong> (what you can do). The <code>aws-auth</code> ConfigMap (or newer access entries) defines those mappings. The Identity Provider Config (OIDC) enables workload identity federation.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — Permissions activity                      -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Permissions &amp; access review</h2>
+    <p class="lede">
+      The course activity maps four <em>actions</em> to the <em>configuration</em> that enables them. Knowing which mechanism controls which action is essential for both the exam and for debugging "I can't connect to my cluster" problems.
+    </p>
+
+    <table class="decision-table">
+      <thead>
+        <tr><th>Action</th><th>Mechanism</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Enforce how applications run in a cluster</td>
+          <td><strong>Admission Controller</strong></td>
+          <td>Intercepts API requests; can mutate or reject objects (e.g. PodSecurityAdmission)</td>
+        </tr>
+        <tr>
+          <td>Add annotations automatically to API objects</td>
+          <td><strong>MutatingAdmissionWebhook</strong></td>
+          <td>A special admission controller that calls an external webhook to mutate objects on creation</td>
+        </tr>
+        <tr>
+          <td>Connect to the Kubernetes API server</td>
+          <td><strong>kubeconfig file</strong></td>
+          <td>Contains cluster endpoint, CA cert, and credentials. <code>aws eks update-kubeconfig</code> creates this.</td>
+        </tr>
+        <tr>
+          <td>Add a node to the cluster</td>
+          <td><strong>IAM role + kubeconfig</strong></td>
+          <td>Node needs an IAM role (for AWS API calls) AND a kubeconfig or bootstrap token to join the K8s cluster</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is an Admission Controller?</div>
+          <div class="footer"><span class="tag">admission</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A plugin in the Kubernetes API server that <strong>intercepts requests after authentication/authorization</strong> but before the object is persisted. It can <strong>validate</strong> (allow/deny) or <strong>mutate</strong> (modify) the object. Example: enforcing that all Pods set resource limits.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What makes a MutatingAdmissionWebhook different from a regular admission controller?</div>
+          <div class="footer"><span class="tag">webhook</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">A <strong>MutatingAdmissionWebhook</strong> calls an <em>external HTTP endpoint</em> (your webhook server) to modify objects at admission time. This allows injecting sidecars, adding annotations, or patching fields without modifying the original manifests — used by Istio, Linkerd, and tools like <code>kyverno</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How do you generate the kubeconfig for a new EKS cluster?</div>
+          <div class="footer"><span class="tag">kubeconfig</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>aws eks update-kubeconfig --region &lt;region&gt; --name &lt;cluster-name&gt;</code><br>This writes a kubeconfig entry with the cluster endpoint and CA data, using your current AWS IAM credentials to authenticate via the <code>aws eks get-token</code> exec credential plugin.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why does adding a node to an EKS cluster require both an IAM role AND kubeconfig?</div>
+          <div class="footer"><span class="tag">node join</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The <strong>IAM role</strong> allows the node (kubelet) to make AWS API calls — pull images from ECR, write logs to CloudWatch, describe itself. The <strong>kubeconfig / bootstrap token</strong> allows the kubelet to authenticate to the <em>Kubernetes</em> API server and register as a node object.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 9 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-9">
+    <h2><span class="topic-num">TOPIC 9</span> Knowledge checks (from the course)</h2>
+    <p class="lede">These are the official course knowledge-check questions, formatted as flashcards. Try to answer before flipping.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 1 — Which component is always managed by Amazon EKS?<br><em>A. Control plane &nbsp; B. Data plane &nbsp; C. Container &nbsp; D. Service</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ A — Kubernetes control plane</span><br><br>EKS always manages the control plane. The data plane (B) is your responsibility (managed node groups, self-managed, or Fargate). Containers (C) and Services (D) are K8s objects you manage.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — Who is responsible for managing the availability of etcd when using EKS?<br><em>A. Amazon EKS &nbsp; B. Kubernetes &nbsp; C. You</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ A — Amazon EKS</span><br><br>etcd is part of the control plane, which EKS fully manages. It runs replicated across AZs and is automatically repaired. You have no etcd access and no etcd backup responsibility.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which EKS data plane option requires private subnets only?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS Fargate.</strong> Fargate Pods must run in private subnets — no public subnet support. EC2 managed node groups can run in either public or private subnets.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">You need to create a Fargate profile. Which field in the profile JSON specifies the IAM permissions for the Fargate runtime?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>podExecutionRoleArn</code> — this IAM role is used by the Fargate infrastructure (not your application code) to pull images from ECR, push logs to CloudWatch, and interact with the VPC.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which tool do you use to manage Kubernetes objects (Pods, Deployments) inside an EKS cluster?</div>
+          <div class="footer"><span class="tag">exam trap</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>kubectl</code> — it talks to the <strong>Kubernetes API</strong>. <code>eksctl</code> and the AWS CLI talk to the <strong>Amazon EKS API</strong> for infrastructure management (clusters, node groups, Fargate profiles, add-ons).</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 02 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r=8) {
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts={}) {
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function line(svg, x1,y1,x2,y2, color='#475569', dash='') {
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':1.5,
+    'stroke-dasharray':dash}));
+}
+function arrow(svg, x1,y1,x2,y2, color='#38bdf8') {
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':`url(#${id})`}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: EKS Intro ───────────────────────────
+window.ANIMATIONS['eks-intro'] = [
+  {
+    narration: 'Amazon EKS is built from four cooperating components. Let\'s place them one by one.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      box(svg,50,60,600,100,'#11151c','#1f2738',10);
+      text(svg,350,50,'Amazon EKS — four components',{size:13,weight:'700',color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Amazon EKS itself creates and operates Kubernetes clusters, powered by EKS Distro — the same distribution AWS uses internally.',
+    apply(svg){
+      box(svg,70,70,140,72,'#0c2a3a','#38bdf8',8);
+      text(svg,140,100,'Amazon EKS',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,140,116,'Create K8s clusters',{size:9.5,color:'#94a3b8'});
+      text(svg,140,130,'(EKS Distro)',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'AWS Fargate provides serverless compute — pods run in micro-VMs with no nodes for you to manage.',
+    apply(svg){
+      box(svg,230,70,140,72,'#2a1a0a','#F39C12',8);
+      text(svg,300,100,'AWS Fargate',{size:11,weight:'700',color:'#F39C12'});
+      text(svg,300,116,'Serverless containers',{size:9.5,color:'#94a3b8'});
+      text(svg,300,130,'No node management',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Amazon EC2 provides traditional worker nodes — you pick instance types, and EKS schedules pods onto them.',
+    apply(svg){
+      box(svg,390,70,140,72,'#0a1a0a','#27AE60',8);
+      text(svg,460,100,'Amazon EC2',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,460,116,'Worker nodes',{size:9.5,color:'#94a3b8'});
+      text(svg,460,130,'You choose instance types',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'The EKS Dashboard in the AWS Console gives you a visual view into your running Kubernetes workloads — pods, deployments, services — without needing kubectl.',
+    apply(svg){
+      box(svg,550,70,90,72,'#1a0a2a','#818cf8',8);
+      text(svg,595,100,'Dashboard',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,595,116,'View &',{size:9.5,color:'#94a3b8'});
+      text(svg,595,130,'explore apps',{size:9.5,color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 2: Control plane ──────────────────────
+window.ANIMATIONS['control-plane'] = [
+  {
+    narration: 'The EKS architecture separates the control plane (AWS account) from the data plane (your account).',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      // AWS account box
+      box(svg,30,20,300,200,'#0c1018','#38bdf8',10);
+      text(svg,180,40,'AWS-managed account',{size:10,weight:'700',color:'#38bdf8'});
+      // Your account box
+      box(svg,370,20,300,200,'#0c1018','#818cf8',10);
+      text(svg,520,40,'Your AWS account',{size:10,weight:'700',color:'#818cf8'});
+    }
+  },
+  {
+    narration: 'Inside the AWS-managed account: the API server — the front door to your cluster. All kubectl commands hit this endpoint.',
+    apply(svg){
+      box(svg,50,55,120,40,'#0c2a3a','#38bdf8',6);
+      text(svg,110,70,'kube-apiserver',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,110,84,'HTTPS endpoint',{size:8.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'etcd is the cluster\'s brain — it stores all cluster state. EKS replicates it across AZs and manages it completely.',
+    apply(svg){
+      box(svg,50,110,120,40,'#0c2a3a','#38bdf8',6);
+      text(svg,110,125,'etcd',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,110,139,'Cluster state store',{size:8.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'The scheduler and controller manager complete the control plane. EKS runs 2+ instances of each across multiple AZs.',
+    apply(svg){
+      box(svg,185,55,120,40,'#0c2a3a','#38bdf8',6);
+      text(svg,245,70,'scheduler',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,245,84,'+ controller-mgr',{size:8.5,color:'#94a3b8'});
+      // Multi-AZ label
+      box(svg,50,165,260,40,'#0a1020','#1f2738',6);
+      text(svg,180,183,'Multi-AZ · Auto-repaired · AWS-managed',{size:9,color:'#475569'});
+    }
+  },
+  {
+    narration: 'In YOUR account: worker nodes (EC2 or Fargate) run your application Pods. An ENI is injected so the control plane can communicate with nodes privately.',
+    apply(svg){
+      // Worker nodes
+      box(svg,390,60,120,55,'#0a1a0a','#27AE60',6);
+      text(svg,450,82,'Worker Node',{size:10,weight:'700',color:'#27AE60'});
+      text(svg,450,96,'kubelet + kube-proxy',{size:8.5,color:'#94a3b8'});
+      // Pod
+      box(svg,520,60,130,55,'#1a0a2a','#818cf8',6);
+      text(svg,585,82,'Your Pods',{size:10,weight:'700',color:'#818cf8'});
+      text(svg,585,96,'App workloads',{size:8.5,color:'#94a3b8'});
+      // ENI
+      box(svg,390,130,260,35,'#1a1a0a','#F39C12',6);
+      text(svg,520,152,'ENI (injected into your VPC)',{size:9,color:'#F39C12'});
+      // arrow from control plane to ENI
+      arrow(svg,310,185,388,148,'#F39C12');
+    }
+  }
+];
+
+// ── ANIMATION 3: MNG rolling update ─────────────────
+window.ANIMATIONS['mng-update'] = [
+  {
+    narration: 'Start: three nodes running Kubernetes 1.28 with your Pods scheduled across them.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'Managed Node Group — rolling update',{size:12,weight:'700',color:'#94a3b8'});
+      for(let i=0;i<3;i++){
+        box(svg,60+i*210,40,180,80,'#0a1a0a','#27AE60',8);
+        text(svg,150+i*210,65,`Node ${i+1}`,{size:11,weight:'700',color:'#27AE60'});
+        text(svg,150+i*210,82,'K8s 1.28',{size:10,color:'#94a3b8'});
+        box(svg,80+i*210,100,60,12,'#1a3a1a','#27AE60',3);
+        text(svg,110+i*210,109,'Pod',{size:8,color:'#86efac'});
+        box(svg,160+i*210,100,60,12,'#1a3a1a','#27AE60',3);
+        text(svg,190+i*210,109,'Pod',{size:8,color:'#86efac'});
+      }
+    }
+  },
+  {
+    narration: 'Step 1: EKS adds a new node running 1.29 alongside the existing nodes.',
+    apply(svg){
+      box(svg,540,40,130,80,'#0c2a3a','#38bdf8',8);
+      text(svg,605,65,'New Node',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,605,82,'K8s 1.29',{size:10,color:'#94a3b8'});
+      text(svg,605,100,'✦ NEW',{size:9,color:'#38bdf8'});
+    }
+  },
+  {
+    narration: 'Step 2: EKS cordons Node 1 (no new Pods), then drains it (evicts existing Pods to other nodes).',
+    apply(svg){
+      box(svg,60,40,180,80,'#2a0a0a','#E74C3C',8);
+      text(svg,150,65,'Node 1',{size:11,weight:'700',color:'#E74C3C'});
+      text(svg,150,82,'CORDONED',{size:10,color:'#E74C3C'});
+      text(svg,150,98,'draining…',{size:9,color:'#94a3b8'});
+      // Pods migrate to node 2
+      box(svg,370,100,60,12,'#1a3a1a','#27AE60',3);
+      text(svg,400,109,'Pod',{size:8,color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Step 3: Old Node 1 is terminated. The new 1.29 node is healthy. Process repeats for Nodes 2 and 3.',
+    apply(svg){
+      box(svg,60,40,180,80,'#1a1a1a','#475569',8);
+      text(svg,150,65,'Node 1',{size:11,weight:'700',color:'#475569'});
+      text(svg,150,82,'TERMINATED',{size:10,color:'#475569'});
+      box(svg,540,40,130,80,'#0a1a0a','#27AE60',8);
+      text(svg,605,65,'New Node',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,605,82,'K8s 1.29 ✓',{size:10,color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Result: zero-downtime rolling upgrade. All nodes now on 1.29. Pods were never without a home.',
+    apply(svg){
+      for(let i=0;i<3;i++){
+        box(svg,60+i*210,40,180,80,'#0a1a0a','#27AE60',8);
+        text(svg,150+i*210,65,`Node ${i+1}`,{size:11,weight:'700',color:'#27AE60'});
+        text(svg,150+i*210,82,'K8s 1.29 ✓',{size:10,color:'#86efac'});
+      }
+      box(svg,540,40,130,80,'#0a1a0a','#27AE60',8);
+      text(svg,605,65,'Node 4',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,605,82,'K8s 1.29 ✓',{size:10,color:'#86efac'});
+      text(svg,350,155,'All nodes upgraded — zero downtime',{size:12,weight:'700',color:'#27AE60'});
+    }
+  }
+];
+
+// ── ANIMATION 4: Fargate profile scheduling ──────────
+window.ANIMATIONS['fargate-schedule'] = [
+  {
+    narration: 'A Pod is created in the "prod" namespace with label stack=frontend.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,20,'Fargate profile — pod scheduling',{size:12,weight:'700',color:'#94a3b8'});
+      box(svg,80,40,200,80,'#1a0a2a','#818cf8',8);
+      text(svg,180,62,'New Pod',{size:12,weight:'700',color:'#818cf8'});
+      text(svg,180,78,'namespace: prod',{size:9.5,color:'#94a3b8'});
+      text(svg,180,93,'labels: stack=frontend',{size:9.5,color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'EKS checks the Pod against all Fargate profiles in the cluster.',
+    apply(svg){
+      box(svg,330,40,240,80,'#0c2a3a','#38bdf8',8);
+      text(svg,450,62,'Fargate Profile: myprofile',{size:10,weight:'700',color:'#38bdf8'});
+      text(svg,450,78,'selector: namespace=prod',{size:9,color:'#94a3b8'});
+      text(svg,450,93,'         labels: stack=frontend',{size:9,color:'#94a3b8'});
+      arrow(svg,282,80,328,80,'#38bdf8');
+    }
+  },
+  {
+    narration: 'The pod\'s namespace (prod) and label (stack=frontend) match the profile selector — it\'s a Fargate Pod.',
+    apply(svg){
+      box(svg,330,40,240,80,'#0a2a0a','#27AE60',8);
+      text(svg,450,75,'✓ MATCH',{size:14,weight:'700',color:'#27AE60'});
+    }
+  },
+  {
+    narration: 'EKS provisions a dedicated micro-VM in a private subnet. The Pod is scheduled onto it — no EC2 node involved.',
+    apply(svg){
+      box(svg,330,140,240,60,'#0a1a0a','#27AE60',8);
+      text(svg,450,164,'Fargate micro-VM',{size:11,weight:'700',color:'#27AE60'});
+      text(svg,450,180,'private subnet · isolated',{size:9.5,color:'#94a3b8'});
+      arrow(svg,450,122,450,138,'#27AE60');
+    }
+  },
+  {
+    narration: 'If no profile matches, the Pod is scheduled on an EC2 node group — or remains Pending if no nodes exist.',
+    apply(svg){
+      box(svg,80,140,200,60,'#1a1a1a','#475569',8);
+      text(svg,180,164,'No match →',{size:11,color:'#475569'});
+      text(svg,180,180,'EC2 node (if available)',{size:9.5,color:'#64748b'});
+      arrow(svg,180,122,180,138,'#475569');
+    }
+  }
+];
+
+// ── ANIMATION 5: Two APIs ────────────────────────────
+window.ANIMATIONS['two-apis'] = [
+  {
+    narration: 'EKS exposes two completely separate APIs — one for what runs inside your cluster, one for the cluster infrastructure itself.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg,350,22,'Two APIs — never confuse them',{size:13,weight:'700',color:'#94a3b8'});
+      line(svg,350,35,350,195,'#1f2738');
+      text(svg,175,40,'Kubernetes API',{size:11,weight:'700',color:'#38bdf8'});
+      text(svg,525,40,'Amazon EKS API',{size:11,weight:'700',color:'#F39C12'});
+    }
+  },
+  {
+    narration: 'kubectl talks to the Kubernetes API. It manages objects inside the cluster: Pods, Deployments, Services, ConfigMaps.',
+    apply(svg){
+      box(svg,50,55,240,90,'#0c2a3a','#38bdf8',8);
+      text(svg,170,75,'kubectl',{size:12,weight:'700',color:'#38bdf8'});
+      text(svg,170,92,'→ Kubernetes API server',{size:9.5,color:'#94a3b8'});
+      text(svg,170,107,'Pods · Deployments · Services',{size:9,color:'#64748b'});
+      text(svg,170,120,'ConfigMaps · CRDs',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'eksctl, the AWS CLI, and the Console talk to the Amazon EKS API. It manages the cluster infrastructure: node groups, Fargate profiles, add-ons.',
+    apply(svg){
+      box(svg,410,55,240,90,'#2a1a0a','#F39C12',8);
+      text(svg,530,75,'eksctl / AWS CLI / Console',{size:10,weight:'700',color:'#F39C12'});
+      text(svg,530,92,'→ Amazon EKS API',{size:9.5,color:'#94a3b8'});
+      text(svg,530,107,'Clusters · Node groups · Fargate',{size:9,color:'#64748b'});
+      text(svg,530,120,'Add-ons · OIDC · Tags',{size:9,color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Both meet at the cluster. One changes what runs inside. The other changes the shape of the infrastructure.',
+    apply(svg){
+      box(svg,250,165,200,30,'#0a1020','#475569',6);
+      text(svg,350,184,'EKS Cluster',{size:11,weight:'700',color:'#94a3b8'});
+      arrow(svg,170,147,300,163,'#38bdf8');
+      arrow(svg,530,147,400,163,'#F39C12');
+    }
+  }
+];
+</script>
+</body>
+</html>

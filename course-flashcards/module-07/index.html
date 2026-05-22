@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 07 — Configuring Observability in Amazon EKS · EKS Course Flashcards</title>
+<meta name="description" content="Animated flashcards for Module 07: observability pillars, Prometheus, CloudWatch Container Insights, Fluent Bit log routing, ADOT X-Ray tracing.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234A90E2'/><stop offset='1' stop-color='%239B59B6'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text x='50' y='66' text-anchor='middle' font-family='system-ui,sans-serif' font-size='46' font-weight='800' fill='white'>K8</text></svg>">
+<link rel="stylesheet" href="../shared.css">
+<style>
+/* ── Module-07 extras ── */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.pillar-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+}
+.pillar-card .pillar-icon { font-size: 1.6em; margin-bottom: 8px; }
+.pillar-card h4 { margin: 0 0 6px; font-size: 1em; font-weight: 700; }
+.pillar-card p  { margin: 0; font-size: 0.85em; color: var(--muted); line-height: 1.55; }
+.pillar-card.metrics { border-top: 3px solid #38bdf8; }
+.pillar-card.metrics h4 { color: #38bdf8; }
+.pillar-card.logs    { border-top: 3px solid #fbbf24; }
+.pillar-card.logs h4 { color: #fbbf24; }
+.pillar-card.traces  { border-top: 3px solid #a78bfa; }
+.pillar-card.traces h4 { color: #a78bfa; }
+
+.tool-row {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 22px;
+}
+.tool-pill {
+  background: var(--panel);
+  border: 1px solid var(--panel-light);
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex: 1; min-width: 140px;
+}
+.tool-pill .tl { font-size: 0.7em; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
+.tool-pill .tn { font-size: 0.95em; font-weight: 700; color: var(--accent); }
+.tool-pill .td { font-size: 0.82em; color: var(--muted); margin-top: 3px; }
+
+.obs-table { width: 100%; border-collapse: collapse; font-size: 0.88em; margin-bottom: 24px; }
+.obs-table th {
+  background: var(--panel-light); color: var(--accent);
+  padding: 8px 12px; text-align: left; font-size: 0.8em; letter-spacing: .05em;
+  border: 1px solid #2a3347;
+}
+.obs-table td {
+  padding: 8px 12px; border: 1px solid #2a3347; color: var(--muted); vertical-align: top;
+  line-height: 1.5;
+}
+.obs-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+.split-box {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+}
+.split-box .box {
+  background: var(--panel); border: 1px solid var(--panel-light);
+  border-radius: 10px; padding: 18px 20px;
+}
+.split-box .box h4 { margin: 0 0 10px; font-size: 0.95em; color: var(--accent); }
+.split-box .box ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.88em; line-height: 1.7; }
+
+.good-badge { color: #27AE60; font-weight: 700; font-size: 0.8em; }
+.warn-badge { color: #F39C12; font-weight: 700; font-size: 0.8em; }
+
+@media(max-width:720px){
+  .pillar-grid { grid-template-columns: 1fr; }
+  .split-box   { grid-template-columns: 1fr; }
+  .tool-row    { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-brand" title="Kubernetes Labs">K8</a>
+  <a href="../../lab-1-deploying-pods/index.html" class="rail-link" title="Dashboard">🏠</a>
+  <a href="../../lab-1-deploying-pods/animated-lab.html" class="rail-link" title="Lab 1: Core Concepts">📚</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-production.html" class="rail-link" title="Production Scenarios">🚨</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-aws.html" class="rail-link" title="AWS EKS Lab">☁️</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../../lab-1-deploying-pods/animated-lab-eks-fundamentals.html" class="rail-link" title="EKS Fundamentals Lab">🔶</a>
+  <a href="../index.html" class="rail-link active" title="Course Flashcards">🃏</a>
+</aside>
+
+<header class="page-header">
+  <div class="breadcrumb">
+    <a href="../index.html">EKS Course Flashcards</a> &nbsp;›&nbsp; Module 07
+  </div>
+  <h1>👁️ Module 07 — Configuring Observability in Amazon EKS</h1>
+  <p>3 pillars · Prometheus + Grafana · CloudWatch Container Insights · Fluent Bit log routing · ADOT + X-Ray tracing.</p>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>What's in this module</h3>
+    <ol>
+      <li><a href="#topic-1">Observability definition &amp; the 3 pillars</a></li>
+      <li><a href="#topic-2">Why containers make observability hard</a></li>
+      <li><a href="#topic-3">Metrics: Prometheus + Grafana</a></li>
+      <li><a href="#topic-4">CloudWatch Container Insights</a></li>
+      <li><a href="#topic-5">Managing logs: control plane &amp; container logs</a></li>
+      <li><a href="#topic-6">Log routing: Fluent Bit, OpenSearch, Fargate</a></li>
+      <li><a href="#topic-7">Application tracing: ADOT + X-Ray</a></li>
+      <li><a href="#topic-8">Knowledge checks</a></li>
+    </ol>
+  </div>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 1 — Observability definition & 3 pillars      -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-1">
+    <h2><span class="topic-num">TOPIC 1</span> Observability definition &amp; the 3 pillars</h2>
+    <p class="lede">
+      <strong>Observability:</strong> "A measure of how well we can understand a system from the work it does, and how to make it better." In Kubernetes, observability rests on three pillars — <em>metrics</em>, <em>logs</em>, and <em>traces</em> — each answering a different question about your system's health and behavior.
+    </p>
+
+    <!-- Animation: Three pillars -->
+    <div class="anim-player" data-anim-id="three-pillars">
+      <div class="anim-title">Animation · The 3 observability pillars</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-three-pillars" viewBox="0 0 700 230" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="pillar-grid">
+      <div class="pillar-card metrics">
+        <div class="pillar-icon">📊</div>
+        <h4>Metrics</h4>
+        <p>Numerical measurements sampled over time. CPU=45%, memory=2.1 GB, req/s=200. Used for dashboards, alarms, and autoscaling.</p>
+      </div>
+      <div class="pillar-card logs">
+        <div class="pillar-icon">📋</div>
+        <h4>Logs</h4>
+        <p>Discrete timestamped events. "ERROR: connection refused to db:5432". Used for debugging specific failures after they occur.</p>
+      </div>
+      <div class="pillar-card traces">
+        <div class="pillar-icon">🔗</div>
+        <h4>Traces</h4>
+        <p>End-to-end request journeys across multiple services. Shows latency per hop: frontend → auth → DB. Used for root-cause analysis.</p>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the course definition of observability?</div>
+          <div class="footer"><span class="tag">definition</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">"A measure of how well we can understand a system from the work it does, and how to make it better." Observability is not just monitoring — it is the ability to ask arbitrary questions about system state and get answers.</div>
+          <div class="footer"><span class="tag">core concept</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name the 3 pillars of observability.</div>
+          <div class="footer"><span class="tag">pillars</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Metrics</strong> — numerical measurements over time (CPU, memory, request rates)<br>
+            2. <strong>Logs</strong> — discrete events (text output from containers and services)<br>
+            3. <strong>Traces</strong> — end-to-end request flow across multiple services
+          </div>
+          <div class="footer"><span class="tag">must memorize</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the five values of observability insight?</div>
+          <div class="footer"><span class="tag">business value</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Customer experience</strong> — know when users are impacted<br>
+            2. <strong>Performance and cost</strong> — optimise resource use<br>
+            3. <strong>Trends</strong> — detect slow degradation over time<br>
+            4. <strong>Troubleshooting</strong> — diagnose incidents faster<br>
+            5. <strong>Learning and improvement</strong> — understand system behaviour
+          </div>
+          <div class="footer"><span class="tag">value</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which pillar answers "what happened at 14:32:07 on pod web-abc"?</div>
+          <div class="footer"><span class="tag">pillar mapping</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Logs</strong> — logs are discrete timestamped events. You search logs to find the exact error message, stack trace, or state change at a specific moment in a specific container.</div>
+          <div class="footer"><span class="tag">logs</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Which pillar answers "which downstream service is causing slow checkout?"</div>
+          <div class="footer"><span class="tag">pillar mapping</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Traces</strong> — distributed tracing follows a single request across all services and records latency per segment. You can see that checkout calls payment-service which takes 800 ms, vs. 5 ms for everything else.</div>
+          <div class="footer"><span class="tag">traces</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 2 — Why containers make observability hard   -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-2">
+    <h2><span class="topic-num">TOPIC 2</span> Why containers make observability hard</h2>
+    <p class="lede">
+      Traditional monitoring was designed for long-lived servers. Containers break those assumptions in four important ways, each requiring a different observability strategy.
+    </p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name four reasons containers make observability harder than VMs.</div>
+          <div class="footer"><span class="tag">challenges</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Microservice complexity</strong> — many services interacting unpredictably<br>
+            2. <strong>Metric volume</strong> — hundreds of pods each emit many metrics<br>
+            3. <strong>Transient containers</strong> — container stops → evidence disappears<br>
+            4. <strong>OS is just one factor</strong> — container behaviour also shaped by orchestration, networking, sidecars
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why are transient containers a problem for log analysis?</div>
+          <div class="footer"><span class="tag">transient</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">When a container crashes and restarts, any logs stored <em>inside</em> the container are lost. You must use an external log forwarder (like <strong>Fluent Bit</strong>) to stream logs off-node to durable storage before the container terminates — otherwise the evidence disappears with it.</div>
+          <div class="footer"><span class="tag">Fluent Bit</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why doesn't traditional OS-level monitoring scale for microservices?</div>
+          <div class="footer"><span class="tag">scale</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Traditional monitoring watches a handful of servers. A microservice cluster may have <strong>hundreds of pods</strong>, each emitting CPU, memory, network, and custom application metrics. Polling each pod individually is impractical — you need a system (like <strong>Prometheus</strong>) designed to scrape thousands of endpoints at scale.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 3 — Metrics: Prometheus + Grafana             -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-3">
+    <h2><span class="topic-num">TOPIC 3</span> Metrics: Prometheus + Grafana</h2>
+    <p class="lede">
+      Prometheus is the de-facto metrics system for Kubernetes. It scrapes <code>/metrics</code> endpoints from pods and the control plane, stores time-series data, and answers queries via PromQL. Grafana visualises Prometheus data in dashboards.
+    </p>
+
+    <!-- Animation: Prometheus stack -->
+    <div class="anim-player" data-anim-id="prometheus-stack">
+      <div class="anim-title">Animation · Prometheus + Grafana metrics pipeline</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-prometheus-stack" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Prometheus metric format</h4>
+        <ul>
+          <li><code>metric_name{"tag"="value"} value</code></li>
+          <li>e.g. <code>http_requests_total{method="GET"} 1234</code></li>
+          <li>Plain text, exposed at <code>/metrics</code> endpoint</li>
+          <li>Prometheus scrapes on a configurable interval</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>Control plane metrics</h4>
+        <ul>
+          <li>Access via: <code>kubectl get --raw /metrics</code></li>
+          <li>Includes API server latency, etcd operations</li>
+          <li>Scheduler + controller-manager metrics available</li>
+          <li>Prometheus can scrape these same endpoints</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the Prometheus metrics text format?</div>
+          <div class="footer"><span class="tag">format</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><code>metric_name{"tag"="value"} value</code><br><br>Example: <code>cpu_usage{pod="web-abc",ns="prod"} 0.45</code><br><br>It is plain text served at an HTTP <code>/metrics</code> endpoint. Prometheus polls these endpoints on a schedule and stores the time-series data.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is PromQL?</div>
+          <div class="footer"><span class="tag">PromQL</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>PromQL</strong> (Prometheus Query Language) is the query language used to select, filter, and aggregate Prometheus time-series data. Examples: <code>rate(http_requests_total[5m])</code> for request rate, or <code>sum by (pod) (container_memory_usage_bytes)</code> for per-pod memory.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does Prometheus collect metrics from the Kubernetes control plane?</div>
+          <div class="footer"><span class="tag">control plane</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">The same way it scrapes pods: via an HTTP <code>/metrics</code> endpoint. You can access control plane metrics directly with <code>kubectl get --raw /metrics</code>. Prometheus is configured with a scrape job targeting the API server, scheduler, and controller-manager endpoints.</div>
+          <div class="footer"><span class="tag">kubectl raw</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What role does Grafana play alongside Prometheus?</div>
+          <div class="footer"><span class="tag">Grafana</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Grafana</strong> is a dashboarding tool that queries Prometheus (via PromQL) and renders time-series data as graphs, gauges, and heatmaps. Prometheus stores and queries data; Grafana visualises it. They are often deployed together in a cluster using the <em>kube-prometheus-stack</em> Helm chart.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does Prometheus discover which pods to scrape?</div>
+          <div class="footer"><span class="tag">service discovery</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Prometheus uses Kubernetes <strong>service discovery</strong> — it queries the K8s API to find pods, services, and endpoints. Pods annotated with <code>prometheus.io/scrape: "true"</code> are automatically included. <code>ServiceMonitor</code> CRDs (from the Prometheus Operator) provide a declarative way to configure scrape targets.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 4 — CloudWatch Container Insights             -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-4">
+    <h2><span class="topic-num">TOPIC 4</span> CloudWatch Container Insights</h2>
+    <p class="lede">
+      CloudWatch Container Insights is the AWS-native observability solution for EKS. It collects metrics <em>and</em> logs from your cluster without requiring you to manage Prometheus. An agent installs on each node and ships data to CloudWatch where you can build dashboards and alarms.
+    </p>
+
+    <div class="tool-row">
+      <div class="tool-pill">
+        <div class="tl">COLLECTS</div>
+        <div class="tn">CPU &amp; Memory</div>
+        <div class="td">Per cluster, node, pod, container</div>
+      </div>
+      <div class="tool-pill">
+        <div class="tl">COLLECTS</div>
+        <div class="tn">Disk &amp; Network</div>
+        <div class="td">Disk I/O, bytes sent/received</div>
+      </div>
+      <div class="tool-pill">
+        <div class="tl">COLLECTS</div>
+        <div class="tn">Container Logs</div>
+        <div class="td">stdout/stderr shipped to CloudWatch Logs</div>
+      </div>
+      <div class="tool-pill">
+        <div class="tl">INTEGRATES</div>
+        <div class="tn">CloudWatch Alarms</div>
+        <div class="td">Set alarms on any collected metric</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does CloudWatch Container Insights collect?</div>
+          <div class="footer"><span class="tag">coverage</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            Metrics: <strong>CPU, memory, disk, network, container data</strong><br>
+            Logs: container stdout/stderr<br>
+            <br>
+            Aggregated at: <strong>cluster / node / pod / task / service</strong> level
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How is CloudWatch Container Insights installed on EKS nodes?</div>
+          <div class="footer"><span class="tag">installation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">As a <strong>DaemonSet agent</strong> installed on each node. The CloudWatch Agent (or the newer Container Insights for EKS add-on) runs one pod per node, collects local metrics and logs, and ships them to CloudWatch. It requires appropriate IAM permissions on the node role.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the aggregation levels supported by Container Insights?</div>
+          <div class="footer"><span class="tag">aggregation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Container Insights aggregates metrics at five levels:<br>
+            <strong>Cluster → Node → Pod → Task → Service</strong><br><br>
+            This lets you drill from "why is the cluster CPU high?" all the way down to a specific container in a specific pod.
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Container Insights vs Prometheus — when would you choose each?</div>
+          <div class="footer"><span class="tag">comparison</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Container Insights:</strong> simpler setup, AWS-native, integrates with CloudWatch alarms and Logs Insights. Good for teams already in the CloudWatch ecosystem.<br><br>
+            <strong>Prometheus:</strong> richer query language (PromQL), community ecosystem, custom app metrics, works across multiple clouds. Requires more operational overhead.
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 5 — Managing logs                             -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-5">
+    <h2><span class="topic-num">TOPIC 5</span> Managing logs: control plane &amp; container logs</h2>
+    <p class="lede">
+      EKS produces two categories of logs with different collection mechanisms. <strong>Control plane logs</strong> are produced by Kubernetes system components and must be explicitly enabled in the EKS console. <strong>Application logs</strong> are container stdout/stderr, collected by a DaemonSet agent on each node.
+    </p>
+
+    <div class="split-box">
+      <div class="box">
+        <h4>Control plane logs (5 types)</h4>
+        <ul>
+          <li><strong>API server</strong> — all API requests</li>
+          <li><strong>Audit</strong> — who did what, when</li>
+          <li><strong>Authenticator</strong> — IAM auth events</li>
+          <li><strong>Controller manager</strong> — reconciliation loops</li>
+          <li><strong>Scheduler</strong> — pod placement decisions</li>
+        </ul>
+        <p style="margin:10px 0 0;font-size:0.82em;color:#64748b;">Enabled per-type in EKS Console → Cluster → Logging tab</p>
+      </div>
+      <div class="box">
+        <h4>Application / container logs</h4>
+        <ul>
+          <li>Container stdout and stderr</li>
+          <li>Written to node filesystem by container runtime</li>
+          <li>Collected by DaemonSet agent (Fluent Bit)</li>
+          <li>Shipped to: CloudWatch, OpenSearch, S3, Kinesis</li>
+          <li>Container crash = log survives in agent buffer</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Name the 5 EKS control plane log types.</div>
+          <div class="footer"><span class="tag">control plane</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>API server</strong><br>
+            2. <strong>Audit</strong><br>
+            3. <strong>Authenticator</strong><br>
+            4. <strong>Controller manager</strong><br>
+            5. <strong>Scheduler</strong><br><br>
+            Each must be individually enabled in the EKS Console (Logging tab) or via the API. They are sent to CloudWatch Logs.
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How are application container logs collected in EKS?</div>
+          <div class="footer"><span class="tag">app logs</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Containers write logs to stdout/stderr. The container runtime writes these to the <strong>node's filesystem</strong>. A <strong>DaemonSet agent</strong> (typically Fluent Bit) runs on each node, tails those log files, and ships them to a configured destination. This ensures logs survive container restarts.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Where do EKS control plane logs go once enabled?</div>
+          <div class="footer"><span class="tag">destination</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Amazon CloudWatch Logs</strong>. Each control plane log type gets its own log group: <code>/aws/eks/&lt;cluster-name&gt;/cluster</code>. From CloudWatch, you can use Logs Insights for querying, set metric filters, or export to S3 for long-term retention.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the three stages of the log routing workflow?</div>
+          <div class="footer"><span class="tag">workflow</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Log collection and forwarding</strong> — agent on node reads and forwards logs<br>
+            2. <strong>Log aggregation</strong> — logs from all nodes combined in one store<br>
+            3. <strong>Log analysis</strong> — search, filter, visualise (e.g. OpenSearch Dashboards)
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 6 — Log routing: Fluent Bit + Fargate         -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-6">
+    <h2><span class="topic-num">TOPIC 6</span> Log routing: Fluent Bit, OpenSearch &amp; Fargate</h2>
+    <p class="lede">
+      <strong>Fluent Bit</strong> is the lightweight log forwarder deployed as a DaemonSet on EC2 nodes. It reads container logs from the node and routes them to configurable destinations. For Fargate pods, log routing is configured via a dedicated <code>aws-observability</code> namespace ConfigMap.
+    </p>
+
+    <!-- Animation: log routing -->
+    <div class="anim-player" data-anim-id="log-routing">
+      <div class="anim-title">Animation · Fluent Bit log routing pipeline</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-log-routing" viewBox="0 0 700 240" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <table class="obs-table">
+      <thead>
+        <tr>
+          <th>Destination</th>
+          <th>Use case</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Amazon OpenSearch</strong></td>
+          <td>Full-text search and Dashboards UI</td>
+          <td>Best for interactive log exploration</td>
+        </tr>
+        <tr>
+          <td><strong>Amazon S3</strong></td>
+          <td>Long-term archival, Athena queries</td>
+          <td>Low cost for large volumes</td>
+        </tr>
+        <tr>
+          <td><strong>CloudWatch Logs</strong></td>
+          <td>AWS-native alerting, Logs Insights</td>
+          <td>Integrates with alarms and dashboards</td>
+        </tr>
+        <tr>
+          <td><strong>Kinesis Data Firehose</strong></td>
+          <td>High-throughput streaming to any destination</td>
+          <td>Used in Lab 4; bridges to S3, OpenSearch, Redshift</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is Fluent Bit and how is it deployed in EKS?</div>
+          <div class="footer"><span class="tag">Fluent Bit</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Fluent Bit</strong> is a lightweight, high-performance log forwarder. In EKS it is deployed as a <strong>DaemonSet</strong> — one pod per node. It tails container log files from the node filesystem and routes them to configured output plugins (OpenSearch, S3, CloudWatch, Kinesis Firehose).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">How does Fargate log routing differ from EC2 node log routing?</div>
+          <div class="footer"><span class="tag">Fargate logs</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">On EC2, Fluent Bit runs as a DaemonSet you deploy. On <strong>Fargate</strong>, there are no nodes to deploy DaemonSets on. Instead, Fargate reads log routing config from a <strong>ConfigMap</strong> named <code>aws-logging</code> in a namespace called <code>aws-observability</code> (which must be labelled <code>aws-observability: enabled</code>).</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What namespace and ConfigMap name are required for Fargate log routing?</div>
+          <div class="footer"><span class="tag">Fargate config</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Namespace:</strong> <code>aws-observability</code><br>
+            (must have label <code>aws-observability: enabled</code>)<br><br>
+            <strong>ConfigMap name:</strong> <code>aws-logging</code><br>
+            Contains an <code>output.conf</code> key with Fluent Bit output plugin config (e.g. <code>data_firehose</code>).
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">In the Fargate log routing ConfigMap, what OUTPUT plugin sends logs to Kinesis Data Firehose?</div>
+          <div class="footer"><span class="tag">Fargate YAML</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <code>[OUTPUT]<br>
+            Name  data_firehose<br>
+            Match *<br>
+            region us-west-2<br>
+            delivery_stream my-stream-firehose</code><br><br>
+            The plugin name is <code>data_firehose</code>. You specify the target delivery stream and region.
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What are the four Fluent Bit log routing destinations covered in the course?</div>
+          <div class="footer"><span class="tag">destinations</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Amazon OpenSearch</strong> — full-text search and dashboards<br>
+            2. <strong>Amazon S3</strong> — archival storage<br>
+            3. <strong>CloudWatch Logs</strong> — AWS-native monitoring<br>
+            4. <strong>Kinesis Data Firehose</strong> — streaming to multiple downstream targets
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 7 — Application tracing: ADOT + X-Ray         -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-7">
+    <h2><span class="topic-num">TOPIC 7</span> Application tracing: ADOT + AWS X-Ray</h2>
+    <p class="lede">
+      Distributed tracing solves a problem that logs and metrics cannot: understanding the causal chain of a single user request as it flows through many microservices. <strong>AWS Distro for OpenTelemetry (ADOT)</strong> collects trace spans from your applications and forwards them to <strong>AWS X-Ray</strong>, which visualises the end-to-end flow with latency per segment.
+    </p>
+
+    <!-- Animation: X-Ray tracing -->
+    <div class="anim-player" data-anim-id="xray-tracing">
+      <div class="anim-title">Animation · ADOT + X-Ray distributed trace flow</div>
+      <div class="anim-narration"></div>
+      <div class="anim-stage">
+        <svg id="anim-xray-tracing" viewBox="0 0 700 250" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="anim-controls">
+        <button class="anim-btn" data-action="reset">⟲</button>
+        <button class="anim-btn" data-action="prev">◀ Prev</button>
+        <button class="anim-btn play" data-action="play">▶ Play</button>
+        <button class="anim-btn" data-action="next">Next ▶</button>
+        <div class="anim-progress"></div>
+        <div class="step-counter"></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">Why is traditional debugging insufficient for microservices?</div>
+          <div class="footer"><span class="tag">tracing motivation</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">Traditional debugging (inspecting a single service) doesn't scale because a request may touch <strong>dozens of services</strong>. You cannot tell which service is slow, which failed, or how errors propagate, by looking at one service's logs in isolation. Distributed tracing provides the full picture across all services.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is AWS Distro for OpenTelemetry (ADOT)?</div>
+          <div class="footer"><span class="tag">ADOT</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>ADOT</strong> is AWS's distribution of the OpenTelemetry Collector. It runs as a sidecar or DaemonSet in your cluster, collects trace spans (and metrics) from instrumented applications, and forwards them to AWS X-Ray (and other backends). It is vendor-neutral: OpenTelemetry SDKs work with many backends.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What four insights does distributed tracing provide that logs cannot?</div>
+          <div class="footer"><span class="tag">tracing value</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            1. <strong>Service discovery</strong> — automatically maps which services exist and talk to each other<br>
+            2. <strong>Individual operation insights</strong> — latency per operation within a service<br>
+            3. <strong>Service-isolated issues</strong> — pinpoint exactly which service is the bottleneck<br>
+            4. <strong>Root-cause analysis</strong> — trace the error back to its origin across the call chain
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What does AWS X-Ray show you?</div>
+          <div class="footer"><span class="tag">X-Ray</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">X-Ray provides:<br>
+            • A <strong>service map</strong> — visual graph of all services and their connections<br>
+            • <strong>Trace timeline</strong> — Gantt-style view of latency per segment in a single request<br>
+            • <strong>Bottleneck identification</strong> — which segment contributes most latency<br>
+            • <strong>Error rates</strong> per service segment
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">What is the full observability tooling stack summarised at module end?</div>
+          <div class="footer"><span class="tag">summary</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">
+            <strong>Metrics:</strong> Prometheus + Grafana <em>or</em> CloudWatch Container Insights<br>
+            <strong>Logs:</strong> Fluent Bit → OpenSearch / S3 / CloudWatch / Kinesis<br>
+            <strong>Traces:</strong> ADOT → AWS X-Ray<br><br>
+            For Fargate logs: <code>aws-observability</code> namespace ConfigMap
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- TOPIC 8 — Knowledge checks                          -->
+  <!-- ================================================== -->
+  <section class="topic" id="topic-8">
+    <h2><span class="topic-num">TOPIC 8</span> Knowledge checks</h2>
+    <p class="lede">Quick-fire recall. Try to answer from memory, then flip to verify.</p>
+
+    <div class="cards">
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 1 — Which tool scrapes /metrics endpoints and stores time-series data?<br><em>A. Grafana &nbsp; B. Prometheus &nbsp; C. X-Ray &nbsp; D. Fluent Bit</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B — Prometheus</span><br><br>Prometheus scrapes /metrics endpoints. Grafana (A) visualises Prometheus data. X-Ray (C) handles traces. Fluent Bit (D) forwards logs.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 2 — What command exposes control plane metrics directly?<br><em>A. kubectl describe metrics &nbsp; B. kubectl get --raw /metrics &nbsp; C. aws eks get-metrics</em></div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><span class="good-badge">✓ B — kubectl get --raw /metrics</span><br><br>The <code>--raw</code> flag bypasses the kubectl object model and returns the raw HTTP response from the API server — in this case, the Prometheus-format metrics endpoint.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 3 — Fargate log routing is configured in which namespace?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong><code>aws-observability</code></strong> — the namespace must exist and be labelled <code>aws-observability: enabled</code>. Inside it, a ConfigMap named <code>aws-logging</code> contains the Fluent Bit output configuration.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 4 — Which AWS service visualises distributed traces sent by ADOT?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>AWS X-Ray</strong>. ADOT (AWS Distro for OpenTelemetry) is the collector that gathers spans from your instrumented services. X-Ray is the storage and visualisation backend that shows you the service map and per-segment latency.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 5 — EKS control plane logs are enabled per-type in which console location?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a">EKS Console → your cluster → <strong>Logging tab</strong>. You toggle each of the 5 log types (API server, Audit, Authenticator, Controller manager, Scheduler) individually. Once enabled, they stream to CloudWatch Logs under <code>/aws/eks/&lt;cluster&gt;/cluster</code>.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 6 — Lab 4 routes container logs through which services in order?</div>
+          <div class="footer"><span class="tag">lab 4</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Fluent Bit DaemonSet → Kinesis Data Firehose → Amazon S3</strong><br><br>Lab 4 also configures OpenSearch for log search, and uses Prometheus + Grafana for metrics on the same cluster.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 7 — Which log type records "who did what, when" in the Kubernetes API?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Audit logs</strong> — they record every request to the Kubernetes API server including the caller's identity, the resource accessed, and the action performed. Essential for security forensics and compliance.</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-inner">
+        <div class="card-face card-front">
+          <div class="q">KC 8 — CloudWatch Container Insights aggregates at which 5 levels?</div>
+          <div class="footer"><span class="tag">knowledge check</span><span class="hint">flip</span></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="a"><strong>Cluster → Node → Pod → Task → Service</strong><br><br>This hierarchy lets you start at the cluster level and drill down to a single container to find the source of a performance issue.</div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared.js"></script>
+<script>
+// ====================================================
+// MODULE 07 ANIMATIONS
+// ====================================================
+window.ANIMATIONS = window.ANIMATIONS || {};
+
+// ── Helpers ──────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function box(svg, x, y, w, h, fill, stroke, r=8) {
+  svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':1.5}));
+}
+function text(svg, x, y, txt, opts={}) {
+  const el = svgEl('text', {x, y, 'text-anchor': opts.anchor||'middle',
+    fill: opts.color||'#f1f5f9', 'font-size': opts.size||12,
+    'font-family':'system-ui,sans-serif', 'font-weight': opts.weight||'normal'});
+  el.textContent = txt;
+  svg.appendChild(el);
+  return el;
+}
+function arrow(svg, x1,y1,x2,y2, color='#38bdf8') {
+  const id = 'arr'+Math.random().toString(36).slice(2);
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'),svg.firstChild);
+  const mk = svgEl('marker',{id,markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+  const poly = svgEl('polygon',{points:'0 0, 8 3, 0 6',fill:color});
+  mk.appendChild(poly); defs.appendChild(mk);
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'marker-end':`url(#${id})`}));
+}
+function clearSVG(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+// ── ANIMATION 1: Three pillars ───────────────────────
+window.ANIMATIONS['three-pillars'] = [
+  {
+    narration: 'Observability rests on three pillars — each answers a different question about your system. Let\'s build them up one by one.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 22, 'The 3 Pillars of Observability', {size:13, weight:'700', color:'#94a3b8'});
+      box(svg, 20, 40, 660, 170, '#0a0e16', '#1f2738', 10);
+    }
+  },
+  {
+    narration: 'Pillar 1 — Metrics. Numerical measurements sampled over time: CPU=45%, memory=2.1GB, req/s=200. Answer: "How is my system performing right now?"',
+    apply(svg){
+      box(svg, 35, 52, 200, 145, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 135, 78, 'METRICS', {size:13, weight:'700', color:'#38bdf8'});
+      text(svg, 135, 100, 'Numerical over time', {size:9.5, color:'#94a3b8'});
+      // Mini chart lines
+      const pts = [[60,155],[80,135],[100,148],[120,125],[140,140],[160,118],[180,130],[200,112],[220,125]];
+      let d = 'M';
+      pts.forEach((p,i) => { d += (i?'L':'') + p[0]+','+p[1]; });
+      const path = svgEl('path', {d, stroke:'#38bdf8', 'stroke-width':'2', fill:'none'});
+      svg.appendChild(path);
+      text(svg, 135, 182, 'CPU=45% · req/s=200', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Pillar 2 — Logs. Discrete timestamped events: error messages, state changes. Answer: "What exactly happened at 14:32:07?"',
+    apply(svg){
+      box(svg, 250, 52, 200, 145, '#1a160a', '#fbbf24', 8);
+      text(svg, 350, 78, 'LOGS', {size:13, weight:'700', color:'#fbbf24'});
+      text(svg, 350, 100, 'Discrete events', {size:9.5, color:'#94a3b8'});
+      text(svg, 350, 126, '14:32:07 ERROR:', {size:8.5, color:'#fbbf24'});
+      text(svg, 350, 141, 'connection refused', {size:8.5, color:'#e2e8f0'});
+      text(svg, 350, 156, 'to db:5432', {size:8.5, color:'#e2e8f0'});
+      text(svg, 350, 182, 'stdout · stderr · events', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Pillar 3 — Traces. End-to-end request journeys across services, with latency per hop. Answer: "Why is checkout slow — which service is the bottleneck?"',
+    apply(svg){
+      box(svg, 465, 52, 200, 145, '#1a0a2a', '#a78bfa', 8);
+      text(svg, 565, 78, 'TRACES', {size:13, weight:'700', color:'#a78bfa'});
+      text(svg, 565, 100, 'Request flow across services', {size:9.5, color:'#94a3b8'});
+      // Gantt bars
+      box(svg, 475, 115, 100, 12, '#1a3a1a', '#27AE60', 3);
+      text(svg, 530, 124, 'frontend 10ms', {size:7.5, color:'#86efac'});
+      box(svg, 490, 132, 70, 12, '#0c2a3a', '#38bdf8', 3);
+      text(svg, 530, 141, 'auth 15ms', {size:7.5, color:'#93c5fd'});
+      box(svg, 505, 149, 130, 12, '#2a1a0a', '#f97316', 3);
+      text(svg, 575, 158, 'db 800ms ⚠', {size:7.5, color:'#fdba74'});
+      text(svg, 565, 182, 'ADOT → X-Ray', {size:8.5, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Together the three pillars give complete coverage. Metrics tell you something is wrong. Logs tell you what happened. Traces tell you where and why.',
+    apply(svg){
+      text(svg, 350, 208, 'Metrics: is something wrong?  ·  Logs: what happened?  ·  Traces: where and why?', {size:9, color:'#475569'});
+    }
+  }
+];
+
+// ── ANIMATION 2: Prometheus stack ──────────────────────
+window.ANIMATIONS['prometheus-stack'] = [
+  {
+    narration: 'The Prometheus + Grafana stack has four stages. Let\'s trace a metric from application pod to dashboard.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 22, 'Prometheus + Grafana metrics pipeline', {size:13, weight:'700', color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Stage 1 — App pods expose a /metrics HTTP endpoint in Prometheus text format: metric_name{"tag"="value"} value. Each pod is its own metrics source.',
+    apply(svg){
+      for(let i=0; i<3; i++){
+        box(svg, 30 + i*90, 40, 76, 55, '#0a1a0a', '#27AE60', 6);
+        text(svg, 68 + i*90, 60, `Pod ${i+1}`, {size:10, weight:'700', color:'#27AE60'});
+        text(svg, 68 + i*90, 76, '/metrics', {size:8.5, color:'#86efac'});
+        text(svg, 68 + i*90, 89, '●', {size:7, color:'#27AE60'});
+      }
+      text(svg, 150, 115, 'App pods exposing /metrics', {size:9, color:'#64748b'});
+    }
+  },
+  {
+    narration: 'Stage 2 — Prometheus scrapes all /metrics endpoints on a schedule (e.g. every 15 seconds). It uses Kubernetes service discovery to find all targets automatically.',
+    apply(svg){
+      box(svg, 310, 35, 140, 65, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 380, 58, 'Prometheus', {size:12, weight:'700', color:'#38bdf8'});
+      text(svg, 380, 74, 'scrapes every 15s', {size:9, color:'#94a3b8'});
+      text(svg, 380, 88, 'time-series store', {size:8.5, color:'#64748b'});
+      // Arrows from pods to prometheus
+      for(let i=0; i<3; i++){
+        arrow(svg, 108+i*90, 68, 308, 68, '#38bdf8');
+      }
+    }
+  },
+  {
+    narration: 'Stage 3 — PromQL query: you write a query like rate(http_requests_total[5m]) to compute the per-second request rate over the last 5 minutes across all pods.',
+    apply(svg){
+      box(svg, 490, 35, 185, 65, '#1a0a2a', '#a78bfa', 8);
+      text(svg, 582, 55, 'PromQL Query', {size:11, weight:'700', color:'#a78bfa'});
+      text(svg, 582, 71, 'rate(http_req[5m])', {size:8.5, color:'#c4b5fd', 'font-family':'monospace'});
+      text(svg, 582, 85, '→ 187 req/s', {size:8.5, color:'#e2e8f0'});
+      arrow(svg, 452, 67, 488, 67, '#a78bfa');
+    }
+  },
+  {
+    narration: 'Stage 4 — Grafana connects to Prometheus as a data source, runs PromQL queries on a schedule, and renders results as graphs, gauges, and dashboards.',
+    apply(svg){
+      box(svg, 310, 135, 140, 65, '#1a160a', '#fbbf24', 8);
+      text(svg, 380, 157, 'Grafana', {size:12, weight:'700', color:'#fbbf24'});
+      text(svg, 380, 173, 'Dashboards', {size:9, color:'#94a3b8'});
+      text(svg, 380, 187, '📊 Graphs · Gauges', {size:8.5, color:'#64748b'});
+      arrow(svg, 380, 102, 380, 133, '#fbbf24');
+      text(svg, 350, 218, 'Prometheus stores · PromQL queries · Grafana visualises', {size:8.5, color:'#475569'});
+    }
+  }
+];
+
+// ── ANIMATION 3: Log routing ──────────────────────────
+window.ANIMATIONS['log-routing'] = [
+  {
+    narration: 'Container log routing in EKS: from container stdout to durable storage. Let\'s follow a log line step by step.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 22, 'Fluent Bit log routing pipeline', {size:13, weight:'700', color:'#94a3b8'});
+    }
+  },
+  {
+    narration: 'Step 1 — The container writes a log line to stdout (or stderr). The container runtime (containerd) captures this and writes it to a file on the node\'s filesystem.',
+    apply(svg){
+      box(svg, 30, 40, 160, 65, '#0a1a0a', '#27AE60', 8);
+      text(svg, 110, 62, 'Container', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 110, 78, 'writes stdout', {size:9, color:'#94a3b8'});
+      text(svg, 110, 93, '"ERROR: db timeout"', {size:7.5, color:'#fbbf24'});
+      // Node filesystem
+      box(svg, 30, 130, 160, 45, '#1a1a0a', '#475569', 6);
+      text(svg, 110, 148, 'Node filesystem', {size:9.5, color:'#94a3b8'});
+      text(svg, 110, 163, '/var/log/containers/', {size:8, color:'#64748b'});
+      arrow(svg, 110, 107, 110, 128, '#27AE60');
+    }
+  },
+  {
+    narration: 'Step 2 — Fluent Bit runs as a DaemonSet — one pod per node. It tails the log files on the node filesystem and parses each log line according to its configuration.',
+    apply(svg){
+      box(svg, 260, 80, 170, 80, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 345, 103, 'Fluent Bit', {size:12, weight:'700', color:'#38bdf8'});
+      text(svg, 345, 119, 'DaemonSet on node', {size:9, color:'#94a3b8'});
+      text(svg, 345, 135, 'tails · parses · buffers', {size:8.5, color:'#64748b'});
+      text(svg, 345, 150, '(one pod per node)', {size:8, color:'#475569'});
+      arrow(svg, 192, 152, 258, 130, '#38bdf8');
+    }
+  },
+  {
+    narration: 'Step 3 — Fan-out: Fluent Bit routes logs to one or more destinations simultaneously. Here it fans out to OpenSearch, S3, CloudWatch, and Kinesis Firehose.',
+    apply(svg){
+      const dests = [
+        {x:480, y:40, color:'#f97316', name:'OpenSearch', sub:'full-text search'},
+        {x:480, y:105, color:'#27AE60', name:'S3', sub:'archival'},
+        {x:480, y:170, color:'#38bdf8', name:'CloudWatch', sub:'alarms'},
+      ];
+      dests.forEach(d => {
+        box(svg, d.x, d.y, 165, 48, '#0a0e16', d.color, 6);
+        text(svg, d.x+82, d.y+20, d.name, {size:11, weight:'700', color:d.color});
+        text(svg, d.x+82, d.y+36, d.sub, {size:8.5, color:'#94a3b8'});
+        arrow(svg, 432, 120, d.x-2, d.y+24, d.color);
+      });
+    }
+  },
+  {
+    narration: 'Fargate variation: for Fargate pods there are no nodes to run a DaemonSet on. Instead, create the aws-observability namespace with a ConfigMap named aws-logging containing the Fluent Bit output config.',
+    apply(svg){
+      box(svg, 30, 195, 430, 38, '#0c1828', '#a78bfa', 8);
+      text(svg, 245, 210, 'Fargate: aws-observability namespace →', {size:9, weight:'700', color:'#a78bfa'});
+      text(svg, 245, 224, 'ConfigMap aws-logging → output.conf [OUTPUT] data_firehose', {size:8, color:'#94a3b8'});
+    }
+  }
+];
+
+// ── ANIMATION 4: X-Ray tracing ────────────────────────
+window.ANIMATIONS['xray-tracing'] = [
+  {
+    narration: 'A distributed trace follows one user request through multiple microservices. Let\'s trace a checkout request end-to-end.',
+    reset(svg){ clearSVG(svg); },
+    apply(svg){
+      text(svg, 350, 22, 'ADOT + X-Ray distributed trace', {size:13, weight:'700', color:'#94a3b8'});
+      // Timeline baseline
+      svg.appendChild(svgEl('line',{x1:30,y1:185,x2:670,y2:185,stroke:'#1f2738','stroke-width':1.5}));
+      text(svg, 350, 202, 'time →', {size:9, color:'#475569'});
+    }
+  },
+  {
+    narration: 'Hop 1 — User request hits the Frontend service. ADOT (running as a sidecar) captures a trace span: service=frontend, duration=12ms. It generates a trace ID that propagates to every downstream call.',
+    apply(svg){
+      box(svg, 40, 50, 130, 55, '#0a1a0a', '#27AE60', 8);
+      text(svg, 105, 72, 'Frontend', {size:11, weight:'700', color:'#27AE60'});
+      text(svg, 105, 87, 'ADOT sidecar', {size:8.5, color:'#86efac'});
+      text(svg, 105, 100, 'span: 12ms', {size:8.5, color:'#94a3b8'});
+      // Gantt
+      box(svg, 40, 160, 130, 18, '#0a2a0a', '#27AE60', 3);
+      text(svg, 105, 173, 'frontend 12ms', {size:8, color:'#86efac'});
+    }
+  },
+  {
+    narration: 'Hop 2 — Frontend calls the Auth service (carrying the same trace ID). ADOT on Auth records its span: duration=8ms. The trace ID links all spans together.',
+    apply(svg){
+      box(svg, 205, 50, 130, 55, '#0c2a3a', '#38bdf8', 8);
+      text(svg, 270, 72, 'Auth Service', {size:11, weight:'700', color:'#38bdf8'});
+      text(svg, 270, 87, 'ADOT sidecar', {size:8.5, color:'#93c5fd'});
+      text(svg, 270, 100, 'span: 8ms', {size:8.5, color:'#94a3b8'});
+      arrow(svg, 172, 77, 203, 77, '#38bdf8');
+      box(svg, 180, 160, 90, 18, '#0c2a3a', '#38bdf8', 3);
+      text(svg, 225, 173, 'auth 8ms', {size:8, color:'#93c5fd'});
+    }
+  },
+  {
+    narration: 'Hop 3 — Auth calls the Database. ADOT records the DB query span: duration=800ms. This is the bottleneck — 800ms of the total request time is spent here.',
+    apply(svg){
+      box(svg, 370, 50, 130, 55, '#2a0a0a', '#E74C3C', 8);
+      text(svg, 435, 72, 'Database', {size:11, weight:'700', color:'#E74C3C'});
+      text(svg, 435, 87, 'ADOT sidecar', {size:8.5, color:'#fca5a5'});
+      text(svg, 435, 100, 'span: 800ms ⚠', {size:8.5, color:'#E74C3C'});
+      arrow(svg, 337, 77, 368, 77, '#E74C3C');
+      box(svg, 280, 160, 270, 18, '#2a0a0a', '#E74C3C', 3);
+      text(svg, 415, 173, 'db query 800ms  ← bottleneck', {size:8, color:'#fca5a5'});
+    }
+  },
+  {
+    narration: 'ADOT collects all spans and forwards them to AWS X-Ray. X-Ray assembles the trace timeline and service map, showing the 800ms DB query as the clear bottleneck.',
+    apply(svg){
+      box(svg, 530, 45, 140, 65, '#1a0a2a', '#a78bfa', 8);
+      text(svg, 600, 65, 'AWS X-Ray', {size:11, weight:'700', color:'#a78bfa'});
+      text(svg, 600, 81, 'Trace map', {size:9, color:'#c4b5fd'});
+      text(svg, 600, 97, 'Latency per segment', {size:8.5, color:'#94a3b8'});
+      // ADOT collector label
+      box(svg, 530, 125, 140, 30, '#0c1020', '#475569', 6);
+      text(svg, 600, 144, 'ADOT collector', {size:9, color:'#94a3b8'});
+      arrow(svg, 500, 100, 528, 100, '#a78bfa');
+      arrow(svg, 600, 157, 600, 165, '#a78bfa');
+    }
+  }
+];
+</script>
+</body>
+</html>
