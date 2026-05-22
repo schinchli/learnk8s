@@ -1,0 +1,385 @@
+[
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Container Benefits",
+    "title": "Which property makes containers run identically in dev, staging, and prod?",
+    "content": "Quiz — Container Benefits\n\nQ: Which container property ensures the same image runs in dev, staging, and production environments?\n\nChoices: A. Portable  B. Scalable  C. Continuously deployable  D. Declarative\n\nAnswer: C — The continuous deployment property guarantees the container image is identical across all environments, eliminating environment drift.",
+    "metadata": {
+      "answer": "C"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Container Benefits",
+    "title": "What does 'declarative format' mean for containers?",
+    "content": "Quiz — Container Benefits\n\nQ: What does it mean that containers use a declarative format?\n\nChoices: A. You write step-by-step instructions for how to build the container  B. You describe the desired result and let the system figure out how to achieve it  C. You declare which programming language the app uses  D. You specify the exact order of container startup\n\nAnswer: B — Declarative means you describe WHAT you want (e.g., 3 replicas of nginx), not HOW to get there. Kubernetes reconciles the actual state to match.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Container Benefits",
+    "title": "Why do containers need orchestration at scale?",
+    "content": "Quiz — Container Benefits\n\nQ: At what point do containers require orchestration tools like Kubernetes?\n\nChoices: A. When running more than 1 container  B. Only when using Docker Compose  C. When managing hundreds of hosts with thousands of containers  D. Orchestration is always optional\n\nAnswer: C — 1-2 containers on one host is trivial. Once you scale to hundreds of hosts with thousands of containers, manual scheduling, networking, and health management is impossible without orchestration.",
+    "metadata": {
+      "answer": "C"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Pods and Services",
+    "title": "What is the smallest deployable unit in Kubernetes?",
+    "content": "Quiz — Pods and Services\n\nQ: What is the basic unit of scaling and resiliency in Kubernetes?\n\nChoices: A. Container  B. Pod  C. Deployment  D. Node\n\nAnswer: B — A Pod is the smallest deployable unit. It can contain one or more containers that share the same network namespace and optional volumes.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Pods and Services",
+    "title": "What does a Kubernetes Service provide?",
+    "content": "Quiz — Pods and Services\n\nQ: What is a Kubernetes Service?\n\nChoices: A. A stable endpoint (IP + DNS name) that routes traffic to matching pods  B. A running container inside a pod  C. A configuration file for the cluster  D. A network namespace shared between nodes\n\nAnswer: A — A Service gives pods a stable ClusterIP and DNS name. kube-proxy uses iptables rules to route to healthy pods matching the Service's label selector.",
+    "metadata": {
+      "answer": "A"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Pods and Services",
+    "title": "How do containers within the same Pod communicate?",
+    "content": "Quiz — Pods and Services\n\nQ: How do containers within the same Pod communicate with each other?\n\nChoices: A. Via the Service ClusterIP  B. Via the node's IP address  C. Via localhost because they share a network namespace  D. Via a dedicated inter-container network bridge\n\nAnswer: C — Containers in the same Pod share a network namespace. They communicate via localhost:port. Each container gets a different port but the same IP.",
+    "metadata": {
+      "answer": "C"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Kubernetes Internals",
+    "title": "Which control plane component stores all cluster state?",
+    "content": "Quiz — Kubernetes Internals\n\nQ: Which control plane component is the authoritative store of all Kubernetes cluster state?\n\nChoices: A. kube-apiserver  B. kube-scheduler  C. etcd  D. kube-controller-manager\n\nAnswer: C — etcd is the distributed key-value store that holds ALL cluster state. Every kubectl get/apply ultimately reads from or writes to etcd. Losing etcd means losing the cluster state.",
+    "metadata": {
+      "answer": "C"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Kubernetes Internals",
+    "title": "What is the role of the kube-controller-manager?",
+    "content": "Quiz — Kubernetes Internals\n\nQ: What does the kube-controller-manager do?\n\nChoices: A. Routes traffic between pods  B. Runs the reconciliation control loops (desired state vs actual state)  C. Assigns pods to nodes  D. Stores cluster configuration\n\nAnswer: B — The controller manager runs controllers like the ReplicaSet controller, which continuously checks if the actual number of pods matches the desired count and creates/deletes pods to reconcile.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Pod Scheduling",
+    "title": "What are predicates in Kubernetes scheduling?",
+    "content": "Quiz — Pod Scheduling\n\nQ: What are Kubernetes scheduler predicates?\n\nChoices: A. Scores that determine the optimal node for pod placement  B. Rules that determine if a pod CAN be scheduled on a node  C. Annotations that control pod affinity  D. Resource limits applied after pod creation\n\nAnswer: B — Predicates are hard filters (pass/fail). A node must pass ALL predicates for a pod to be scheduled there. Examples: resource fit, taints, affinity, volume availability.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Pod Scheduling",
+    "title": "What happens when you set resource requests on a pod?",
+    "content": "Quiz — Pod Scheduling\n\nQ: What does setting resources.requests.cpu on a pod do?\n\nChoices: A. Sets a hard limit on CPU usage  B. Tells the scheduler the guaranteed CPU needed — used to find eligible nodes  C. Overrides the node's CPU allocation  D. Enables CPU throttling for the container\n\nAnswer: B — Requests tell the scheduler the GUARANTEED resource needed. The scheduler finds nodes with enough remaining allocatable resources. Limits are the maximum; requests drive scheduling.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "kubectl and Objects",
+    "title": "What does kubectl apply -f do?",
+    "content": "Quiz — kubectl and Objects\n\nQ: What happens when you run kubectl apply -f deploy.yaml?\n\nChoices: A. Deletes the resources defined in the file  B. Creates or updates resources declaratively — if exists, patches to match file  C. Always creates new resources even if they already exist  D. Only works for Pod objects\n\nAnswer: B — apply is declarative. If the resource doesn't exist, it creates it. If it does exist, it patches it to match the manifest. Idempotent. Unlike kubectl create which fails if resource exists.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "kubectl and Objects",
+    "title": "What is the purpose of a DaemonSet?",
+    "content": "Quiz — kubectl and Objects\n\nQ: What is a Kubernetes DaemonSet used for?\n\nChoices: A. Running a fixed number of pod replicas  B. Running exactly one pod on every node for node-level agents  C. Scheduling periodic background jobs  D. Managing stateful applications with persistent storage\n\nAnswer: B — A DaemonSet ensures one pod runs on every node. Used for: Fluent Bit (log collection), node-exporter (metrics), aws-node (VPC CNI). NOTE: DaemonSets are NOT supported on AWS Fargate.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Workloads",
+    "title": "How does a Deployment enable zero-downtime updates?",
+    "content": "Quiz — Workloads\n\nQ: How does a Kubernetes Deployment perform a rolling update?\n\nChoices: A. It deletes all old pods first, then creates new ones  B. It creates a new ReplicaSet and gradually shifts pods from old to new  C. It clones all pods simultaneously then deletes the originals  D. It stops all traffic to the service during the update\n\nAnswer: B — A Deployment creates a new ReplicaSet for the new version. It scales up the new RS while scaling down the old RS one pod at a time. kubectl rollout undo reverses this.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Workloads",
+    "title": "When should you use a StatefulSet instead of a Deployment?",
+    "content": "Quiz — Workloads\n\nQ: In which scenario would you use a StatefulSet instead of a Deployment?\n\nChoices: A. Stateless web frontend with many replicas  B. MySQL database where each replica needs its own stable storage and identity  C. Batch job that runs once and exits  D. Log collector running on every node\n\nAnswer: B — StatefulSets are for stateful apps needing stable pod names (mysql-0, mysql-1), stable storage per pod, and ordered startup/shutdown. Use Deployments for stateless apps where pods are interchangeable.",
+    "metadata": {
+      "answer": "B"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "quiz",
+    "topic": "Workloads",
+    "title": "Where are Kubernetes Secrets stored and how are they encoded?",
+    "content": "Quiz — Workloads\n\nQ: What is the default storage mechanism for Kubernetes Secrets?\n\nChoices: A. Encrypted with AES-256 in etcd  B. Stored as plain text on disk  C. Base64 encoded and stored in etcd (NOT encrypted by default)  D. Encrypted with AWS KMS automatically\n\nAnswer: C — Secrets are base64 encoded (NOT encrypted) in etcd by default. base64 is reversible encoding, not encryption. Enable envelope encryption with KMS for real security.",
+    "metadata": {
+      "answer": "C"
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "Container Benefits",
+    "title": "Reel: Container Benefits",
+    "content": "Reel script — Container Benefits\n\nHOOK: Stop repackaging your app for every environment.\n\nSCRIPT:\nContainers solved a 20-year deployment nightmare.\nOne image runs the same everywhere — dev, staging, prod.\nNo more 'works on my machine' excuses.\nThey're portable: any OS that runs containers runs your app.\nThey're scalable: add more copies in seconds, remove them just as fast.\nThey're declarative: describe what you want, not how to build it.\nThink of it like a shipping container.\nThe same box goes on a truck, a train, or a ship — unchanged.\nThat's your Docker image.\nFive properties: portable, cloud deployable, scalable, continuously deployable, declarative.\nMaster these and you'll understand every design decision in Kubernetes.\nThat's containers in 60 seconds.\n\nVISUAL_CUE: Shipping container crossing between truck, train, ship — then split screen showing same container on EC2, ECS, EKS\nHASHTAGS: #kubernetes #containers #docker #aws #devops",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "Pods and Services",
+    "title": "Reel: Pods and Services",
+    "content": "Reel script — Pods and Services\n\nHOOK: A pod is not a container. This distinction will save you on the exam.\n\nSCRIPT:\nA Pod is the smallest unit Kubernetes knows about.\nIt wraps one or more containers in a shared network namespace.\nContainers inside a Pod talk to each other via localhost.\nEvery Pod gets its own IP address.\nBut pods are temporary — they restart with new IPs.\nThat's the problem. Your app can't hardcode a pod IP.\nEnter: the Service.\nA Service gives you a stable ClusterIP that never changes.\nkube-proxy sets iptables rules to route traffic to healthy pods.\nLabel selectors are the glue — pods with app:backend belong to the backend Service.\nThree things to memorise: Pod equals network unit, Service equals stable endpoint, labels equal the connection.\n\nVISUAL_CUE: Pod with two containers sharing localhost, then pod dying and respawning with new IP, then Service abstracting the change\nHASHTAGS: #kubernetes #pods #services #k8s #cloudnative",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "Kubernetes Internals",
+    "title": "Reel: Kubernetes Internals",
+    "content": "Reel script — Kubernetes Internals\n\nHOOK: Four components run Kubernetes. Know them or fail the exam.\n\nSCRIPT:\nThe Kubernetes control plane has four critical components.\nkube-apiserver: every kubectl command goes through here.\netcd: the cluster's brain. Stores ALL state. Never lose etcd.\nkube-scheduler: decides which node gets each pod.\nkube-controller-manager: watches for drift and fixes it.\nHere's the magic: Kubernetes uses a control loop.\nDesired state lives in etcd. Actual state is what's running.\nControllers compare the two. If they differ, they act.\nThis reconciliation loop is why Kubernetes is self-healing.\nWorker nodes run kubelet, kube-proxy, and your containers.\nOn AWS EKS, the control plane lives in an AWS-managed account.\nYou never touch those four components. AWS runs them for you.\n\nVISUAL_CUE: Control plane box with four labeled components, worker nodes on right, reconciliation loop animation\nHASHTAGS: #kubernetes #controlplane #eks #aws #k8sexplained",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "Pod Scheduling",
+    "title": "Reel: Pod Scheduling",
+    "content": "Reel script — Pod Scheduling\n\nHOOK: The scheduler is choosing your pod's home right now. Here's how.\n\nSCRIPT:\nWhen you create a pod, it starts as Pending.\nThe scheduler has one job: find the best node.\nFirst it filters: which nodes CAN run this pod?\nResource fit, taints, node affinity, volume requirements.\nNodes that fail any filter are eliminated immediately.\nThen it scores the survivors.\nSpread the pods? Pack them tight? Prefer a specific zone?\nThe highest-scoring node wins.\nResource requests are the key input — not limits.\nSet requests too low: pod lands on a busy node, gets throttled.\nSet them too high: pod can't schedule, stays Pending forever.\nRight-sizing requests is one of the most impactful K8s optimisations.\n\nVISUAL_CUE: Pending pod → filter 5 nodes → eliminate 3 → score 2 → place on winner\nHASHTAGS: #kubernetes #scheduling #k8s #devops #awseks",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "kubectl and Objects",
+    "title": "Reel: kubectl essentials",
+    "content": "Reel script — kubectl essentials\n\nHOOK: Five kubectl commands. Learn these first.\n\nSCRIPT:\nkubectl is your window into the cluster.\nkubectl get pods — see what's running right now.\nkubectl apply -f deploy.yaml — create or update resources declaratively.\nkubectl describe pod nginx-abc — full details plus events. Debugging starts here.\nkubectl logs my-pod -f — stream live logs from a container.\nkubectl exec -it my-pod -- bash — get a shell inside a running container.\nThe secret: apply is declarative and idempotent.\nRun it a hundred times, same result.\nUnlike kubectl create, which fails if the resource exists.\nAlways use apply in scripts and CI/CD.\nKeep your manifests in Git. Apply them from Git. That's GitOps in one line.\n\nVISUAL_CUE: Terminal with each command running, output appearing, split to show effect in cluster diagram\nHASHTAGS: #kubectl #kubernetes #k8s #devops #cloudnative",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "reel",
+    "topic": "Workloads",
+    "title": "Reel: K8s Workload types",
+    "content": "Reel script — K8s Workload types\n\nHOOK: Wrong workload type = midnight incident. Pick the right one.\n\nSCRIPT:\nKubernetes has four main workload types. Each for a different job.\nDeployment: stateless apps. Pods are identical and interchangeable. Rolling updates built in.\nStatefulSet: stateful apps like databases. Pods get stable names: mysql-0, mysql-1. Each gets its own storage.\nDaemonSet: run one pod on every node. Log collectors, monitoring agents, CNI plugins. Not on Fargate.\nJob and CronJob: run to completion. Batch jobs, cron tasks. Not always-on.\nThe exam loves this question: when do you use StatefulSet vs Deployment?\nStateful means data must survive pod restarts and each instance has unique identity.\nExamples: MySQL, Kafka, Redis, Elasticsearch.\nEverything else is a Deployment.\n\nVISUAL_CUE: Four workload types as four lanes, examples flowing through each lane\nHASHTAGS: #kubernetes #deployments #statefulset #daemonset #k8s",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Container Benefits",
+    "title": "Step 1 — Container properties visual",
+    "content": "Lab step 1 — Container Benefits: Container properties visual\n\nNarration: Containers have five key properties that make them ideal for modern cloud applications: portable, cloud deployable, scalable, continuously deployable, and declarative.\n\nVisual: Five boxes in a row, each labelled with one property. Each box animates in with a brief description and an analogy (shipping container for portable, clouds for cloud deployable, scaling arrows for scalable).\n\nKey fact: Declarative means you describe WHAT you want, not HOW to build it — Kubernetes reconciles actual to desired state.",
+    "metadata": {
+      "step": 1
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Container Benefits",
+    "title": "Step 2 — Monolith vs microservices",
+    "content": "Lab step 2 — Container Benefits: Monolith vs microservices\n\nNarration: A monolith bundles all services into one deployable. Microservices split each function into an independent service, each with its own containers.\n\nVisual: Left side shows one large box with all services (UI, logic, orders, DB) tightly coupled. Right side explodes this into small independent boxes connected by arrows, each in its own container.\n\nKey fact: Containers are the perfect unit for microservices because they are independently deployable and scalable.",
+    "metadata": {
+      "step": 2
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Pods and Services",
+    "title": "Step 1 — Pod anatomy",
+    "content": "Lab step 1 — Pods and Services: Pod anatomy\n\nNarration: A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers that share the same network namespace — they can communicate via localhost.\n\nVisual: Outer dashed-border box labelled Pod with IP 10.0.1.5. Inside: two smaller boxes (Container A: nginx:8080, Container B: log-agent) with a shared eth0 icon. An arrow shows localhost:8080 communication.\n\nKey fact: All containers in a Pod share one IP address and communicate via localhost. A Pod lives and dies as a unit.",
+    "metadata": {
+      "step": 1
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Pods and Services",
+    "title": "Step 2 — Services as stable endpoints",
+    "content": "Lab step 2 — Pods and Services: Services as stable endpoints\n\nNarration: Pods get new IPs when they restart. A Service solves this with a stable ClusterIP and DNS name. kube-proxy routes traffic to any healthy Pod with the matching label.\n\nVisual: Show a pod dying (red flash) and coming back with a different IP. Then show a Service box with ClusterIP 10.100.0.26 pointing to three pods regardless of their changing IPs. Label selector app:backend highlighted.\n\nKey fact: Never hard-code pod IPs. Always use Service DNS names. Services decouple consumers from pod lifecycle.",
+    "metadata": {
+      "step": 2
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Kubernetes Internals",
+    "title": "Step 1 — Control plane components",
+    "content": "Lab step 1 — Kubernetes Internals: Control plane components\n\nNarration: The Kubernetes control plane has four components: kube-apiserver (the front door), etcd (cluster state store), kube-scheduler (pod placement), and kube-controller-manager (reconciliation).\n\nVisual: Two-zone diagram. Left zone labelled Control Plane with four stacked boxes: API Server, etcd, Scheduler, Controller Manager. Right zone labelled Data Plane with Worker Node boxes containing kubelet, kube-proxy, and pod icons.\n\nKey fact: On EKS, AWS manages the entire control plane. You never SSH into those four components.",
+    "metadata": {
+      "step": 1
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Kubernetes Internals",
+    "title": "Step 2 — Reconciliation control loop",
+    "content": "Lab step 2 — Kubernetes Internals: Reconciliation control loop\n\nNarration: Kubernetes uses a control loop: observe actual state, compare with desired state, act to reconcile any difference. This loop never stops.\n\nVisual: Circular flow diagram. Box 1: Desired State (YAML: replicas: 3). Box 2: Observe (kubectl get pods: 2 running). Box 3: Diff (need 1 more). Box 4: Act (create pod). Arrow returns to Observe. Green check if equal: no action needed.\n\nKey fact: This self-healing loop is why Kubernetes recovers from node failures automatically — the desired state always wins.",
+    "metadata": {
+      "step": 2
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Pod Scheduling",
+    "title": "Step 1 — Predicates filter nodes",
+    "content": "Lab step 1 — Pod Scheduling: Predicates filter nodes\n\nNarration: The scheduler first applies predicates — hard rules that eliminate nodes that cannot host the pod. A node failing any predicate is immediately excluded.\n\nVisual: Pending pod on the left. Arrow to a list of 5 nodes. Nodes with red X filtered out (insufficient CPU, tainted node, wrong zone affinity, volume not available). Green nodes remain.\n\nKey fact: Resource requests drive scheduling — the scheduler looks at requests (not limits) to find nodes with enough remaining allocatable capacity.",
+    "metadata": {
+      "step": 1
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Pod Scheduling",
+    "title": "Step 2 — Priorities score remaining nodes",
+    "content": "Lab step 2 — Pod Scheduling: Priorities score remaining nodes\n\nNarration: After filtering, the scheduler scores remaining nodes using priorities: spreading pods across zones, packing to minimise nodes, preferring specific hardware. Highest score wins.\n\nVisual: Three remaining nodes shown with score bars: Node A: 85/100, Node B: 72/100, Node C: 55/100. Arrow shows pod being placed on Node A. Scores labelled with contributing factors: 'spread: +40, resource balance: +45'.\n\nKey fact: Predicates are pass/fail. Priorities determine the winner among eligible nodes. Affinity rules can be either a predicate (required) or a priority (preferred).",
+    "metadata": {
+      "step": 2
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Workloads",
+    "title": "Step 1 — Rolling update with Deployment",
+    "content": "Lab step 1 — Workloads: Rolling update with Deployment\n\nNarration: When you update a Deployment, Kubernetes creates a new ReplicaSet and gradually shifts pods from the old RS to the new one — zero downtime.\n\nVisual: Timeline showing: RS-v1 (3 pods) → RS-v2 starts (1 pod), RS-v1 (2 pods) → RS-v2 (2), RS-v1 (1) → RS-v2 (3), RS-v1 (0). kubectl rollout undo arrow pointing back.\n\nKey fact: kubectl rollout undo deployment webapp immediately reverses the update by scaling up the old ReplicaSet. The old RS is kept for exactly this purpose.",
+    "metadata": {
+      "step": 1
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "lab_step",
+    "topic": "Workloads",
+    "title": "Step 2 — StatefulSet stable identity",
+    "content": "Lab step 2 — Workloads: StatefulSet stable identity\n\nNarration: Unlike Deployments, StatefulSet pods get persistent names (mysql-0, mysql-1, mysql-2), a stable DNS hostname via a Headless Service, and each gets its own PersistentVolumeClaim.\n\nVisual: Three pods with stable labels mysql-0, mysql-1, mysql-2. Each connected to its own EBS volume (PVC: data-mysql-0, etc.). Deployment pods shown alongside with random hash names for contrast.\n\nKey fact: StatefulSets start in order (0 first) and terminate in reverse (2 first). Never scale a StatefulSet by random pod deletion — use kubectl scale.",
+    "metadata": {
+      "step": 2
+    }
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "Container Benefits",
+    "title": "Summary: Container Benefits",
+    "content": "Summary — Container Benefits\n\n• **Portable**: Containers run on any OS with a container runtime — same image in dev, staging, prod, eliminating environment drift.\n• **Declarative**: You describe desired state (3 replicas of nginx); Kubernetes reconciles the actual state to match — the foundation of self-healing.\n• **Scalable**: Containers start in seconds — scale out by adding copies, scale in by removing them, with no architectural change required.\n\n⚠ Exam trap: 'Continuous deployment' is about the SAME image running everywhere, not about speed of deployment pipelines.",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "Pods and Services",
+    "title": "Summary: Pods and Services",
+    "content": "Summary — Pods and Services\n\n• **Pod**: Smallest deployable unit. Containers inside share network namespace (localhost) and optional volumes. Every pod gets a unique IP.\n• **Service**: Stable ClusterIP + DNS name that load-balances to pods matching its label selector. Survives pod restarts.\n• **Labels**: The glue between pods and services — selector: {app: backend} routes to all pods with that label.\n\n⚠ Exam trap: A Pod is NOT a container. A Pod wraps containers. The exam will test whether you can distinguish between the two.",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "Kubernetes Internals",
+    "title": "Summary: Kubernetes Internals",
+    "content": "Summary — Kubernetes Internals\n\n• **etcd**: The cluster brain — stores ALL state as key-value pairs. Loss of etcd = loss of cluster. On EKS, AWS manages etcd.\n• **kube-scheduler**: Assigns pods to nodes using predicates (filter) then priorities (score). Reads resource requests, not limits.\n• **Control loop**: Controllers constantly compare desired state (manifests) to actual state (running) and reconcile any difference — this is Kubernetes self-healing.\n\n⚠ Exam trap: On EKS, you cannot SSH into control plane nodes. AWS manages kube-apiserver, etcd, scheduler, and controller-manager entirely.",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "Pod Scheduling",
+    "title": "Summary: Pod Scheduling",
+    "content": "Summary — Pod Scheduling\n\n• **Predicates**: Hard pass/fail filters — resource fit, taint toleration, node affinity, volume topology. All must pass.\n• **Priorities**: Soft scoring of surviving nodes — spread, pack, zone preference. Highest score wins placement.\n• **Resource requests**: What the scheduler reads to find eligible nodes. Setting requests too low = poor placement. Too high = pending pods.\n\n⚠ Exam trap: The scheduler uses resource REQUESTS (guaranteed), not resource LIMITS (maximum), to determine if a node can host a pod.",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "kubectl and Objects",
+    "title": "Summary: kubectl and Objects",
+    "content": "Summary — kubectl and Objects\n\n• **kubectl apply**: Declarative, idempotent. Creates if absent, patches if present. Always prefer over kubectl create in automation.\n• **ConfigMap vs Secret**: ConfigMap = non-sensitive config. Secret = base64-encoded sensitive data (NOT encrypted by default). Both mountable as env vars or volumes.\n• **DaemonSet**: One pod per node. Used for node-level agents (Fluent Bit, aws-node). NOT supported on Fargate.\n\n⚠ Exam trap: Kubernetes Secrets are base64 encoded, not encrypted. Anyone with kubectl get secret access can decode them instantly.",
+    "metadata": {}
+  },
+  {
+    "module": "01",
+    "module_title": "Kubernetes Fundamentals",
+    "source_type": "summary",
+    "topic": "Workloads",
+    "title": "Summary: Workloads",
+    "content": "Summary — Workloads\n\n• **Deployment**: For stateless apps. Rolling updates via ReplicaSet replacement. kubectl rollout undo for instant rollback.\n• **StatefulSet**: For stateful apps. Stable pod names (mysql-0,1,2), own PVC per pod, ordered startup/shutdown.\n• **Job/CronJob**: Run-to-completion workloads. Job runs once; CronJob schedules Jobs periodically.\n\n⚠ Exam trap: DaemonSets are NOT supported on AWS Fargate. If you need a node-level agent (like Fluent Bit), you must use EC2 node groups.",
+    "metadata": {}
+  }
+]
