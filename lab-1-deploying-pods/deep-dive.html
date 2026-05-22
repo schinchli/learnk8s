@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Deep Dive — Every K8s Component Explained</title>
+<style>
+:root{--bg:#06080d;--panel:#11151c;--p2:#1f2738;--text:#f1f5f9;--muted:#94a3b8;--accent:#38bdf8;--good:#27AE60;--bad:#E74C3C;--warn:#F39C12;--pod:#4A90E2;--svc:#1ABC9C;--dep:#9B59B6;--node:#E67E22;--ns:#F39C12;--sec:#E74C3C;--cm:#38bdf8;--cp:#4A90E2;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:radial-gradient(ellipse at top,rgba(74,144,226,.06),transparent 55%),var(--bg);color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow-x:hidden;}
+body{padding-left:56px;}
+.rail{position:fixed;top:0;left:0;bottom:0;width:56px;background:#0c1018;border-right:1px solid #1f2738;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:3px;z-index:200;overflow-y:auto;}
+.rb{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#4A90E2,#9B59B6);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:.88em;text-decoration:none;margin-bottom:7px;flex-shrink:0;}
+.rl{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1em;text-decoration:none;transition:background .12s;position:relative;flex-shrink:0;}
+.rl:hover{background:rgba(255,255,255,.08);}
+.rl.active{background:rgba(56,189,248,.18);}
+.rl:hover::after{content:attr(title);position:absolute;left:50px;top:50%;transform:translateY(-50%);background:#1f2738;color:#f1f5f9;padding:5px 11px;border-radius:6px;font-size:.78em;white-space:nowrap;border:1px solid #475569;z-index:300;pointer-events:none;}
+header{padding:24px 36px 16px;background:linear-gradient(135deg,rgba(231,76,60,.8),rgba(155,89,182,.8)),var(--bg);border-bottom:1px solid rgba(255,255,255,.06);}
+header h1{font-size:1.55em;margin-bottom:4px;}
+header p{opacity:.85;font-size:.9em;color:#f1f5f9;}
+.toc{display:flex;flex-wrap:wrap;gap:8px;padding:20px 36px;background:var(--panel);border-bottom:1px solid var(--p2);}
+.toc a{padding:5px 14px;border-radius:20px;font-size:.8em;font-weight:700;text-decoration:none;border:1.5px solid;transition:all .15s;}
+.toc a:hover{opacity:.75;}
+main{max-width:1280px;margin:0 auto;padding:32px 28px 100px;}
+.section{margin-bottom:60px;scroll-margin-top:20px;}
+.section-hdr{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+.section-hdr h2{font-size:1.5em;}
+.section-hdr .tag{padding:3px 12px;border-radius:20px;font-size:.72em;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
+.lead{color:var(--muted);font-size:.95em;line-height:1.7;margin-bottom:22px;max-width:900px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px;}
+.card{background:var(--panel);border:1px solid var(--p2);border-radius:13px;padding:20px 22px;}
+.card h3{font-size:1em;margin-bottom:10px;}
+.why{background:rgba(39,174,96,.06);border:1px solid rgba(39,174,96,.2);border-left:3px solid var(--good);border-radius:8px;padding:11px 15px;margin:10px 0;font-size:.88em;line-height:1.65;}
+.no {background:rgba(231,76,60,.06);border:1px solid rgba(231,76,60,.2);border-left:3px solid var(--bad);border-radius:8px;padding:11px 15px;margin:10px 0;font-size:.88em;line-height:1.65;}
+.warn{background:rgba(243,156,18,.06);border:1px solid rgba(243,156,18,.25);border-left:3px solid var(--warn);border-radius:8px;padding:9px 14px;margin:10px 0;font-size:.85em;}
+.warn::before{content:'⚠ ';font-weight:700;color:var(--warn);}
+pre{background:#03050a;border:1px solid #1f2738;border-radius:8px;padding:13px 16px;font-family:ui-monospace,"SF Mono",monospace;font-size:.82em;line-height:1.7;overflow-x:auto;margin:10px 0;}
+pre .$ {color:#38bdf8;font-weight:700;}
+pre .cmd{color:#fde68a;}
+pre .ok {color:#4ade80;}
+pre .warn2{color:#fbbf24;}
+pre .info{color:#94a3b8;}
+pre .note{color:#818cf8;font-style:italic;}
+pre .hi{color:#f472b6;}
+code{background:#0d1117;padding:2px 6px;border-radius:4px;color:#fde68a;font-size:.87em;font-family:ui-monospace,monospace;}
+.diagram{background:#03050a;border:1px solid #1f2738;border-radius:10px;padding:14px;margin:12px 0;}
+.dtitle{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:10px;}
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:14px 0;}
+.flow-box{padding:8px 14px;border-radius:8px;font-size:.82em;font-weight:700;font-family:ui-monospace,monospace;border:1.5px solid;text-align:center;}
+.flow-arr{padding:0 6px;color:#475569;font-size:1.1em;}
+.analogy{background:linear-gradient(135deg,rgba(56,189,248,.05),rgba(155,89,182,.05));border:1px solid rgba(56,189,248,.18);border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.88em;line-height:1.65;}
+.analogy strong{color:var(--accent);}
+.inside-box{border:2px solid;border-radius:10px;padding:14px;margin:10px 0;}
+.field-row{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid #1f2738;font-size:.85em;}
+.field-key{color:var(--accent);font-family:ui-monospace,monospace;min-width:160px;flex-shrink:0;}
+.field-val{color:var(--text);font-family:ui-monospace,monospace;}
+.field-why{color:var(--muted);font-size:.85em;margin-left:auto;}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<aside class="rail">
+  <a href="index.html" class="rb">K8</a>
+  <a href="animated-lab-kubernetes-fundamentals.html" class="rl" title="K8s Lab">📦</a>
+  <a href="cluster-explained.html" class="rl" title="Cluster Explained">🗺</a>
+  <a href="deep-dive.html" class="rl active" title="Deep Dive">🔬</a>
+  <a href="../course-flashcards/index.html" class="rl" title="Flashcards">🃏</a>
+</aside>
+
+<header>
+  <h1>🔬 Deep Dive — What Every Component Stores, Where, and Why</h1>
+  <p>Click any component below. Each section shows the real data structure, storage location, flow diagram, and what breaks without it.</p>
+</header>
+
+<nav class="toc">
+  <a href="#secret"    style="border-color:#E74C3C;color:#E74C3C">🔐 Secret</a>
+  <a href="#cm"        style="border-color:#38bdf8;color:#38bdf8">📋 ConfigMap</a>
+  <a href="#pod"       style="border-color:#4A90E2;color:#4A90E2">🫛 Pod</a>
+  <a href="#svc"       style="border-color:#1ABC9C;color:#1ABC9C">🔗 Service</a>
+  <a href="#deploy"    style="border-color:#9B59B6;color:#9B59B6">📦 Deployment</a>
+  <a href="#sts"       style="border-color:#818cf8;color:#818cf8">🗄 StatefulSet</a>
+  <a href="#ds"        style="border-color:#38bdf8;color:#38bdf8">👁 DaemonSet</a>
+  <a href="#node"      style="border-color:#E67E22;color:#E67E22">🖥 Node</a>
+  <a href="#ns"        style="border-color:#F39C12;color:#F39C12">📁 Namespace</a>
+  <a href="#cp"        style="border-color:#4A90E2;color:#4A90E2">🧠 Control Plane</a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════ SECRET -->
+<section class="section" id="secret">
+<div class="section-hdr">
+  <span style="font-size:2em">🔐</span>
+  <div>
+    <div class="tag" style="background:rgba(231,76,60,.12);color:#E74C3C;border:1px solid rgba(231,76,60,.3)">Secret</div>
+    <h2>What it stores · where · how it flows</h2>
+  </div>
+</div>
+<p class="lead">A Secret stores sensitive data — passwords, tokens, TLS certs, SSH keys. It lives as an object in <strong>etcd</strong> (base64 encoded by default). Pods consume it as env vars or volume-mounted files.</p>
+
+<div class="grid2">
+<div class="card" style="border-left:3px solid #E74C3C">
+  <h3 style="color:#E74C3C">What's inside a Secret</h3>
+  <div class="inside-box" style="border-color:#E74C3C">
+    <div class="field-row"><span class="field-key">apiVersion:</span><span class="field-val">v1</span><span class="field-why">K8s API version</span></div>
+    <div class="field-row"><span class="field-key">kind:</span><span class="field-val">Secret</span><span class="field-why">object type</span></div>
+    <div class="field-row"><span class="field-key">metadata.name:</span><span class="field-val">db-creds</span><span class="field-why">reference name</span></div>
+    <div class="field-row"><span class="field-key">metadata.namespace:</span><span class="field-val">prod</span><span class="field-why">isolation scope</span></div>
+    <div class="field-row"><span class="field-key">type:</span><span class="field-val">Opaque</span><span class="field-why">generic secret (vs kubernetes.io/tls)</span></div>
+    <div class="field-row" style="background:rgba(231,76,60,.06)"><span class="field-key">data.password:</span><span class="field-val" style="color:#fca5a5">cEBzc3cwcmQ=</span><span class="field-why" style="color:#E74C3C">⚠ base64, NOT encrypted</span></div>
+    <div class="field-row" style="background:rgba(231,76,60,.06)"><span class="field-key">data.username:</span><span class="field-val" style="color:#fca5a5">YWRtaW4=</span><span class="field-why" style="color:#E74C3C">⚠ base64 of "admin"</span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl create secret generic db-creds \
+  --from-literal=password=p@ssw0rd \
+  --from-literal=username=admin -n prod</span>
+<span class="ok">secret/db-creds created</span>
+
+<span class="$">$</span> <span class="cmd">kubectl get secret db-creds -n prod -o yaml</span>
+<span class="ok">data:
+  password: cEBzc3cwcmQ=
+  username: YWRtaW4=</span>
+
+<span class="$">$</span> <span class="cmd">echo "cEBzc3cwcmQ=" | base64 -d</span>
+<span class="warn2">p@ssw0rd    ← decoded in 0.01 seconds!</span></pre>
+</div>
+
+<div class="card">
+  <h3>Where it lives — storage journey</h3>
+  <div class="flow">
+    <div class="flow-box" style="border-color:#38bdf8;color:#38bdf8">kubectl create</div>
+    <span class="flow-arr">→</span>
+    <div class="flow-box" style="border-color:#4A90E2;color:#4A90E2">API Server</div>
+    <span class="flow-arr">→</span>
+    <div class="flow-box" style="border-color:#818cf8;color:#818cf8">etcd</div>
+  </div>
+  <div class="diagram">
+    <div class="dtitle">etcd storage path</div>
+    <svg viewBox="0 0 640 170" style="width:100%">
+      <rect x="10" y="15" width="620" height="140" rx="10" fill="rgba(129,140,248,.05)" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="320" y="35" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="700">etcd key-value store</text>
+      <rect x="30" y="45" width="580" height="36" rx="6" fill="rgba(231,76,60,.08)" stroke="#E74C3C" stroke-width="1"/>
+      <text x="50" y="59" fill="#38bdf8" font-size="9" font-family="ui-monospace,monospace">/registry/secrets/prod/db-creds</text>
+      <text x="50" y="73" fill="#94a3b8" font-size="8.5" font-family="ui-monospace,monospace">→ {"data":{"password":"cEBzc3cwcmQ="},"type":"Opaque",...}</text>
+      <rect x="30" y="90" width="580" height="28" rx="5" fill="rgba(39,174,96,.06)" stroke="#27AE60" stroke-width="1"/>
+      <text x="50" y="108" fill="#4ade80" font-size="8.5" font-family="ui-monospace,monospace">With KMS encryption: same path → encrypted bytes (unreadable without KMS key)</text>
+      <rect x="30" y="125" width="580" height="24" rx="5" fill="rgba(255,255,255,.03)" stroke="#334155" stroke-width="1"/>
+      <text x="50" y="141" fill="#64748b" font-size="8.5" font-family="ui-monospace,monospace">etcd volume: /var/lib/etcd/member/snap/db  (EKS: managed by AWS across 3 AZs)</text>
+    </svg>
+  </div>
+  <div class="warn">base64 is ENCODING not ENCRYPTION. Anyone with kubectl access can decode it in one command. Fix: <code>aws eks create-cluster --secrets-encryption-config</code> + KMS key.</div>
+</div>
+</div>
+
+<div class="grid2">
+<div class="card">
+  <h3>How a Pod consumes a Secret — Method 1: Environment Variable</h3>
+  <pre><span class="note"># In Pod spec:</span>
+<span class="cmd">env:
+  - name: DB_PASSWORD          # env var name in container
+    valueFrom:
+      secretKeyRef:
+        name: db-creds          # Secret object name
+        key: password           # key inside the Secret</span>
+
+<span class="$">$</span> <span class="cmd">kubectl exec -it nginx -n prod -- env | grep DB</span>
+<span class="ok">DB_PASSWORD=p@ssw0rd  ← visible in process environment!</span>
+<span class="warn2"># Problem: visible in kubectl describe pod, process list, crash dumps</span></pre>
+  <div class="no">Env var method leaks the secret value into: <code>kubectl describe pod</code> output, <code>ps aux</code> on the node, application crash reports, and CI/CD logs that print all env vars.</div>
+</div>
+<div class="card">
+  <h3>How a Pod consumes a Secret — Method 2: Volume Mount (safer)</h3>
+  <pre><span class="note"># In Pod spec:</span>
+<span class="cmd">volumes:
+  - name: creds-vol
+    secret:
+      secretName: db-creds     # which Secret to mount
+volumeMounts:
+  - name: creds-vol
+    mountPath: /etc/creds      # directory in container
+    readOnly: true             # always set readOnly!</span>
+
+<span class="$">$</span> <span class="cmd">kubectl exec -it nginx -n prod -- cat /etc/creds/password</span>
+<span class="ok">p@ssw0rd</span>
+<span class="note"># File is in-memory tmpfs — never written to disk
+# Not visible in kubectl describe, process list, or logs
+# Auto-updated when Secret rotates (with ASCP)</span></pre>
+  <div class="why">Volume mount is safer: secret not in env, not in describe output, mounted as tmpfs (memory only, never to node disk), and can auto-rotate with AWS Secrets Manager + ASCP.</div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <h3>Secret types — not all Secrets are <code>Opaque</code></h3>
+  <div class="grid3">
+    <div><code>Opaque</code><p style="font-size:.83em;color:var(--muted);margin-top:6px">Generic secrets. Arbitrary key-value pairs. What you've been using. DB passwords, API keys, tokens.</p></div>
+    <div><code>kubernetes.io/tls</code><p style="font-size:.83em;color:var(--muted);margin-top:6px">TLS cert + private key. Used by Ingress controllers. Fields: <code>tls.crt</code> and <code>tls.key</code>.</p></div>
+    <div><code>kubernetes.io/dockerconfigjson</code><p style="font-size:.83em;color:var(--muted);margin-top:6px">Docker registry credentials. Used as <code>imagePullSecrets</code> so pods can pull from private ECR/registries.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ CONFIGMAP -->
+<section class="section" id="cm">
+<div class="section-hdr">
+  <span style="font-size:2em">📋</span>
+  <div>
+    <div class="tag" style="background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.25)">ConfigMap</div>
+    <h2>What it stores · where · how it flows</h2>
+  </div>
+</div>
+<p class="lead">A ConfigMap stores <strong>non-sensitive</strong> configuration: feature flags, database hostnames, log levels, entire config files. Same image, different ConfigMap = different environment. Stored in etcd in plaintext.</p>
+
+<div class="grid2">
+<div class="card" style="border-left:3px solid #38bdf8">
+  <h3 style="color:#38bdf8">What's inside a ConfigMap</h3>
+  <div class="inside-box" style="border-color:#38bdf8">
+    <div class="field-row"><span class="field-key">kind:</span><span class="field-val">ConfigMap</span></div>
+    <div class="field-row"><span class="field-key">metadata.name:</span><span class="field-val">app-config</span></div>
+    <div class="field-row" style="background:rgba(56,189,248,.04)"><span class="field-key">data.DB_HOST:</span><span class="field-val" style="color:#7dd3fc">postgres.prod.svc.cluster.local</span></div>
+    <div class="field-row" style="background:rgba(56,189,248,.04)"><span class="field-key">data.LOG_LEVEL:</span><span class="field-val" style="color:#7dd3fc">info</span></div>
+    <div class="field-row" style="background:rgba(56,189,248,.04)"><span class="field-key">data.MAX_RETRIES:</span><span class="field-val" style="color:#7dd3fc">3</span></div>
+    <div class="field-row" style="background:rgba(56,189,248,.04)"><span class="field-key">data.nginx.conf:</span><span class="field-val" style="color:#7dd3fc">server { listen 80; ... }</span><span class="field-why">entire file as value</span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl create configmap app-config \
+  --from-literal=DB_HOST=postgres.prod \
+  --from-literal=LOG_LEVEL=info \
+  --from-file=nginx.conf=./nginx.conf -n prod</span>
+<span class="ok">configmap/app-config created</span></pre>
+</div>
+<div class="card">
+  <h3>ConfigMap vs Secret — when to use each</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 600 200" style="width:100%">
+      <rect x="10" y="10" width="270" height="175" rx="10" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="145" y="32" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="700">ConfigMap</text>
+      <text x="145" y="50" text-anchor="middle" fill="#94a3b8" font-size="9">stored in etcd — plaintext</text>
+      <text x="30" y="72" fill="#7dd3fc" font-size="9">✓ Database hostnames</text>
+      <text x="30" y="88" fill="#7dd3fc" font-size="9">✓ Feature flags (true/false)</text>
+      <text x="30" y="104" fill="#7dd3fc" font-size="9">✓ Log levels (debug/info)</text>
+      <text x="30" y="120" fill="#7dd3fc" font-size="9">✓ Config files (nginx.conf)</text>
+      <text x="30" y="136" fill="#7dd3fc" font-size="9">✓ Environment names (prod)</text>
+      <text x="30" y="155" fill="#475569" font-size="8.5">→ Safe to be seen. Not sensitive.</text>
+      <rect x="320" y="10" width="270" height="175" rx="10" fill="rgba(231,76,60,.05)" stroke="#E74C3C" stroke-width="1.5"/>
+      <text x="455" y="32" text-anchor="middle" fill="#E74C3C" font-size="11" font-weight="700">Secret</text>
+      <text x="455" y="50" text-anchor="middle" fill="#94a3b8" font-size="9">stored in etcd — base64 (add KMS!)</text>
+      <text x="340" y="72" fill="#fca5a5" font-size="9">✓ Passwords</text>
+      <text x="340" y="88" fill="#fca5a5" font-size="9">✓ API keys / tokens</text>
+      <text x="340" y="104" fill="#fca5a5" font-size="9">✓ TLS certificates</text>
+      <text x="340" y="120" fill="#fca5a5" font-size="9">✓ SSH private keys</text>
+      <text x="340" y="136" fill="#fca5a5" font-size="9">✓ Docker registry passwords</text>
+      <text x="340" y="155" fill="#475569" font-size="8.5">→ Must be protected. Sensitive.</text>
+    </svg>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ POD -->
+<section class="section" id="pod">
+<div class="section-hdr">
+  <span style="font-size:2em">🫛</span>
+  <div>
+    <div class="tag" style="background:rgba(74,144,226,.12);color:#4A90E2;border:1px solid rgba(74,144,226,.3)">Pod</div>
+    <h2>What's inside a Pod · how containers share it</h2>
+  </div>
+</div>
+<p class="lead">A Pod is the smallest deployable unit. It wraps one or more containers that share a <strong>network namespace</strong> (same IP, same localhost) and optional shared <strong>volumes</strong>. The Pod spec is what you write; Kubernetes creates the actual containers from it.</p>
+
+<div class="grid2">
+<div class="card" style="border-left:3px solid #4A90E2">
+  <h3 style="color:#4A90E2">What's inside a Pod spec</h3>
+  <div class="inside-box" style="border-color:#4A90E2">
+    <div class="field-row"><span class="field-key">spec.containers[]</span><span class="field-val" style="color:#7dd3fc">list of containers to run</span></div>
+    <div class="field-row"><span class="field-key">  .name:</span><span class="field-val">nginx</span><span class="field-why">container name inside pod</span></div>
+    <div class="field-row"><span class="field-key">  .image:</span><span class="field-val">nginx:1.25</span><span class="field-why">Docker image to pull</span></div>
+    <div class="field-row"><span class="field-key">  .ports[]:</span><span class="field-val">containerPort: 80</span><span class="field-why">documentation only (not a firewall)</span></div>
+    <div class="field-row"><span class="field-key">  .resources.requests:</span><span class="field-val">cpu:250m mem:256Mi</span><span class="field-why">scheduler uses this</span></div>
+    <div class="field-row"><span class="field-key">  .resources.limits:</span><span class="field-val">cpu:500m mem:512Mi</span><span class="field-why">runtime enforces this</span></div>
+    <div class="field-row"><span class="field-key">  .env[]:</span><span class="field-val">DB_HOST=postgres</span><span class="field-why">environment variables</span></div>
+    <div class="field-row"><span class="field-key">  .volumeMounts[]:</span><span class="field-val">mountPath: /etc/creds</span><span class="field-why">mount point in container</span></div>
+    <div class="field-row"><span class="field-key">spec.volumes[]:</span><span class="field-val">secret: db-creds</span><span class="field-why">what to mount</span></div>
+    <div class="field-row"><span class="field-key">spec.nodeName:</span><span class="field-val">node-01</span><span class="field-why">set by scheduler after creation</span></div>
+    <div class="field-row"><span class="field-key">status.podIP:</span><span class="field-val">10.244.0.5</span><span class="field-why">assigned by VPC CNI on EKS</span></div>
+    <div class="field-row"><span class="field-key">status.phase:</span><span class="field-val">Running</span><span class="field-why">Pending→Running→Succeeded/Failed</span></div>
+  </div>
+</div>
+<div class="card">
+  <h3>How containers share a Pod</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 620 230" style="width:100%">
+      <rect x="10" y="10" width="600" height="210" rx="12" fill="rgba(74,144,226,.05)" stroke="#4A90E2" stroke-width="2"/>
+      <text x="310" y="32" text-anchor="middle" fill="#4A90E2" font-size="11" font-weight="700">Pod (IP: 10.244.0.5)</text>
+      <!-- Shared network namespace -->
+      <rect x="25" y="42" width="575" height="28" rx="6" fill="rgba(56,189,248,.08)" stroke="#38bdf8" stroke-width="1"/>
+      <text x="312" y="60" text-anchor="middle" fill="#7dd3fc" font-size="9.5">Shared network namespace — same IP (10.244.0.5), same eth0, same loopback (localhost)</text>
+      <!-- Container A -->
+      <rect x="30" y="80" width="260" height="90" rx="8" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1.5"/>
+      <text x="160" y="100" text-anchor="middle" fill="#7dd3fc" font-size="10.5" font-weight="700">Container A: nginx</text>
+      <text x="160" y="116" text-anchor="middle" fill="#94a3b8" font-size="9">listens on localhost:80</text>
+      <text x="160" y="130" text-anchor="middle" fill="#94a3b8" font-size="9">image: nginx:1.25</text>
+      <text x="160" y="146" text-anchor="middle" fill="#94a3b8" font-size="9">cpu: 250m / 500m</text>
+      <!-- Container B -->
+      <rect x="310" y="80" width="270" height="90" rx="8" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1.5"/>
+      <text x="445" y="100" text-anchor="middle" fill="#4ade80" font-size="10.5" font-weight="700">Container B: log-agent</text>
+      <text x="445" y="116" text-anchor="middle" fill="#94a3b8" font-size="9">reads localhost:80/metrics</text>
+      <text x="445" y="130" text-anchor="middle" fill="#94a3b8" font-size="9">sidecar pattern</text>
+      <text x="445" y="146" text-anchor="middle" fill="#94a3b8" font-size="9">cpu: 50m / 100m</text>
+      <!-- Arrow between -->
+      <path d="M292 125 L308 125" stroke="#F39C12" stroke-width="2" marker-end="url(#a)"/>
+      <defs><marker id="a" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#F39C12"/></marker></defs>
+      <text x="300" y="118" text-anchor="middle" fill="#F39C12" font-size="7.5">localhost</text>
+      <!-- Shared volume -->
+      <rect x="30" y="180" width="550" height="28" rx="6" fill="rgba(155,89,182,.08)" stroke="#9B59B6" stroke-width="1"/>
+      <text x="310" y="198" text-anchor="middle" fill="#c4b5fd" font-size="9">Shared volume: /var/log mounted in BOTH containers (emptyDir or PVC)</text>
+    </svg>
+  </div>
+  <div class="analogy"><strong>Analogy:</strong> A pod is a shared apartment. Each container is a roommate. They share the same front door (IP address), the same phone number (localhost), and can share storage (volumes). But each has their own CPU/memory budget (resource limits).</div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <h3>Pod lifecycle — the exact state machine</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 760 80" style="width:100%">
+      <defs><marker id="b" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#94a3b8"/></marker>
+          <marker id="c" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#E74C3C"/></marker></defs>
+      <rect x="10" y="18" width="90" height="36" rx="7" fill="rgba(129,140,248,.12)" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="55" y="41" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Pending</text>
+      <text x="55" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">waiting for node</text>
+      <path d="M102 36 L130 36" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#b)"/>
+      <rect x="132" y="18" width="100" height="36" rx="7" fill="rgba(243,156,18,.1)" stroke="#F39C12" stroke-width="1.5"/>
+      <text x="182" y="41" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">ContainerCreating</text>
+      <text x="182" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">pulling image, starting</text>
+      <path d="M234 36 L262 36" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#b)"/>
+      <rect x="264" y="18" width="80" height="36" rx="7" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="2"/>
+      <text x="304" y="41" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="700">Running</text>
+      <text x="304" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">all containers live</text>
+      <path d="M346 36 L374 36" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#b)"/>
+      <rect x="376" y="18" width="90" height="36" rx="7" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="421" y="41" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="700">Succeeded</text>
+      <text x="421" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">Job completed</text>
+      <rect x="376" y="18" width="90" height="36" rx="7" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5" transform="translate(130,0)"/>
+      <text x="551" y="41" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700">Failed</text>
+      <text x="551" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">container exit≠0</text>
+      <path d="M346 50 L560 54" stroke="#E74C3C" stroke-width="1" stroke-dasharray="4" marker-end="url(#c)"/>
+      <path d="M346 22 L420 20" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#b)"/>
+      <rect x="610" y="18" width="110" height="36" rx="7" fill="rgba(243,156,18,.1)" stroke="#F39C12" stroke-width="1.5"/>
+      <text x="665" y="41" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">Terminating</text>
+      <text x="665" y="68" text-anchor="middle" fill="#64748b" font-size="7.5">graceful shutdown (30s)</text>
+      <path d="M508 36 L608 36" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4" marker-end="url(#b)"/>
+    </svg>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ SERVICE -->
+<section class="section" id="svc">
+<div class="section-hdr">
+  <span style="font-size:2em">🔗</span>
+  <div>
+    <div class="tag" style="background:rgba(26,188,156,.1);color:#1ABC9C;border:1px solid rgba(26,188,156,.3)">Service</div>
+    <h2>What it stores · how traffic flows · 4 types</h2>
+  </div>
+</div>
+<p class="lead">A Service is a stable virtual endpoint in front of dynamic pods. It stores: a virtual IP (ClusterIP), a label selector (which pods to route to), and port mappings. kube-proxy on every node reads this and writes iptables rules.</p>
+
+<div class="grid2">
+<div class="card" style="border-left:3px solid #1ABC9C">
+  <h3 style="color:#1ABC9C">What's inside a Service</h3>
+  <div class="inside-box" style="border-color:#1ABC9C">
+    <div class="field-row"><span class="field-key">spec.type:</span><span class="field-val" style="color:#5eead4">ClusterIP</span><span class="field-why">or NodePort/LoadBalancer/ExternalName</span></div>
+    <div class="field-row"><span class="field-key">spec.selector:</span><span class="field-val" style="color:#5eead4">app: nginx</span><span class="field-why">matches pods with this label</span></div>
+    <div class="field-row"><span class="field-key">spec.ports[0].port:</span><span class="field-val">80</span><span class="field-why">what callers connect to</span></div>
+    <div class="field-row"><span class="field-key">spec.ports[0].targetPort:</span><span class="field-val">8080</span><span class="field-why">what pod actually listens on</span></div>
+    <div class="field-row" style="background:rgba(26,188,156,.06)"><span class="field-key">spec.clusterIP:</span><span class="field-val" style="color:#5eead4">10.96.100.10</span><span class="field-why">assigned by K8s, never changes</span></div>
+    <div class="field-row"><span class="field-key">status.loadBalancer:</span><span class="field-val">a1b2.elb.amazonaws.com</span><span class="field-why">AWS NLB DNS (LB type only)</span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl apply -f svc.yaml</span>
+<span class="ok">service/nginx-svc created</span>
+
+<span class="$">$</span> <span class="cmd">kubectl describe svc nginx-svc -n prod</span>
+<span class="ok">Selector:   app=nginx
+ClusterIP:  10.96.100.10
+Endpoints:  10.244.0.5:80, 10.244.1.3:80</span>
+<span class="note">            ↑ these are the actual pod IPs behind the service</span></pre>
+</div>
+<div class="card">
+  <h3>How traffic flows through a Service</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 620 200" style="width:100%">
+      <defs><marker id="sa" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#1ABC9C"/></marker></defs>
+      <rect x="10" y="70" width="110" height="50" rx="8" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1.5"/>
+      <text x="65" y="95" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">Caller Pod</text>
+      <text x="65" y="109" text-anchor="middle" fill="#94a3b8" font-size="8">curl nginx-svc:80</text>
+      <path d="M122 95 L162 95" stroke="#1ABC9C" stroke-width="2" marker-end="url(#sa)"/>
+      <rect x="164" y="70" width="120" height="50" rx="8" fill="rgba(26,188,156,.08)" stroke="#1ABC9C" stroke-width="1.5"/>
+      <text x="224" y="89" text-anchor="middle" fill="#5eead4" font-size="9" font-weight="700">CoreDNS</text>
+      <text x="224" y="103" text-anchor="middle" fill="#94a3b8" font-size="8">nginx-svc.prod →</text>
+      <text x="224" y="115" text-anchor="middle" fill="#94a3b8" font-size="8">10.96.100.10</text>
+      <path d="M286 95 L326 95" stroke="#1ABC9C" stroke-width="2" marker-end="url(#sa)"/>
+      <rect x="328" y="55" width="120" height="80" rx="8" fill="rgba(26,188,156,.08)" stroke="#1ABC9C" stroke-width="2"/>
+      <text x="388" y="75" text-anchor="middle" fill="#5eead4" font-size="9.5" font-weight="700">kube-proxy</text>
+      <text x="388" y="90" text-anchor="middle" fill="#94a3b8" font-size="7.5">iptables rules on node</text>
+      <text x="388" y="104" text-anchor="middle" fill="#94a3b8" font-size="7.5">10.96.100.10:80 →</text>
+      <text x="388" y="118" text-anchor="middle" fill="#94a3b8" font-size="7.5">random healthy pod</text>
+      <path d="M450 75 L490 50" stroke="#27AE60" stroke-width="1.5" marker-end="url(#sa)"/>
+      <path d="M450 95 L490 95" stroke="#27AE60" stroke-width="1.5" marker-end="url(#sa)"/>
+      <path d="M450 115 L490 140" stroke="#27AE60" stroke-width="1.5" marker-end="url(#sa)"/>
+      <rect x="492" y="30" width="110" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/>
+      <text x="547" y="48" text-anchor="middle" fill="#4ade80" font-size="8.5">pod: 10.244.0.5</text>
+      <rect x="492" y="82" width="110" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/>
+      <text x="547" y="100" text-anchor="middle" fill="#4ade80" font-size="8.5">pod: 10.244.1.3</text>
+      <rect x="492" y="134" width="110" height="28" rx="5" fill="rgba(39,174,96,.1)" stroke="#27AE60" stroke-width="1"/>
+      <text x="547" y="152" text-anchor="middle" fill="#4ade80" font-size="8.5">pod: 10.244.2.1</text>
+      <text x="310" y="185" text-anchor="middle" fill="#64748b" font-size="8">Pod restarts with new IP → kube-proxy updates iptables → Service DNS unchanged</text>
+    </svg>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ DEPLOYMENT -->
+<section class="section" id="deploy">
+<div class="section-hdr">
+  <span style="font-size:2em">📦</span>
+  <div>
+    <div class="tag" style="background:rgba(155,89,182,.12);color:#9B59B6;border:1px solid rgba(155,89,182,.3)">Deployment</div>
+    <h2>What it stores · rolling update mechanics · rollback</h2>
+  </div>
+</div>
+<p class="lead">A Deployment stores the desired state for a stateless application: image, replicas, update strategy. It creates ReplicaSets which create Pods. The deployment history lets you instantly roll back to any previous version.</p>
+
+<div class="grid2">
+<div class="card" style="border-left:3px solid #9B59B6">
+  <h3 style="color:#9B59B6">What's inside a Deployment</h3>
+  <div class="inside-box" style="border-color:#9B59B6">
+    <div class="field-row"><span class="field-key">spec.replicas:</span><span class="field-val" style="color:#c4b5fd">6</span><span class="field-why">desired pod count</span></div>
+    <div class="field-row"><span class="field-key">spec.selector:</span><span class="field-val" style="color:#c4b5fd">app: webapp</span><span class="field-why">which pods this manages</span></div>
+    <div class="field-row"><span class="field-key">spec.template:</span><span class="field-val" style="color:#c4b5fd">pod spec here</span><span class="field-why">what each pod looks like</span></div>
+    <div class="field-row"><span class="field-key">strategy.type:</span><span class="field-val">RollingUpdate</span><span class="field-why">or Recreate</span></div>
+    <div class="field-row"><span class="field-key">strategy.maxSurge:</span><span class="field-val">1</span><span class="field-why">extra pods during update</span></div>
+    <div class="field-row"><span class="field-key">strategy.maxUnavailable:</span><span class="field-val">0</span><span class="field-why">0 = zero downtime</span></div>
+    <div class="field-row" style="background:rgba(155,89,182,.06)"><span class="field-key">status.readyReplicas:</span><span class="field-val" style="color:#c4b5fd">6</span><span class="field-why">currently healthy pods</span></div>
+    <div class="field-row" style="background:rgba(155,89,182,.06)"><span class="field-key">status.conditions:</span><span class="field-val" style="color:#c4b5fd">Available=True</span></div>
+  </div>
+</div>
+<div class="card">
+  <h3>Rolling update — exactly what happens step by step</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 620 200" style="width:100%">
+      <text x="10" y="15" fill="#94a3b8" font-size="9" font-weight="700">BEFORE: 3 pods on v1</text>
+      <rect x="10"  y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="50" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-abc</text>
+      <rect x="98"  y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="138" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-def</text>
+      <rect x="186" y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="226" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-ghi</text>
+      <text x="310" y="15" fill="#F39C12" font-size="9" font-weight="700">STEP 1: +1 v2 pod (maxSurge=1)</text>
+      <rect x="310" y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="350" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-abc</text>
+      <rect x="398" y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="438" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-def</text>
+      <rect x="486" y="22" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="526" y="42" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-ghi</text>
+      <rect x="574" y="22" width="38" height="32" rx="5" fill="rgba(56,189,248,.12)" stroke="#38bdf8" stroke-width="1.5"/><text x="593" y="42" text-anchor="middle" fill="#7dd3fc" font-size="7.5">v2-zzz</text>
+      <text x="10" y="80" fill="#F39C12" font-size="9" font-weight="700">STEP 2: remove 1 v1 (maxUnavail=0 → wait for v2 ready first)</text>
+      <rect x="10"  y="88" width="80" height="32" rx="5" fill="rgba(231,76,60,.08)" stroke="#E74C3C" stroke-width="1" stroke-dasharray="4"/><text x="50" y="108" text-anchor="middle" fill="#fca5a5" font-size="8.5">v1-abc term</text>
+      <rect x="98"  y="88" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="138" y="108" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-def</text>
+      <rect x="186" y="88" width="80" height="32" rx="5" fill="rgba(155,89,182,.1)" stroke="#9B59B6" stroke-width="1.5"/><text x="226" y="108" text-anchor="middle" fill="#c4b5fd" font-size="8.5">v1-ghi</text>
+      <rect x="274" y="88" width="80" height="32" rx="5" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="1.5"/><text x="314" y="108" text-anchor="middle" fill="#4ade80" font-size="8.5">v2-zzz ✓</text>
+      <text x="370" y="80" fill="#27AE60" font-size="9" font-weight="700">AFTER: all on v2, zero downtime</text>
+      <rect x="370" y="88" width="75" height="32" rx="5" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="1.5"/><text x="407" y="108" text-anchor="middle" fill="#4ade80" font-size="8.5">v2-aaa</text>
+      <rect x="453" y="88" width="75" height="32" rx="5" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="1.5"/><text x="490" y="108" text-anchor="middle" fill="#4ade80" font-size="8.5">v2-bbb</text>
+      <rect x="536" y="88" width="75" height="32" rx="5" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="1.5"/><text x="573" y="108" text-anchor="middle" fill="#4ade80" font-size="8.5">v2-ccc</text>
+      <text x="310" y="150" text-anchor="middle" fill="#94a3b8" font-size="8.5">Service always routes to READY pods only — no traffic to terminating or ContainerCreating pods</text>
+      <text x="310" y="167" text-anchor="middle" fill="#9B59B6" font-size="8.5" font-weight="700">kubectl rollout undo deploy/webapp → instantly reverts to previous ReplicaSet (v1 still exists)</text>
+    </svg>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ STATEFULSET -->
+<section class="section" id="sts">
+<div class="section-hdr"><span style="font-size:2em">🗄</span><div>
+  <div class="tag" style="background:rgba(129,140,248,.12);color:#818cf8;border:1px solid rgba(129,140,248,.3)">StatefulSet</div>
+  <h2>Stable identity · ordered ops · own PVC per pod</h2>
+</div></div>
+<p class="lead">StatefulSets give each pod a permanent name, a permanent DNS hostname, and its own PersistentVolumeClaim. mysql-0 always gets PVC data-mysql-0. Even after a crash and restart, same pod name, same storage, same DNS hostname.</p>
+<div class="grid2">
+<div class="card" style="border-left:3px solid #818cf8">
+  <div class="inside-box" style="border-color:#818cf8">
+    <div class="field-row"><span class="field-key">spec.serviceName:</span><span class="field-val" style="color:#c4b5fd">mysql-headless</span><span class="field-why">REQUIRED headless service for DNS</span></div>
+    <div class="field-row"><span class="field-key">spec.replicas:</span><span class="field-val">2</span><span class="field-why">mysql-0, mysql-1</span></div>
+    <div class="field-row"><span class="field-key">spec.podManagementPolicy:</span><span class="field-val">OrderedReady</span><span class="field-why">start 0, then 1, then 2...</span></div>
+    <div class="field-row" style="background:rgba(129,140,248,.06)"><span class="field-key">volumeClaimTemplates:</span><span class="field-val" style="color:#c4b5fd">data: 10Gi RWO</span><span class="field-why">creates PVC per pod automatically</span></div>
+    <div class="field-row" style="background:rgba(129,140,248,.06)"><span class="field-key">DNS: mysql-0.mysql-headless.prod.svc.cluster.local</span><span class="field-val"></span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl get pvc -n prod</span>
+<span class="ok">data-mysql-0  Bound  10Gi  node-01  ← mysql-0 OWNS this</span>
+<span class="ok">data-mysql-1  Bound  10Gi  node-02  ← mysql-1 OWNS this</span>
+<span class="note"># Delete mysql-0 pod → new pod named mysql-0 binds to SAME PVC
+# Data survives. Identity survives. Replication config survives.</span></pre>
+</div>
+<div class="card">
+  <div class="diagram">
+    <div class="dtitle">Why StatefulSet needs a Headless Service</div>
+    <svg viewBox="0 0 600 180" style="width:100%">
+      <rect x="10" y="10" width="580" height="50" rx="8" fill="rgba(129,140,248,.06)" stroke="#818cf8" stroke-width="1"/>
+      <text x="300" y="30" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="700">Headless Service (clusterIP: None)</text>
+      <text x="300" y="48" text-anchor="middle" fill="#94a3b8" font-size="8.5">Does NOT get a ClusterIP. Instead creates DNS A records pointing directly to each pod IP.</text>
+      <line x1="150" y1="62" x2="150" y2="95" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3"/>
+      <line x1="300" y1="62" x2="300" y2="95" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3"/>
+      <line x1="450" y1="62" x2="450" y2="95" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3"/>
+      <rect x="80"  y="96" width="140" height="50" rx="7" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="150" y="116" text-anchor="middle" fill="#c4b5fd" font-size="9.5" font-weight="700">mysql-0</text>
+      <text x="150" y="131" text-anchor="middle" fill="#94a3b8" font-size="8">mysql-0.mysql-headless.prod</text>
+      <text x="150" y="143" text-anchor="middle" fill="#94a3b8" font-size="7.5">→ 10.244.0.10 (direct)</text>
+      <rect x="230" y="96" width="140" height="50" rx="7" fill="rgba(129,140,248,.1)" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="300" y="116" text-anchor="middle" fill="#c4b5fd" font-size="9.5" font-weight="700">mysql-1</text>
+      <text x="300" y="131" text-anchor="middle" fill="#94a3b8" font-size="8">mysql-1.mysql-headless.prod</text>
+      <text x="300" y="143" text-anchor="middle" fill="#94a3b8" font-size="7.5">→ 10.244.1.5 (direct)</text>
+      <text x="300" y="170" text-anchor="middle" fill="#818cf8" font-size="8.5" font-weight="700">mysql replica can ping "mysql-0.mysql-headless" to find primary — stable forever</text>
+    </svg>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ DAEMONSET -->
+<section class="section" id="ds">
+<div class="section-hdr"><span style="font-size:2em">👁</span><div>
+  <div class="tag" style="background:rgba(56,189,248,.08);color:#38bdf8;border:1px solid rgba(56,189,248,.25)">DaemonSet</div>
+  <h2>One pod per node · automatic · node-level agents</h2>
+</div></div>
+<p class="lead">A DaemonSet guarantees exactly one copy of a pod runs on every node in the cluster. When a new node joins, the DaemonSet controller automatically places a pod there. When a node leaves, the pod is garbage-collected.</p>
+<div class="grid2">
+<div class="card" style="border-left:3px solid #38bdf8">
+  <div class="inside-box" style="border-color:#38bdf8">
+    <div class="field-row"><span class="field-key">spec.selector:</span><span class="field-val" style="color:#7dd3fc">app: fluent-bit</span></div>
+    <div class="field-row"><span class="field-key">spec.template.spec.volumes:</span><span class="field-val" style="color:#7dd3fc">hostPath: /var/log</span><span class="field-why">reads node log files</span></div>
+    <div class="field-row"><span class="field-key">spec.tolerations:</span><span class="field-val" style="color:#7dd3fc">NoSchedule toleration</span><span class="field-why">can run on tainted nodes</span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl get ds -n kube-system</span>
+<span class="ok">NAME         DESIRED  CURRENT  READY  NODE-SELECTOR
+fluent-bit   2        2        2      &lt;none&gt;</span>
+<span class="note"># DESIRED = number of nodes in cluster
+# Scales automatically with node count</span>
+
+<span class="$">$</span> <span class="cmd">kubectl get pods -n kube-system -o wide | grep fluent</span>
+<span class="ok">fluent-bit-n1   Running   node-01</span>
+<span class="ok">fluent-bit-n2   Running   node-02</span></pre>
+  <div class="warn">NOT supported on AWS Fargate. Fargate has no node for the agent to run on. Use EC2 node groups for anything that needs DaemonSets: logging (Fluent Bit), metrics (node-exporter), networking (aws-node VPC CNI).</div>
+</div>
+<div class="card">
+  <h3>Why each agent MUST run on every node</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 600 180" style="width:100%">
+      <rect x="10" y="10" width="270" height="160" rx="9" fill="rgba(230,126,34,.04)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="145" y="28" text-anchor="middle" fill="#E67E22" font-size="10" font-weight="700">node-01</text>
+      <rect x="25" y="38" width="240" height="28" rx="5" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="145" y="57" text-anchor="middle" fill="#7dd3fc" font-size="9">fluent-bit DaemonSet pod</text>
+      <text x="145" y="75" text-anchor="middle" fill="#94a3b8" font-size="8">reads /var/log/containers/* on THIS node</text>
+      <rect x="25" y="90" width="100" height="32" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+      <text x="75" y="110" text-anchor="middle" fill="#7dd3fc" font-size="8.5">app-pod-1</text>
+      <rect x="135" y="90" width="100" height="32" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+      <text x="185" y="110" text-anchor="middle" fill="#7dd3fc" font-size="8.5">mysql-0</text>
+      <text x="145" y="150" text-anchor="middle" fill="#94a3b8" font-size="7.5">logs collected ✓</text>
+
+      <rect x="320" y="10" width="270" height="160" rx="9" fill="rgba(230,126,34,.04)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="455" y="28" text-anchor="middle" fill="#E67E22" font-size="10" font-weight="700">node-02</text>
+      <rect x="335" y="38" width="240" height="28" rx="5" fill="rgba(56,189,248,.1)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="455" y="57" text-anchor="middle" fill="#7dd3fc" font-size="9">fluent-bit DaemonSet pod</text>
+      <text x="455" y="75" text-anchor="middle" fill="#94a3b8" font-size="8">reads /var/log/containers/* on THIS node</text>
+      <rect x="335" y="90" width="100" height="32" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+      <text x="385" y="110" text-anchor="middle" fill="#7dd3fc" font-size="8.5">webapp-v2-ccc</text>
+      <rect x="445" y="90" width="100" height="32" rx="5" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1"/>
+      <text x="495" y="110" text-anchor="middle" fill="#7dd3fc" font-size="8.5">mysql-1</text>
+      <text x="455" y="150" text-anchor="middle" fill="#94a3b8" font-size="7.5">logs collected ✓</text>
+    </svg>
+  </div>
+  <p style="font-size:.85em;color:var(--muted);line-height:1.6;margin-top:8px">Fluent Bit reads log files from the node's own filesystem. If you ran it as a Deployment with 2 replicas, the scheduler might put both on node-01 — node-02's logs would be completely missed.</p>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ NODE -->
+<section class="section" id="node">
+<div class="section-hdr"><span style="font-size:2em">🖥</span><div>
+  <div class="tag" style="background:rgba(230,126,34,.12);color:#E67E22;border:1px solid rgba(230,126,34,.3)">Node</div>
+  <h2>What a node reports · capacity vs allocatable · conditions</h2>
+</div></div>
+<p class="lead">A Node object in Kubernetes represents a worker machine (EC2 on EKS). It reports its capacity, allocatable resources, conditions (Ready/Memory/DiskPressure), and lists all pods running on it.</p>
+<div class="grid2">
+<div class="card" style="border-left:3px solid #E67E22">
+  <div class="inside-box" style="border-color:#E67E22">
+    <div class="field-row"><span class="field-key">status.capacity.cpu:</span><span class="field-val" style="color:#fdba74">2</span><span class="field-why">total physical cores</span></div>
+    <div class="field-row"><span class="field-key">status.capacity.memory:</span><span class="field-val" style="color:#fdba74">3967Mi</span><span class="field-why">total physical RAM</span></div>
+    <div class="field-row" style="background:rgba(230,126,34,.06)"><span class="field-key">status.allocatable.cpu:</span><span class="field-val" style="color:#fdba74">1900m</span><span class="field-why">available for pods (minus system)</span></div>
+    <div class="field-row" style="background:rgba(230,126,34,.06)"><span class="field-key">status.allocatable.memory:</span><span class="field-val" style="color:#fdba74">3467Mi</span><span class="field-why">available for pods (minus system)</span></div>
+    <div class="field-row"><span class="field-key">conditions[Ready]:</span><span class="field-val" style="color:#4ade80">True</span><span class="field-why">node healthy and accepting pods</span></div>
+    <div class="field-row"><span class="field-key">conditions[MemoryPressure]:</span><span class="field-val">False</span><span class="field-why">not low on RAM</span></div>
+    <div class="field-row"><span class="field-key">conditions[DiskPressure]:</span><span class="field-val">False</span><span class="field-why">not low on disk</span></div>
+    <div class="field-row"><span class="field-key">spec.taints:</span><span class="field-val">[]</span><span class="field-why">empty = accepts all pods</span></div>
+    <div class="field-row"><span class="field-key">labels:</span><span class="field-val">topology.kubernetes.io/zone=us-east-1a</span><span class="field-why">scheduler uses for spreading</span></div>
+  </div>
+  <pre><span class="$">$</span> <span class="cmd">kubectl describe node node-01</span>
+<span class="ok">Capacity:    cpu: 2       memory: 3967Mi
+Allocatable: cpu: 1900m   memory: 3467Mi</span>
+<span class="info">Allocated resources:
+  cpu: 1000m/1900m (52%)   ← sum of all pod requests
+  memory: 1200Mi/3467Mi (34%)</span>
+<span class="note"># Scheduler uses Allocatable, not Capacity
+# Remaining allocatable = how many more pods can fit</span></pre>
+</div>
+<div class="card">
+  <h3>Capacity vs Allocatable — the 100m gap matters</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 580 200" style="width:100%">
+      <rect x="20" y="10" width="240" height="180" rx="8" fill="rgba(230,126,34,.04)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="140" y="28" text-anchor="middle" fill="#E67E22" font-size="10" font-weight="700">Total Capacity: 2000m CPU</text>
+      <rect x="30" y="35" width="220" height="30" rx="5" fill="rgba(255,255,255,.04)" stroke="#334155" stroke-width="1"/>
+      <text x="140" y="54" text-anchor="middle" fill="#94a3b8" font-size="8.5">100m reserved: kube-system pods</text>
+      <rect x="30" y="70" width="220" height="30" rx="5" fill="rgba(255,255,255,.03)" stroke="#334155" stroke-width="1"/>
+      <text x="140" y="88" text-anchor="middle" fill="#94a3b8" font-size="8.5">50m reserved: kubelet eviction threshold</text>
+      <rect x="30" y="105" width="220" height="75" rx="5" fill="rgba(230,126,34,.08)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="140" y="125" text-anchor="middle" fill="#fdba74" font-size="9" font-weight="700">Allocatable: 1900m</text>
+      <text x="140" y="141" text-anchor="middle" fill="#94a3b8" font-size="8">available for YOUR pods</text>
+      <text x="140" y="157" text-anchor="middle" fill="#94a3b8" font-size="8">scheduler checks this</text>
+      <text x="140" y="172" text-anchor="middle" fill="#94a3b8" font-size="7.5">before placing pod</text>
+
+      <rect x="320" y="10" width="240" height="180" rx="8" fill="rgba(230,126,34,.04)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="440" y="28" text-anchor="middle" fill="#E67E22" font-size="10" font-weight="700">Allocatable used: 1000m</text>
+      <rect x="330" y="35" width="220" height="25" rx="4" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1"/>
+      <text x="440" y="51" text-anchor="middle" fill="#4ade80" font-size="8.5">nginx: 250m requested</text>
+      <rect x="330" y="64" width="220" height="25" rx="4" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1"/>
+      <text x="440" y="80" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-bbb: 250m</text>
+      <rect x="330" y="93" width="220" height="25" rx="4" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1"/>
+      <text x="440" y="109" text-anchor="middle" fill="#4ade80" font-size="8.5">webapp-v2-zzz: 250m</text>
+      <rect x="330" y="122" width="220" height="25" rx="4" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1"/>
+      <text x="440" y="138" text-anchor="middle" fill="#4ade80" font-size="8.5">mysql-0: 250m</text>
+      <rect x="330" y="151" width="220" height="32" rx="4" fill="rgba(56,189,248,.06)" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4"/>
+      <text x="440" y="170" text-anchor="middle" fill="#7dd3fc" font-size="8.5">900m remaining → more pods can fit</text>
+    </svg>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ CONTROL PLANE -->
+<section class="section" id="cp">
+<div class="section-hdr"><span style="font-size:2em">🧠</span><div>
+  <div class="tag" style="background:rgba(74,144,226,.12);color:#4A90E2;border:1px solid rgba(74,144,226,.3)">Control Plane</div>
+  <h2>api-server · etcd · scheduler · controller-manager — complete data flow</h2>
+</div></div>
+<p class="lead">The control plane processes every kubectl command. Here is the exact sequence of what happens when you run <code>kubectl apply -f deploy.yaml</code> — across all four components.</p>
+
+<div class="card" style="margin-bottom:18px">
+  <h3>Complete flow: kubectl apply → running pods</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 760 280" style="width:100%">
+      <defs><marker id="ca" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#94a3b8"/></marker></defs>
+      <!-- Step boxes -->
+      <rect x="10"  y="20" width="110" height="55" rx="8" fill="rgba(56,189,248,.08)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="65"  y="41" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">① kubectl</text>
+      <text x="65"  y="57" text-anchor="middle" fill="#94a3b8" font-size="8">sends YAML</text>
+      <text x="65"  y="69" text-anchor="middle" fill="#94a3b8" font-size="8">to API server</text>
+      <path d="M122 47 L158 47" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="160" y="20" width="110" height="55" rx="8" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1.5"/>
+      <text x="215" y="41" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">② API Server</text>
+      <text x="215" y="57" text-anchor="middle" fill="#94a3b8" font-size="8">authenticates</text>
+      <text x="215" y="69" text-anchor="middle" fill="#94a3b8" font-size="8">+ validates YAML</text>
+      <path d="M272 47 L308 47" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="310" y="20" width="110" height="55" rx="8" fill="rgba(129,140,248,.08)" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="365" y="41" text-anchor="middle" fill="#c4b5fd" font-size="9.5" font-weight="700">③ etcd</text>
+      <text x="365" y="57" text-anchor="middle" fill="#94a3b8" font-size="8">persists Deployment</text>
+      <text x="365" y="69" text-anchor="middle" fill="#94a3b8" font-size="8">object to disk</text>
+      <path d="M422 47 L458 47" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="460" y="20" width="130" height="55" rx="8" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1.5"/>
+      <text x="525" y="36" text-anchor="middle" fill="#4ade80" font-size="9.5" font-weight="700">④ Deployment</text>
+      <text x="525" y="50" text-anchor="middle" fill="#4ade80" font-size="9.5" font-weight="700">Controller</text>
+      <text x="525" y="65" text-anchor="middle" fill="#94a3b8" font-size="8">watches etcd for new</text>
+      <text x="525" y="75" text-anchor="middle" fill="#94a3b8" font-size="8">Deployment → creates RS</text>
+      <path d="M592 47 L628 47" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="630" y="20" width="120" height="55" rx="8" fill="rgba(39,174,96,.08)" stroke="#27AE60" stroke-width="1.5"/>
+      <text x="690" y="36" text-anchor="middle" fill="#4ade80" font-size="9.5" font-weight="700">⑤ ReplicaSet</text>
+      <text x="690" y="50" text-anchor="middle" fill="#4ade80" font-size="9.5" font-weight="700">Controller</text>
+      <text x="690" y="65" text-anchor="middle" fill="#94a3b8" font-size="8">creates N pending</text>
+      <text x="690" y="75" text-anchor="middle" fill="#94a3b8" font-size="8">Pod objects in etcd</text>
+
+      <!-- Row 2 -->
+      <path d="M690 78 L690 118" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+      <rect x="630" y="120" width="120" height="55" rx="8" fill="rgba(243,156,18,.08)" stroke="#F39C12" stroke-width="1.5"/>
+      <text x="690" y="141" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">⑥ Scheduler</text>
+      <text x="690" y="157" text-anchor="middle" fill="#94a3b8" font-size="8">watches for unscheduled</text>
+      <text x="690" y="168" text-anchor="middle" fill="#94a3b8" font-size="8">pods → picks node</text>
+      <path d="M628 147 L592 147" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="460" y="120" width="130" height="55" rx="8" fill="rgba(230,126,34,.08)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="525" y="141" text-anchor="middle" fill="#fdba74" font-size="9.5" font-weight="700">⑦ kubelet</text>
+      <text x="525" y="157" text-anchor="middle" fill="#94a3b8" font-size="8">on chosen node watches</text>
+      <text x="525" y="168" text-anchor="middle" fill="#94a3b8" font-size="8">for pods assigned to it</text>
+      <path d="M458 147 L422 147" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="310" y="120" width="110" height="55" rx="8" fill="rgba(230,126,34,.08)" stroke="#E67E22" stroke-width="1.5"/>
+      <text x="365" y="141" text-anchor="middle" fill="#fdba74" font-size="9.5" font-weight="700">⑧ containerd</text>
+      <text x="365" y="157" text-anchor="middle" fill="#94a3b8" font-size="8">pulls image from ECR</text>
+      <text x="365" y="168" text-anchor="middle" fill="#94a3b8" font-size="8">starts container</text>
+      <path d="M308 147 L272 147" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="160" y="120" width="110" height="55" rx="8" fill="rgba(74,144,226,.08)" stroke="#4A90E2" stroke-width="1.5"/>
+      <text x="215" y="141" text-anchor="middle" fill="#7dd3fc" font-size="9.5" font-weight="700">⑨ kubelet</text>
+      <text x="215" y="157" text-anchor="middle" fill="#94a3b8" font-size="8">updates pod status</text>
+      <text x="215" y="168" text-anchor="middle" fill="#94a3b8" font-size="8">→ Running in etcd</text>
+      <path d="M158 147 L122 147" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ca)"/>
+
+      <rect x="10"  y="120" width="110" height="55" rx="8" fill="rgba(39,174,96,.12)" stroke="#27AE60" stroke-width="2"/>
+      <text x="65"  y="141" text-anchor="middle" fill="#4ade80" font-size="9.5" font-weight="700">⑩ Pod Running</text>
+      <text x="65"  y="157" text-anchor="middle" fill="#94a3b8" font-size="8">kubectl get pods</text>
+      <text x="65"  y="168" text-anchor="middle" fill="#4ade80" font-size="8">shows Running ✓</text>
+
+      <text x="380" y="215" text-anchor="middle" fill="#94a3b8" font-size="8.5">Total time: ~5 seconds for small images · ~60 seconds for large images</text>
+      <text x="380" y="232" text-anchor="middle" fill="#818cf8" font-size="8.5" font-weight="700">Everything goes through etcd. Every state change is an etcd write. etcd = source of truth.</text>
+      <text x="380" y="250" text-anchor="middle" fill="#4A90E2" font-size="8.5">On EKS: steps ①-⑨ all happen — only etcd and API server are AWS-managed. kubelet on your EC2.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <h3 style="color:#4A90E2;font-size:.95em">api-server — the gatekeeper</h3>
+    <pre style="font-size:.78em"><span class="note"># What it checks on every request:</span>
+<span class="ok">1. Authentication</span>
+<span class="info">   "Are you who you say?"
+   (IAM token on EKS)</span>
+<span class="ok">2. Authorization (RBAC)</span>
+<span class="info">   "Can this identity do this?"
+   (kubectl apply needs create)</span>
+<span class="ok">3. Admission Control</span>
+<span class="info">   "Does this object meet policy?"
+   (resource limits set?)</span>
+<span class="ok">4. Validation</span>
+<span class="info">   "Is the YAML schema correct?"
+   (image field not empty?)</span></pre>
+  </div>
+  <div class="card">
+    <h3 style="color:#818cf8;font-size:.95em">etcd — what it actually stores</h3>
+    <pre style="font-size:.78em"><span class="note"># etcd key structure:</span>
+<span class="ok">/registry/pods/prod/nginx</span>
+<span class="info">→ full Pod spec + status JSON</span>
+<span class="ok">/registry/services/prod/nginx-svc</span>
+<span class="info">→ Service spec + ClusterIP</span>
+<span class="ok">/registry/deployments/prod/webapp</span>
+<span class="info">→ Deployment spec + history</span>
+<span class="ok">/registry/secrets/prod/db-creds</span>
+<span class="info">→ base64 data (add KMS!)</span>
+<span class="ok">/registry/nodes/node-01</span>
+<span class="info">→ node capacity + conditions</span></pre>
+  </div>
+  <div class="card">
+    <h3 style="color:#F39C12;font-size:.95em">scheduler — watch → decide → write</h3>
+    <pre style="font-size:.78em"><span class="note"># Scheduler algorithm:</span>
+<span class="ok">1. Watch etcd for pods where</span>
+<span class="info">   spec.nodeName == ""</span>
+<span class="ok">2. Run predicates (filter)</span>
+<span class="info">   - ResourceFit (cpu+mem)
+   - NodeReady condition
+   - Taints/tolerations
+   - Node/pod affinity</span>
+<span class="ok">3. Score survivors</span>
+<span class="info">   - Spread (prefer empty)
+   - Least waste
+   - Zone balance</span>
+<span class="ok">4. Write nodeName to etcd</span>
+<span class="info">   → kubelet sees it and acts</span></pre>
+  </div>
+</div>
+</section>
+
+</main>
+<script src="../course-flashcards/ask-ai.js" data-module="01"></script>
+</body>
+</html>
