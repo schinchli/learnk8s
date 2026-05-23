@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Visual Concepts — Animated Explanations</title>
+<style>
+:root{
+  --bg:#06080d;--panel:#11151c;--p2:#1f2738;--text:#f1f5f9;--muted:#94a3b8;
+  --accent:#38bdf8;--good:#27AE60;--bad:#E74C3C;--warn:#F39C12;
+  --pod:#4A90E2;--svc:#1ABC9C;--dep:#9B59B6;--node:#E67E22;
+  --sec:#E74C3C;--cm:#38bdf8;--kms:#27AE60;--aws:#F39C12;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow-x:hidden;}
+body{padding-left:58px;}
+
+/* Rail */
+.rail{position:fixed;top:0;left:0;bottom:0;width:58px;background:#0c1018;border-right:1px solid #1f2738;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:3px;z-index:200;overflow-y:auto;}
+.rb{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#4A90E2,#9B59B6);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:.88em;text-decoration:none;margin-bottom:7px;flex-shrink:0;}
+.rl{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1em;text-decoration:none;transition:background .12s;position:relative;flex-shrink:0;}
+.rl:hover{background:rgba(255,255,255,.08);}
+.rl.on{background:rgba(56,189,248,.18);}
+.rl.on::before{content:'';position:absolute;left:-7px;top:9px;bottom:9px;width:3px;background:#38bdf8;border-radius:0 2px 2px 0;}
+.rl:hover::after{content:attr(title);position:absolute;left:50px;top:50%;transform:translateY(-50%);background:#1f2738;color:#f1f5f9;padding:5px 11px;border-radius:6px;font-size:.78em;white-space:nowrap;border:1px solid #475569;z-index:300;pointer-events:none;}
+.rsec{font-size:.52em;color:#334155;text-transform:uppercase;letter-spacing:.06em;padding:6px 0 2px;text-align:center;width:100%;flex-shrink:0;}
+
+/* Header */
+header{padding:16px 28px;background:linear-gradient(135deg,rgba(231,76,60,.85),rgba(155,89,182,.85)),var(--bg);border-bottom:1px solid rgba(255,255,255,.06);box-shadow:0 4px 20px rgba(0,0,0,.4);}
+header h1{margin:0;font-size:1.3em;}
+header p{margin:3px 0 0;opacity:.85;font-size:.85em;}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:260px 1fr;gap:0;height:calc(100vh - 65px);}
+
+/* Sidebar — topic list */
+.sidebar{background:#0a0f18;border-right:1px solid var(--p2);overflow-y:auto;padding:12px 8px;}
+.sidebar h3{font-size:.7em;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;padding:4px 10px 8px;}
+.topic-btn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border-radius:8px;border:none;background:none;color:var(--text);cursor:pointer;text-align:left;font-size:.84em;transition:background .12s;font-family:inherit;}
+.topic-btn:hover{background:rgba(255,255,255,.05);}
+.topic-btn.active{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);}
+.topic-btn .tnum{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;background:var(--p2);border:1px solid #334155;flex-shrink:0;}
+.topic-btn.active .tnum{background:rgba(56,189,248,.2);border-color:var(--accent);color:var(--accent);}
+.topic-btn .tlabel{line-height:1.35;}
+.topic-btn .tico{font-size:1.1em;flex-shrink:0;}
+
+/* Main area */
+.main{display:flex;flex-direction:column;background:var(--bg);}
+
+/* Navbar */
+.nbar{padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--p2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.step-title{font-weight:700;font-size:1em;color:var(--accent);flex:1;}
+.pbar{flex:1;min-width:100px;height:4px;background:#1e293b;border-radius:3px;overflow:hidden;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--bad),var(--dep));border-radius:3px;transition:width .3s;}
+.pcnt{font-size:.78em;color:var(--muted);font-family:ui-monospace,monospace;white-space:nowrap;}
+.nbts{display:flex;gap:6px;}
+button{background:var(--p2);color:var(--text);border:1px solid #475569;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:.86em;font-weight:600;transition:all .15s;font-family:inherit;}
+button:hover:not(:disabled){background:#475569;}
+button:disabled{opacity:.35;cursor:not-allowed;}
+button.pri{background:var(--bad);border-color:var(--bad);color:#fff;}
+
+/* SVG stage */
+.stage{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(ellipse at top,rgba(56,189,248,.04),transparent 60%),var(--bg);overflow:hidden;}
+.stage svg{max-width:100%;max-height:100%;}
+
+/* Explain panel */
+.explain{padding:14px 20px;background:linear-gradient(135deg,#0d1320,#131a2a);border-top:1px solid var(--p2);}
+.exgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.exlbl{font-size:.68em;color:var(--bad);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:4px;}
+.extitle{font-size:1.05em;font-weight:700;margin-bottom:6px;}
+.exbody{color:var(--muted);font-size:.86em;line-height:1.65;}
+.exbody code{background:#050810;padding:1px 5px;border-radius:3px;color:#fde68a;font-family:ui-monospace,monospace;font-size:.88em;}
+.exbody strong{color:var(--text);}
+.narr{background:linear-gradient(135deg,#050810,#0b1020);border-left:3px solid var(--bad);border-radius:7px;padding:11px 15px;font-size:.9em;line-height:1.65;color:var(--text);font-style:italic;}
+.narr-lbl{font-size:.68em;color:var(--muted);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px;}
+
+/* Voice popup */
+.vp{position:fixed;bottom:16px;left:66px;width:260px;background:var(--panel);border:1px solid var(--p2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:250;opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .2s,transform .2s;}
+.vp.open{opacity:1;pointer-events:auto;transform:translateX(0);}
+.vph{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;font-size:.84em;font-weight:700;}
+.vpr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0;font-size:.84em;}
+.vpr .lb{color:var(--muted);}
+.vpr select{background:#0a0e1a;color:var(--text);border:1px solid #475569;border-radius:4px;padding:3px 6px;font-size:.84em;max-width:150px;font-family:inherit;}
+.rail-spacer{flex:1;}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(0);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes flow{0%{stroke-dashoffset:40}100%{stroke-dashoffset:0}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor)}}
+
+.anim-in{animation:pop .4s ease-out;}
+.anim-fade{animation:fadeIn .5s ease-out;}
+.anim-flow{stroke-dasharray:8 4;animation:flow 1s linear infinite;}
+.anim-pulse{animation:pulse 1s ease-in-out infinite;}
+.anim-glow{animation:glow 2s ease-in-out infinite;}
+.anim-shake{animation:shake .4s ease-in-out;}
+
+@media(max-width:900px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.exgrid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <a href="index.html" class="rb">K8</a>
+  <a href="index.html" class="rl" title="Dashboard">🏠</a>
+  <div class="rsec">labs</div>
+  <a href="animated-lab-kubernetes-fundamentals.html" class="rl" title="K8s Fundamentals">📦</a>
+  <a href="animated-commands.html" class="rl" title="kubectl Live">⌨️</a>
+  <a href="visual-concepts.html" class="rl on" title="Visual Concepts">🎬</a>
+  <div class="rsec">ref</div>
+  <a href="cluster-explained.html" class="rl" title="Cluster Explained">🗺</a>
+  <a href="deep-dive.html" class="rl" title="Deep Dive">🔬</a>
+  <a href="../course-flashcards/index.html" class="rl" title="Flashcards">🃏</a>
+  <div class="rail-spacer"></div>
+  <button id="vbtn" class="rl" style="background:transparent;border:none;cursor:pointer;font-family:inherit;" title="Voice">🎙</button>
+</aside>
+
+<div class="vp" id="vp">
+  <div class="vph"><span>🎙 Narration</span><button onclick="document.getElementById('vp').classList.remove('open')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.95em">✕</button></div>
+  <div class="vpr"><span class="lb">On/off</span><button id="bmute" style="padding:5px 10px">🔊</button></div>
+  <div class="vpr"><span class="lb">Voice</span><select id="vsel"></select></div>
+</div>
+
+<header>
+  <h1>🎬 Visual Concepts — Watch K8s Animate</h1>
+  <p>8 topics · secrets security · scaling · rolling updates · self-healing · service routing · DaemonSet · StatefulSet · namespace isolation</p>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <h3>Topics</h3>
+    <div id="topic-list"></div>
+  </nav>
+
+  <div class="main">
+    <div class="nbar">
+      <span class="step-title" id="step-title">—</span>
+      <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+      <span class="pcnt" id="pcnt">1/1</span>
+      <div class="nbts">
+        <button id="bprev">◀</button>
+        <button id="bplay" class="pri">▶ Play</button>
+        <button id="bnext">▶ Next</button>
+        <button id="breset" title="Restart topic">↺</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <svg id="main-svg" viewBox="0 0 820 440" preserveAspectRatio="xMidYMid meet" style="width:100%;max-height:440px"></svg>
+    </div>
+
+    <div class="explain">
+      <div class="exgrid">
+        <div>
+          <div class="exlbl" id="exlbl">TOPIC 1 · FRAME 1</div>
+          <div class="extitle" id="extitle">—</div>
+          <div class="exbody" id="exbody">—</div>
+        </div>
+        <div>
+          <div class="narr-lbl">🎙 Narration</div>
+          <div class="narr" id="narr">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  SVG HELPERS
+// ═══════════════════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag,attrs={}){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e;}
+function clear(svg){while(svg.firstChild)svg.removeChild(svg.firstChild);}
+function add(svg,...els){els.forEach(e=>svg.appendChild(e));return svg;}
+
+function rect(svg,x,y,w,h,fill,stroke,rx=8,sw=1.5){
+  return svg.appendChild(el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':sw}));
+}
+function txt(svg,x,y,t,size=12,weight=400,fill='#f1f5f9',anchor='middle'){
+  const e=el('text',{x,y,'font-size':size,'font-weight':weight,fill,'font-family':'system-ui,sans-serif','text-anchor':anchor});
+  e.textContent=t;return svg.appendChild(e);
+}
+function circle(svg,cx,cy,r,fill,stroke,sw=1.5){
+  return svg.appendChild(el('circle',{cx,cy,r,fill,stroke,'stroke-width':sw}));
+}
+function line(svg,x1,y1,x2,y2,stroke='#475569',sw=1.5,dash=''){
+  const a={x1,y1,x2,y2,stroke,'stroke-width':sw};if(dash)a['stroke-dasharray']=dash;
+  return svg.appendChild(el('line',a));
+}
+function arrow(svg,x1,y1,x2,y2,color='#38bdf8',sw=2,cls=''){
+  const id='ar'+Math.random().toString(36).slice(2,7);
+  let defs=svg.querySelector('defs');if(!defs){defs=el('defs');svg.insertBefore(defs,svg.firstChild);}
+  const mk=el('marker',{id,markerWidth:7,markerHeight:7,refX:5,refY:3,orient:'auto'});
+  mk.appendChild(el('polygon',{points:'0 0,7 3,0 6',fill:color}));defs.appendChild(mk);
+  const ln=el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':sw,'marker-end':`url(#${id})`});
+  if(cls)ln.setAttribute('class',cls);return svg.appendChild(ln);
+}
+function animClass(e,cls,delay=0){setTimeout(()=>e&&e.setAttribute('class',cls),delay);}
+
+// Tween a number attribute
+function tween(el,attr,from,to,duration=400){
+  const start=performance.now();
+  function step(now){
+    const t=Math.min((now-start)/duration,1);
+    const val=from+(to-from)*t;
+    el.setAttribute(attr,val);
+    if(t<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════════════
+//  TOPICS — each has frames with render(svg)+explain+narration
+// ═══════════════════════════════════════════════════
+const TOPICS = [
+
+// ─────────────────────────────────────────────────
+// 1. SECRET SECURITY LADDER
+// ─────────────────────────────────────────────────
+{title:'🔐 Why Secrets? The Security Ladder', icon:'🔐', color:'#E74C3C',
+ frames:[
+  {title:'Level 0 — Hardcoded password (worst)',
+   explain:'Hardcoded passwords in source code are the most dangerous. They get committed to Git, printed in CI logs, and visible to every developer with repo access. Once pushed, they are in the Git history forever.',
+   narration:'Level zero: hardcoding a password directly in your code. This gets committed to GitHub. Every developer can see it. Your CI logs print it. It is in the git history forever — even if you delete it later.',
+   render(svg){
+    clear(svg);
+    // Code file
+    rect(svg,50,60,320,200,'#03050a','#E74C3C',8,2);
+    txt(svg,70,90,'app.py',10,700,'#E74C3C','start');
+    const lines=[
+      ['import psycopg2','#94a3b8'],
+      ['',''],
+      ['password = "p@ssw0rd123"  ← IN CODE!','#f87171'],
+      ['db = psycopg2.connect(','#94a3b8'],
+      ['  password=password','#94a3b8'],
+      [')','#94a3b8'],
+    ];
+    lines.forEach(([t,c],i)=>txt(svg,70,112+i*22,t,10,400,c,'start'));
+
+    // Git commit arrow
+    arrow(svg,372,160,440,160,'#E74C3C',2);
+    txt(svg,406,152,'git push','8',400,'#E74C3C','middle');
+
+    // GitHub
+    rect(svg,442,130,160,60,'rgba(231,76,60,.1)','#E74C3C',8,1.5);
+    txt(svg,522,155,'GitHub repo',10,700,'#E74C3C','middle');
+    txt(svg,522,172,'visible to ALL devs',8,400,'#94a3b8','middle');
+
+    // Attacker
+    rect(svg,630,100,150,120,'rgba(231,76,60,.06)','#E74C3C',8,1.5);
+    txt(svg,705,125,'😈 Attacker',11,700,'#f87171','middle');
+    txt(svg,705,148,'searches GitHub:',8,400,'#94a3b8','middle');
+    txt(svg,705,163,'"p@ssw0rd123"',9,700,'#f87171','middle');
+    txt(svg,705,180,'→ Found in 2 sec',8,700,'#f87171','middle');
+    arrow(svg,602,155,628,155,'#E74C3C',2);
+
+    // X mark
+    rect(svg,50,290,720,60,'rgba(231,76,60,.06)','#E74C3C',8,1.5);
+    txt(svg,410,317,'❌  NEVER hardcode credentials. Git history is permanent.','12',700,'#f87171','middle');
+    txt(svg,410,335,'Even a private repo can be leaked. Rotate immediately if this happens.','9',400,'#94a3b8','middle');
+   }},
+
+  {title:'Level 1 — Kubernetes Secret (base64, not encrypted)',
+   explain:'A Kubernetes Secret moves the password out of your code. Pods consume it via env vars or volume mounts. BUT: stored in etcd as base64, which anyone with kubectl access can decode in one command.',
+   narration:'Level one: a Kubernetes Secret. The password is out of your code. But it is only base64 encoded in etcd. Anyone with kubectl get secret can run echo and base64 dash d to decode it in under a second. Better than hardcoding, but not encrypted.',
+   render(svg){
+    clear(svg);
+    // Flow: code → secret → pod
+    rect(svg,30,80,160,60,'rgba(39,174,96,.06)','#27AE60',8,1.5);
+    txt(svg,110,105,'✓ Code clean',10,700,'#4ade80','middle');
+    txt(svg,110,120,'no password here',8,400,'#94a3b8','middle');
+
+    arrow(svg,192,110,230,110,'#F39C12',2);
+
+    rect(svg,232,60,220,100,'rgba(231,76,60,.1)','#E74C3C',8,2);
+    txt(svg,342,82,'K8s Secret',11,700,'#E74C3C','middle');
+    txt(svg,342,100,'data.password:',9,400,'#94a3b8','middle');
+    txt(svg,342,116,'cEBzc3cwcmQ=',9,700,'#f87171','middle');
+    txt(svg,342,130,'stored in etcd',8,400,'#94a3b8','middle');
+
+    arrow(svg,454,110,492,110,'#27AE60',2);
+    rect(svg,494,80,130,60,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,559,105,'Pod',10,700,'#7dd3fc','middle');
+    txt(svg,559,120,'reads via mount',8,400,'#94a3b8','middle');
+
+    // Decode attack
+    rect(svg,30,200,740,100,'rgba(231,76,60,.06)','#E74C3C',8,1.5);
+    txt(svg,400,222,'❌  base64 is ENCODING not ENCRYPTION — anyone with kubectl can decode it:',10,700,'#f87171','middle');
+    // Terminal
+    rect(svg,50,235,700,50,'#03050a','#334155',6,1);
+    txt(svg,60,255,'$ kubectl get secret db-creds -n prod -o jsonpath="{.data.password}" | base64 -d',9,400,'#fde68a','start');
+    txt(svg,60,272,'p@ssw0rd123   ← decoded in 0.01 seconds',9,700,'#f87171','start');
+
+    // Scale
+    rect(svg,30,325,340,80,'rgba(39,174,96,.06)','#27AE60',8,1.5);
+    txt(svg,200,350,'✓ Better than hardcoding',10,700,'#4ade80','middle');
+    ['• Password out of source code','• RBAC can restrict who can get it'].forEach((t,i)=>txt(svg,50,370+i*18,t,9,400,'#94a3b8','start'));
+    rect(svg,390,325,380,80,'rgba(231,76,60,.06)','#E74C3C',8,1.5);
+    txt(svg,580,350,'❌ Still risks without KMS',10,700,'#f87171','middle');
+    ['• Not encrypted at rest in etcd','• Anyone with kubectl access can decode'].forEach((t,i)=>txt(svg,410,370+i*18,t,9,400,'#94a3b8','start'));
+   }},
+
+  {title:'Level 2 — Secret + KMS Encryption (real encryption)',
+   explain:'Enabling KMS envelope encryption on the EKS cluster means etcd stores encrypted bytes, not base64. Even if someone dumps the etcd database file, the contents are unreadable without the KMS key. The KMS key policy controls who can decrypt.',
+   narration:'Level two: enable KMS envelope encryption. Now etcd stores truly encrypted bytes. Someone dumps the etcd file? Useless without the KMS key. The key policy in AWS IAM controls exactly who can decrypt. This is the production standard for EKS.',
+   render(svg){
+    clear(svg);
+    // Encryption flow
+    txt(svg,410,40,'With KMS Envelope Encryption enabled on EKS',13,700,'#27AE60','middle');
+
+    // API server box
+    rect(svg,30,70,160,80,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,110,98,'API Server',11,700,'#7dd3fc','middle');
+    txt(svg,110,115,'receives Secret',8,400,'#94a3b8','middle');
+    txt(svg,110,130,'from kubectl',8,400,'#94a3b8','middle');
+
+    arrow(svg,192,110,230,110,'#27AE60',2);
+    txt(svg,211,103,'encrypt','8',400,'#27AE60','middle');
+
+    // KMS
+    rect(svg,232,60,160,100,'rgba(39,174,96,.1)','#27AE60',8,2);
+    txt(svg,312,88,'AWS KMS',11,700,'#4ade80','middle');
+    txt(svg,312,105,'GenerateDataKey',8,400,'#94a3b8','middle');
+    txt(svg,312,120,'→ encrypted with',8,400,'#94a3b8','middle');
+    txt(svg,312,135,'CMK (your key)',8,700,'#4ade80','middle');
+
+    arrow(svg,394,110,432,110,'#27AE60',2);
+    txt(svg,413,103,'store','8',400,'#27AE60','middle');
+
+    // etcd encrypted
+    rect(svg,434,60,160,100,'rgba(39,174,96,.06)','#27AE60',8,1.5);
+    txt(svg,514,88,'etcd',11,700,'#4ade80','middle');
+    txt(svg,514,105,'x7Fd9K2mP....',9,700,'#334155','middle');
+    txt(svg,514,120,'encrypted bytes',8,400,'#4ade80','middle');
+    txt(svg,514,135,'(unreadable)',8,400,'#475569','middle');
+
+    // Attacker blocked
+    rect(svg,620,70,170,90,'rgba(231,76,60,.06)','#E74C3C',8,1.5);
+    txt(svg,705,95,'😈 Attacker',10,700,'#f87171','middle');
+    txt(svg,705,112,'dumps etcd file',8,400,'#94a3b8','middle');
+    txt(svg,705,128,'x7Fd9K2mP...',8,700,'#334155','middle');
+    txt(svg,705,144,'❌ useless!',8,700,'#f87171','middle');
+    line(svg,598,110,618,110,'#E74C3C',2);
+    txt(svg,608,104,'✗','12',700,'#E74C3C','middle');
+
+    // Setup command
+    rect(svg,30,195,760,50,'#03050a','#334155',6,1);
+    txt(svg,50,213,'$ aws eks create-cluster --name prod \\',9,400,'#fde68a','start');
+    txt(svg,50,230,'    --encryption-config [{resources:[secrets],provider:{keyArn:arn:aws:kms:...}}]',9,400,'#fde68a','start');
+
+    // Benefits
+    const bens=[['✓ Encrypted at rest in etcd','#4ade80'],['✓ KMS key policy = access control','#4ade80'],['✓ CloudTrail logs every decrypt','#4ade80'],['✓ Key rotation supported','#4ade80']];
+    rect(svg,30,270,360,150,'rgba(39,174,96,.05)','#27AE60',8,1.5);
+    txt(svg,210,292,'KMS Benefits',11,700,'#4ade80','middle');
+    bens.forEach(([t,c],i)=>txt(svg,50,314+i*22,t,9.5,400,c,'start'));
+
+    // vs base64
+    rect(svg,410,270,360,150,'rgba(56,189,248,.05)','#38bdf8',8,1.5);
+    txt(svg,590,292,'How it works',11,700,'#7dd3fc','middle');
+    ['Kubernetes calls KMS to get a data key','Data key encrypts the Secret payload','Encrypted payload stored in etcd','On read: KMS call to decrypt key first','Audit trail in CloudTrail for compliance'].forEach((t,i)=>txt(svg,430,314+i*22,t,8.5,400,'#94a3b8','start'));
+   }},
+
+  {title:'Level 3 — AWS Secrets Manager (best for production)',
+   explain:'AWS Secrets Manager stores secrets outside Kubernetes entirely. The ASCP (AWS Secrets Manager and Configuration Provider) mounts secrets into pods as files. It supports auto-rotation — when the secret rotates in Secrets Manager, the mounted file updates automatically.',
+   narration:'Level three: AWS Secrets Manager with the ASCP. Secrets live outside Kubernetes entirely. Auto-rotation means your database password rotates on a schedule and the pod file updates automatically — zero downtime, no manual intervention.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,30,'AWS Secrets Manager — ASCP flow',13,700,'#F39C12','middle');
+
+    // 1. Secrets Manager
+    rect(svg,20,60,180,100,'rgba(243,156,18,.1)','#F39C12',8,2);
+    txt(svg,110,85,'AWS Secrets',11,700,'#fbbf24','middle');
+    txt(svg,110,100,'Manager',11,700,'#fbbf24','middle');
+    txt(svg,110,117,'MyDBPassword',8,400,'#94a3b8','middle');
+    txt(svg,110,132,'(encrypted AES-256)',7,400,'#64748b','middle');
+
+    // 2. ASCP
+    arrow(svg,202,110,240,110,'#F39C12',2);
+    rect(svg,242,70,170,80,'rgba(243,156,18,.06)','#F39C12',8,1.5);
+    txt(svg,327,98,'ASCP',10,700,'#fbbf24','middle');
+    txt(svg,327,113,'(Secrets Store',8,400,'#94a3b8','middle');
+    txt(svg,327,127,'CSI Driver)',8,400,'#94a3b8','middle');
+
+    // 3. IRSA
+    arrow(svg,414,110,452,110,'#27AE60',2);
+    rect(svg,454,70,150,80,'rgba(39,174,96,.06)','#27AE60',8,1.5);
+    txt(svg,529,98,'IRSA',10,700,'#4ade80','middle');
+    txt(svg,529,113,'Pod SA → IAM',8,400,'#94a3b8','middle');
+    txt(svg,529,127,'role scoped to',8,400,'#94a3b8','middle');
+    txt(svg,529,141,'this secret only',8,400,'#94a3b8','middle');
+
+    // 4. Pod
+    arrow(svg,606,110,644,110,'#38bdf8',2);
+    rect(svg,646,70,150,100,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,721,98,'Pod',10,700,'#7dd3fc','middle');
+    txt(svg,721,113,'/mnt/secrets/',8,700,'#4ade80','middle');
+    txt(svg,721,128,'password  (file)',8,400,'#94a3b8','middle');
+    txt(svg,721,143,'auto-updated',7,400,'#4ade80','middle');
+    txt(svg,721,157,'on rotation ✓',7,700,'#4ade80','middle');
+
+    // Auto-rotation
+    rect(svg,20,190,780,80,'rgba(243,156,18,.05)','#F39C12',8,1.5);
+    txt(svg,410,212,'🔄  Auto-rotation — passwords rotate on schedule, mounted files update, zero downtime',10,700,'#fbbf24','middle');
+    txt(svg,410,233,'Secrets Manager rotates → ASCP detects change → updates file in pod → app reads new password',8,400,'#94a3b8','middle');
+    txt(svg,410,252,'No kubectl commands. No pod restarts. No downtime. Rotation happens silently.',8,400,'#64748b','middle');
+
+    // Security ladder summary
+    const ladder=[
+      ['❌ Hardcoded in code','#E74C3C','Commits to Git, visible to everyone'],
+      ['⚠  K8s Secret (base64)','#F39C12','Out of code, but not encrypted in etcd'],
+      ['✓  K8s Secret + KMS','#27AE60','Encrypted at rest, CloudTrail audit'],
+      ['✓✓ AWS Secrets Manager','#4ade80','Auto-rotation, outside K8s, IRSA scoped'],
+    ];
+    txt(svg,410,305,'Security Ladder',11,700,'#94a3b8','middle');
+    ladder.forEach(([t,c,d],i)=>{
+      rect(svg,30,320+i*26,760,24,c==='#4ade80'?'rgba(39,174,96,.08)':c==='#27AE60'?'rgba(39,174,96,.05)':c==='#F39C12'?'rgba(243,156,18,.05)':'rgba(231,76,60,.05)',c,4,1);
+      txt(svg,50,336+i*26,t,9.5,700,c,'start');
+      txt(svg,300,336+i*26,d,9,400,'#94a3b8','start');
+    });
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 2. SCALING 1→6 PODS
+// ─────────────────────────────────────────────────
+{title:'📈 Scale from 1 → 6 Pods', icon:'📈', color:'#27AE60',
+ frames:[
+  {title:'Start: 1 pod, all traffic to one place',
+   explain:'Starting with 1 pod means a single point of failure. If this pod crashes, 100% of traffic fails. If traffic spikes, this one pod gets overloaded and slow. The single pod has no redundancy.',
+   narration:'We start with one webapp pod. All traffic goes here. If it crashes, the entire app is down. If traffic spikes, this single pod gets overwhelmed. This is why we scale.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,28,'kubectl get pods — 1 replica',12,700,'#27AE60','middle');
+    // Node
+    rect(svg,50,55,720,220,'rgba(230,126,34,.05)','#E67E22',10,1.5);
+    txt(svg,410,80,'node-01 (EC2 t3.medium)',10,700,'#E67E22','middle');
+    // Single pod
+    rect(svg,290,100,240,120,'rgba(74,144,226,.12)','#4A90E2',10,2);
+    txt(svg,410,135,'webapp-v2-abc',12,700,'#7dd3fc','middle');
+    txt(svg,410,155,'1/1 Running',9,400,'#4ade80','middle');
+    txt(svg,410,172,'CPU: 80% ⚠',9,700,'#fbbf24','middle');
+    txt(svg,410,188,'Memory: 70%',9,400,'#94a3b8','middle');
+    txt(svg,410,204,'Requests: 500/sec ← overloaded',9,700,'#f87171','middle');
+    // Traffic arrow
+    arrow(svg,200,290,288,180,'#E74C3C',2.5);
+    txt(svg,200,310,'ALL traffic',10,700,'#E74C3C','middle');
+    txt(svg,200,325,'500 req/sec',9,400,'#E74C3C','middle');
+    rect(svg,50,310,720,80,'rgba(231,76,60,.05)','#E74C3C',8,1);
+    txt(svg,410,340,'❌ Single pod = single point of failure + overload risk',11,700,'#f87171','middle');
+    txt(svg,410,358,'kubectl scale deploy/webapp --replicas=3  →  distribute the load',9,400,'#94a3b8','middle');
+   }},
+  {title:'Scale to 3: Scheduler spreads pods across nodes',
+   explain:'kubectl scale replicas=3 → ReplicaSet creates 2 more pods. The scheduler spreads them across available nodes. Traffic is load-balanced across all 3. Each pod handles ~167 req/sec instead of 500.',
+   narration:'We scale to 3 replicas. The ReplicaSet controller creates two new pods. The scheduler uses priorities to spread them — one on node-01, one on node-02. The Service load-balances traffic evenly. Each pod now handles one third of the load.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'kubectl scale deploy/webapp --replicas=3',12,700,'#27AE60','middle');
+    // Two nodes
+    rect(svg,20,45,375,260,'rgba(230,126,34,.04)','#E67E22',10,1.5);
+    txt(svg,207,65,'node-01',10,700,'#E67E22','middle');
+    rect(svg,425,45,375,260,'rgba(230,126,34,.04)','#E67E22',10,1.5);
+    txt(svg,612,65,'node-02',10,700,'#E67E22','middle');
+    // Pods
+    const pods=[
+      {x:60,y:80,name:'webapp-abc',cpu:'27%',n:'ok',node:'node-01'},
+      {x:200,y:80,name:'webapp-def',cpu:'27%',n:'ok',node:'node-01'},
+      {x:465,y:80,name:'webapp-ghi',cpu:'27%',n:'new',node:'node-02'},
+    ];
+    pods.forEach(({x,y,name,cpu,n})=>{
+      const c=n==='new'?'#38bdf8':'#4A90E2';
+      const fc=n==='new'?'rgba(56,189,248,.1)':'rgba(74,144,226,.1)';
+      rect(svg,x,y,160,100,fc,c,7,n==='new'?2:1.5);
+      txt(svg,x+80,y+24,name,9,700,n==='new'?'#7dd3fc':'#7dd3fc','middle');
+      txt(svg,x+80,y+42,'1/1 Running',8.5,400,'#4ade80','middle');
+      txt(svg,x+80,y+58,`CPU: ${cpu} ✓`,8.5,400,'#94a3b8','middle');
+      if(n==='new'){txt(svg,x+80,y+76,'← NEW',8,700,'#38bdf8','middle');}
+    });
+    // Service distributing
+    rect(svg,250,195,320,50,'rgba(26,188,156,.08)','#1ABC9C',8,1.5);
+    txt(svg,410,215,'Service load-balances to all 3 pods',9.5,700,'#5eead4','middle');
+    txt(svg,410,230,'~167 req/sec each — CPU drops from 80% to 27%',8.5,400,'#94a3b8','middle');
+    // Traffic arrows
+    ['140,310','410,310','680,310'].forEach((pos,i)=>{
+      const [sx,sy]=pos.split(',').map(Number);
+      arrow(svg,sx,305,pods[i].x+80,pods[i].y+50,'#1ABC9C',1.5);
+    });
+    rect(svg,20,300,780,80,'rgba(39,174,96,.04)','#27AE60',8,1);
+    txt(svg,410,325,'Traffic split equally · If webapp-abc crashes, Service routes to remaining 2 only',9.5,400,'#4ade80','middle');
+    txt(svg,410,345,'ReplicaSet detects crash → creates replacement pod within 1 second',8.5,400,'#94a3b8','middle');
+   }},
+  {title:'Scale to 6: Full horizontal scaling across both nodes',
+   explain:'Scaling to 6 pods spreads 3 on each node. Each pod now handles ~83 req/sec instead of 500. Losing one node loses 3 pods — 3 pods on the other node keep serving. The Service automatically updates its endpoints.',
+   narration:'Scale to 6 — three pods per node. CPU per pod drops to just 13 percent. If an entire node goes down, three pods on the other node keep serving. The Service endpoint list automatically updates to remove failed pods. This is horizontal pod autoscaling in action.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,22,'kubectl scale deploy/webapp --replicas=6  — 3 pods per node',11,700,'#27AE60','middle');
+    // Two nodes side by side
+    rect(svg,10,38,390,260,'rgba(230,126,34,.04)','#E67E22',10,1.5);
+    txt(svg,205,57,'node-01',10,700,'#E67E22','middle');
+    rect(svg,420,38,390,260,'rgba(230,126,34,.04)','#E67E22',10,1.5);
+    txt(svg,615,57,'node-02',10,700,'#E67E22','middle');
+    // 6 pods
+    const podData=[
+      {x:22,y:65,nm:'webapp-bbb'},{x:152,y:65,nm:'webapp-ccc'},{x:258,y:65,nm:'webapp-zzz'},
+      {x:432,y:65,nm:'webapp-d1'},{x:562,y:65,nm:'webapp-d2'},{x:672,y:65,nm:'webapp-d3'},
+    ];
+    podData.forEach(({x,y,nm},i)=>{
+      rect(svg,x,y,120,80,'rgba(39,174,96,.08)','#27AE60',7,1.5);
+      txt(svg,x+60,y+22,nm.replace('webapp-',''),9,700,'#4ade80','middle');
+      txt(svg,x+60,y+38,'✓ Ready',8.5,400,'#4ade80','middle');
+      txt(svg,x+60,y+54,'CPU: 13%',8,400,'#94a3b8','middle');
+    });
+    // Service bar
+    rect(svg,10,310,800,40,'rgba(26,188,156,.08)','#1ABC9C',8,1.5);
+    txt(svg,410,325,'svc/webapp-lb → endpoints: 6 pods · ~83 req/sec each',9.5,700,'#5eead4','middle');
+    txt(svg,410,340,'CPU: 80% → 13% · Any 1 node failure = 3 pods still serving ✓',8.5,400,'#94a3b8','middle');
+
+    // Benefit chips
+    const chips=[['6× throughput','#27AE60'],['CPU 80%→13%','#27AE60'],['1 node failure OK','#38bdf8'],['Auto endpoint update','#38bdf8']];
+    chips.forEach(([t,c],i)=>{
+      const x=10+i*205;
+      rect(svg,x,360,195,35,c==='#27AE60'?'rgba(39,174,96,.06)':'rgba(56,189,248,.06)',c,6,1);
+      txt(svg,x+97,381,t,9.5,700,c,'middle');
+    });
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 3. ROLLING UPDATE — ZERO DOWNTIME
+// ─────────────────────────────────────────────────
+{title:'🔄 Rolling Update — Zero Downtime', icon:'🔄', color:'#9B59B6',
+ frames:[
+  {title:'Before: 3 pods on v1, all serving traffic',
+   explain:'We have 3 pods on webapp:v1. They are all healthy, serving traffic through the LoadBalancer service. We want to update to v2 without dropping a single request.',
+   narration:'Three pods on version one, all healthy and serving traffic. We need to update to version two. A naive approach would be: delete all v1 pods, create v2 pods. That causes 30 seconds of downtime. Rolling updates avoid this entirely.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'webapp:v1 — 3 pods running, all serving traffic',12,700,'#9B59B6','middle');
+    // Internet → LB → pods
+    txt(svg,80,80,'🌐 Internet',11,700,'#F39C12','middle');
+    arrow(svg,125,90,200,90,'#F39C12',2,'anim-flow');
+    rect(svg,202,65,120,50,'rgba(155,89,182,.1)','#9B59B6',8,1.5);
+    txt(svg,262,85,'LoadBalancer',9,700,'#c4b5fd','middle');
+    txt(svg,262,100,'Service',9,400,'#94a3b8','middle');
+
+    const v1=[{x:380,y:55},{x:530,y:55},{x:680,y:55}];
+    v1.forEach(({x,y},i)=>{
+      arrow(svg,324,90,x+60,y+40,'#9B59B6',1.5);
+      rect(svg,x,y,120,80,'rgba(155,89,182,.1)','#9B59B6',7,2);
+      txt(svg,x+60,y+24,'webapp:v1',9,700,'#c4b5fd','middle');
+      txt(svg,x+60,y+40,'✓ Serving',8.5,400,'#4ade80','middle');
+      txt(svg,x+60,y+56,'READY',8,700,'#4ade80','middle');
+    });
+
+    rect(svg,50,175,720,50,'rgba(155,89,182,.05)','#9B59B6',8,1);
+    txt(svg,410,200,'kubectl set image deploy/webapp webapp=webapp:v2  →  rolling update begins',10,700,'#c4b5fd','middle');
+    txt(svg,410,218,'maxUnavailable: 0 (no pod removed until replacement is ready)  ·  maxSurge: 1 (1 extra pod allowed)',8.5,400,'#94a3b8','middle');
+   }},
+  {title:'Step 1: New ReplicaSet creates 1 v2 pod (maxSurge=1)',
+   explain:'The Deployment creates a new ReplicaSet for v2. It starts 1 new v2 pod (allowed by maxSurge=1). Now there are temporarily 4 pods. The Service does NOT route to the new v2 pod yet — it is still ContainerCreating.',
+   narration:'Step one. The Deployment controller creates a new ReplicaSet for version two. One new v2 pod starts pulling its image. We now have 4 pods total — 3 v1 still serving, 1 v2 starting. Zero requests dropped because the new pod is not in the Service endpoints yet.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'Step 1: New RS-v2 starts 1 pod — RS-v1 still at 3',11,700,'#9B59B6','middle');
+    const v1p=[{x:60,y:70},{x:200,y:70},{x:340,y:70}];
+    v1p.forEach(({x,y})=>{
+      rect(svg,x,y,120,75,'rgba(155,89,182,.1)','#9B59B6',7,1.5);
+      txt(svg,x+60,y+22,'webapp:v1',9,700,'#c4b5fd','middle');
+      txt(svg,x+60,y+38,'✓ Serving',8,400,'#4ade80','middle');
+    });
+    rect(svg,520,60,150,95,'rgba(56,189,248,.1)','#38bdf8',7,2);
+    txt(svg,595,85,'webapp:v2',10,700,'#7dd3fc','middle');
+    txt(svg,595,102,'ContainerCreating',8,700,'#fbbf24','middle');
+    txt(svg,595,120,'← NEW pod',8,700,'#38bdf8','middle');
+    txt(svg,595,138,'NOT in service yet',7.5,400,'#94a3b8','middle');
+
+    // Service only to v1
+    rect(svg,50,190,420,40,'rgba(155,89,182,.06)','#9B59B6',7,1);
+    txt(svg,260,210,'Service endpoints: v1-abc · v1-def · v1-ghi   (still 3)',9,700,'#c4b5fd','middle');
+    txt(svg,260,225,'New v2 pod excluded until Ready',8,400,'#94a3b8','middle');
+
+    // Timeline
+    rect(svg,50,265,720,110,'rgba(56,189,248,.03)','#38bdf8',8,1);
+    txt(svg,410,285,'Timeline so far',9,700,'#38bdf8','middle');
+    txt(svg,70,305,'RS-v1: replicas=3, ready=3  (unchanged)',9,400,'#94a3b8','start');
+    txt(svg,70,322,'RS-v2: replicas=1, ready=0  (starting)',9,400,'#38bdf8','start');
+    txt(svg,70,339,'Total pods: 4  (3 v1 + 1 v2)  ← maxSurge=1 allows this temporarily',9,400,'#94a3b8','start');
+    txt(svg,70,356,'Dropped requests: 0  ← no traffic sent to unready pod',9,700,'#4ade80','start');
+   }},
+  {title:'Step 2: v2 pod ready → 1 v1 pod terminated',
+   explain:'The v2 pod passes its readiness probe. The Service adds it to endpoints. NOW the Deployment removes one v1 pod (maxUnavailable=0 means we waited). Still 3 pods serving at all times.',
+   narration:'The v2 pod passes readiness. The Service adds it to the endpoint list. Only now does the Deployment terminate one v1 pod. We still have 3 pods serving at all times — 2 v1 plus 1 v2. No dropped requests. This repeats until all pods are v2.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,22,'Step 2: v2 ready → v1 pod removed. Still 3 serving.',11,700,'#9B59B6','middle');
+    // 2 v1 + 1 v2 serving, 1 v1 terminating
+    const srv=[
+      {x:40,y:55,label:'webapp:v1',color:'#9B59B6',state:'Serving'},
+      {x:190,y:55,label:'webapp:v1',color:'#9B59B6',state:'Serving'},
+      {x:490,y:55,label:'webapp:v2',color:'#27AE60',state:'Serving'},
+    ];
+    srv.forEach(({x,y,label,color,state})=>{
+      rect(svg,x,y,130,80,`rgba(${color==='#27AE60'?'39,174,96':'155,89,182'},.1)`,color,7,2);
+      txt(svg,x+65,y+24,label,9,700,color==='#27AE60'?'#4ade80':'#c4b5fd','middle');
+      txt(svg,x+65,y+42,'✓ '+state,8,400,'#4ade80','middle');
+    });
+    // Terminating v1
+    rect(svg,340,55,130,80,'rgba(231,76,60,.06)','#E74C3C',7,2,'stroke-dasharray: 5');
+    const tr=svg.querySelector('rect:last-child')||{setAttribute:()=>{}};
+    txt(svg,405,79,'webapp:v1',9,700,'#fca5a5','middle');
+    txt(svg,405,97,'Terminating…',8,700,'#f87171','middle');
+    txt(svg,405,112,'graceful 30s',7.5,400,'#94a3b8','middle');
+
+    // Service endpoints (updated)
+    rect(svg,30,170,760,45,'rgba(26,188,156,.07)','#1ABC9C',8,1.5);
+    txt(svg,410,189,'Service endpoints: v1-abc · v1-def · v2-new   (3 ready pods)',9.5,700,'#5eead4','middle');
+    txt(svg,410,205,'Terminating pod REMOVED from endpoints immediately — no traffic to dying pod',8.5,400,'#94a3b8','middle');
+
+    rect(svg,30,240,760,60,'rgba(155,89,182,.04)','#9B59B6',8,1);
+    txt(svg,410,262,'This pattern repeats for all 3 v1 pods:',9,700,'#c4b5fd','middle');
+    txt(svg,410,280,'+1 v2 pod starts  →  wait for ready  →  -1 v1 pod terminates  →  repeat',9,400,'#94a3b8','middle');
+
+    // Requests dropped counter
+    rect(svg,310,325,200,70,'rgba(39,174,96,.06)','#27AE60',8,2);
+    txt(svg,410,355,'Dropped requests',9,400,'#94a3b8','middle');
+    txt(svg,410,378,'0',22,700,'#4ade80','middle');
+   }},
+  {title:'Done: All 3 pods on v2. Rollback if needed.',
+   explain:'All pods are now on v2. The old ReplicaSet (v1) still exists with 0 replicas — this enables instant rollback. kubectl rollout undo recreates the v1 pods from the preserved ReplicaSet spec.',
+   narration:'Rollout complete. All three pods on version two. Zero downtime, zero dropped requests. The v1 ReplicaSet still exists with zero replicas — this is your instant rollback. kubectl rollout undo redeploys from that preserved spec in under 10 seconds.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'Rolling update complete — all pods on v2',12,700,'#27AE60','middle');
+    [{x:100},{x:330},{x:560}].forEach(({x})=>{
+      rect(svg,x,55,140,85,'rgba(39,174,96,.1)','#27AE60',7,2);
+      txt(svg,x+70,82,'webapp:v2',10,700,'#4ade80','middle');
+      txt(svg,x+70,100,'✓ Ready',9,400,'#4ade80','middle');
+      txt(svg,x+70,116,'Serving traffic',8,400,'#94a3b8','middle');
+    });
+    rect(svg,50,175,720,40,'rgba(39,174,96,.06)','#27AE60',8,1.5);
+    txt(svg,410,195,'Service endpoints: v2-aaa · v2-bbb · v2-ccc   (all v2)',10,700,'#4ade80','middle');
+    txt(svg,410,210,'v1 ReplicaSet preserved with 0 replicas for instant rollback',8.5,400,'#94a3b8','middle');
+
+    // Rollback
+    rect(svg,50,240,340,130,'rgba(243,156,18,.05)','#F39C12',8,1.5);
+    txt(svg,220,262,'Instant rollback:',10,700,'#fbbf24','middle');
+    rect(svg,70,275,300,40,'#03050a','#334155',5,1);
+    txt(svg,75,290,'$ kubectl rollout undo \\ ',9,400,'#fde68a','start');
+    txt(svg,75,308,'    deploy/webapp -n prod',9,400,'#fde68a','start');
+    txt(svg,220,335,'→ back to v1 in ~10 seconds',9,700,'#fbbf24','middle');
+    txt(svg,220,352,'no downtime, no drama',8,400,'#94a3b8','middle');
+
+    // History
+    rect(svg,410,240,360,130,'rgba(74,144,226,.05)','#4A90E2',8,1.5);
+    txt(svg,590,262,'rollout history:',10,700,'#7dd3fc','middle');
+    rect(svg,425,275,330,40,'#03050a','#334155',5,1);
+    txt(svg,430,290,'$ kubectl rollout history \\ ',9,400,'#fde68a','start');
+    txt(svg,430,308,'    deploy/webapp',9,400,'#fde68a','start');
+    txt(svg,590,330,'REVISION  CHANGE-CAUSE',8,400,'#94a3b8','middle');
+    txt(svg,590,347,'1   webapp:v1  ← can rollback to this',8.5,400,'#4ade80','middle');
+    txt(svg,590,362,'2   webapp:v2  ← current',8.5,700,'#7dd3fc','middle');
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 4. SELF-HEALING — POD CRASH
+// ─────────────────────────────────────────────────
+{title:'💥 Self-Healing — Pod Crash Recovery', icon:'💥', color:'#E74C3C',
+ frames:[
+  {title:'Healthy: 3 pods serving, Service routing to all',
+   explain:'3 pods are running and healthy. The Service routes roughly equal traffic to all three. The ReplicaSet controller continuously checks: actual pod count (3) matches desired (3). All is well.',
+   narration:'Three pods, all healthy. The ReplicaSet controller runs its reconciliation loop every second: desired equals 3, actual equals 3, nothing to do. The Service routes to all three pods via iptables rules on every node.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,28,'3 pods healthy — ReplicaSet desired=3, actual=3',12,700,'#27AE60','middle');
+    [{x:100,n:'webapp-aaa'},{x:330,n:'webapp-bbb'},{x:560,n:'webapp-ccc'}].forEach(({x,n})=>{
+      rect(svg,x,60,140,90,'rgba(39,174,96,.1)','#27AE60',7,2);
+      txt(svg,x+70,85,n.replace('webapp-',''),9,700,'#4ade80','middle');
+      txt(svg,x+70,102,'✓ Running',8.5,400,'#4ade80','middle');
+      txt(svg,x+70,118,'Healthy',8,400,'#94a3b8','middle');
+    });
+    // Service routing arrows
+    rect(svg,50,190,700,40,'rgba(26,188,156,.08)','#1ABC9C',8,1.5);
+    txt(svg,400,210,'Service → equal traffic to aaa · bbb · ccc',9.5,700,'#5eead4','middle');
+    txt(svg,400,225,'kube-proxy iptables rules updated on every node',8.5,400,'#94a3b8','middle');
+
+    // Controller loop
+    rect(svg,50,265,700,100,'rgba(74,144,226,.04)','#4A90E2',8,1);
+    txt(svg,400,290,'ReplicaSet controller loop (runs every second)',9.5,700,'#7dd3fc','middle');
+    ['Desired replicas: 3   ✓','Running replicas: 3   ✓','Healthy pods: 3       ✓','Action needed: NONE   ✓'].forEach((t,i)=>txt(svg,100,308+i*18,t,9,400,'#4ade80','start'));
+   }},
+  {title:'Pod crashes! Red flash — actual < desired',
+   explain:'webapp-bbb crashes (process exit, OOMKill, node failure). In under 1 second, the ReplicaSet controller detects actual=2, desired=3. It immediately creates a replacement pod. The Service removes bbb from endpoints the moment it stops passing health checks.',
+   narration:'webapp-bbb crashes. Maybe an OOMKill. The kubelet reports the crash to the API server. The ReplicaSet controller detects actual equals 2, desired equals 3. Within one second it creates a replacement. The Service stops routing to bbb immediately.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'webapp-bbb CRASHES — controller detects immediately',12,700,'#E74C3C','middle');
+    rect(svg,100,60,140,90,'rgba(39,174,96,.1)','#27AE60',7,1.5);
+    txt(svg,170,85,'webapp-aaa',9,700,'#4ade80','middle');
+    txt(svg,170,102,'✓ Running',8.5,400,'#4ade80','middle');
+
+    // Crashed pod
+    rect(svg,310,50,160,110,'rgba(231,76,60,.15)','#E74C3C',7,3);
+    txt(svg,390,80,'webapp-bbb',10,700,'#f87171','middle');
+    txt(svg,390,98,'💥 CRASHED',10,700,'#f87171','middle');
+    txt(svg,390,115,'OOMKilled',8,400,'#fca5a5','middle');
+    txt(svg,390,130,'Exit code: 137',8,400,'#fca5a5','middle');
+
+    rect(svg,540,60,140,90,'rgba(39,174,96,.1)','#27AE60',7,1.5);
+    txt(svg,610,85,'webapp-ccc',9,700,'#4ade80','middle');
+    txt(svg,610,102,'✓ Running',8.5,400,'#4ade80','middle');
+
+    // Instant detection
+    rect(svg,50,200,720,65,'rgba(231,76,60,.06)','#E74C3C',8,2);
+    txt(svg,410,222,'ReplicaSet controller detects: actual=2, desired=3 → ACTION REQUIRED',10,700,'#f87171','middle');
+    txt(svg,410,240,'controller-manager on control plane fires reconciliation event < 1 second',8.5,400,'#94a3b8','middle');
+    txt(svg,410,256,'Service removes bbb from endpoints: iptables updated on ALL nodes immediately',8.5,400,'#94a3b8','middle');
+
+    // Service updated
+    rect(svg,100,295,600,50,'rgba(26,188,156,.06)','#1ABC9C',8,1.5);
+    txt(svg,400,315,'Service endpoints now: aaa · ccc only   (bbb removed)',9,700,'#5eead4','middle');
+    txt(svg,400,330,'Traffic continues — 2 pods serving instead of 3',8,400,'#94a3b8','middle');
+   }},
+  {title:'Auto-recovery: new pod created, Ready, back to 3',
+   explain:'The controller creates a new pod (webapp-zzz). kubelet on the chosen node pulls the image and starts the container. Once the readiness probe passes, the Service adds it back to endpoints. Total recovery time: typically 5-30 seconds depending on image size.',
+   narration:'The controller creates webapp-zzz. kubelet pulls the image and starts the container. The readiness probe passes. The Service adds zzz to the endpoint list. Back to three pods serving traffic. Total time: under 15 seconds for a small image. No human intervention needed.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'New pod webapp-zzz created — back to 3 healthy',12,700,'#27AE60','middle');
+    const pds=[
+      {x:80,nm:'webapp-aaa',state:'Running',c:'#27AE60',age:'10m'},
+      {x:310,nm:'webapp-ccc',state:'Running',c:'#27AE60',age:'10m'},
+      {x:540,nm:'webapp-zzz',state:'Running',c:'#38bdf8',age:'12s ← NEW'},
+    ];
+    pds.forEach(({x,nm,state,c,age})=>{
+      rect(svg,x,55,160,95,`rgba(${c==='#38bdf8'?'56,189,248':'39,174,96'},.1)`,c,7,c==='#38bdf8'?2.5:1.5);
+      txt(svg,x+80,80,nm.replace('webapp-',''),9.5,700,c==='#38bdf8'?'#7dd3fc':'#4ade80','middle');
+      txt(svg,x+80,98,'✓ '+state,8.5,400,'#4ade80','middle');
+      txt(svg,x+80,114,age,8,400,'#94a3b8','middle');
+    });
+    // Timeline
+    rect(svg,30,185,760,115,'rgba(39,174,96,.04)','#27AE60',8,1);
+    txt(svg,410,205,'Recovery timeline',9.5,700,'#4ade80','middle');
+    [
+      ['0.0s','webapp-bbb crashes — kubelet reports to API server'],
+      ['0.8s','ReplicaSet controller detects actual=2 → creates replacement pod object in etcd'],
+      ['1.2s','Scheduler assigns webapp-zzz → node-01 (has capacity)'],
+      ['2.0s','kubelet on node-01 starts pulling webapp:v2 image'],
+      ['11s','Image pulled, container started, readiness probe running'],
+      ['14s','Readiness probe passes → Service adds zzz to endpoints ✓'],
+    ].forEach(([t,d],i)=>{
+      txt(svg,50,222+i*14,t,8,700,'#fbbf24','start');
+      txt(svg,90,222+i*14,d,8,400,'#94a3b8','start');
+    });
+    rect(svg,30,318,760,50,'rgba(39,174,96,.06)','#27AE60',8,2);
+    txt(svg,410,340,'Self-healing complete — no manual action taken, no on-call page needed',10,700,'#4ade80','middle');
+    txt(svg,410,358,'This is Kubernetes reconciliation: desired state always wins.',8.5,400,'#94a3b8','middle');
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 5. SERVICE ROUTING — HEALTH-AWARE
+// ─────────────────────────────────────────────────
+{title:'🔗 Service Routing — Health-Aware Load Balancing', icon:'🔗', color:'#1ABC9C',
+ frames:[
+  {title:'How kube-proxy routes traffic via iptables',
+   explain:'A ClusterIP Service does not proxy traffic itself. Instead, kube-proxy watches the Kubernetes API for Service and Endpoint changes, and writes iptables rules to the Linux kernel on EVERY node. Traffic is redirected at the kernel level — zero user-space hops.',
+   narration:'kube-proxy does not proxy traffic. It writes iptables rules to the Linux kernel on every node. When a pod sends traffic to the ClusterIP, the kernel redirects it to a healthy pod IP before the packet even leaves the originating pod. This is why Services are fast — zero additional network hops.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'How Service routing works — iptables in the kernel',11,700,'#1ABC9C','middle');
+    // Requesting pod
+    rect(svg,20,65,140,80,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,90,90,'frontend-pod',9,700,'#7dd3fc','middle');
+    txt(svg,90,106,'curl backend-svc',8,400,'#94a3b8','middle');
+    txt(svg,90,122,'→ ClusterIP',8,400,'#94a3b8','middle');
+    txt(svg,90,138,'10.96.50.20',8,400,'#64748b','middle');
+
+    // Kernel intercept
+    rect(svg,185,75,150,60,'rgba(56,189,248,.08)','#38bdf8',8,2);
+    txt(svg,260,100,'Linux Kernel',9.5,700,'#7dd3fc','middle');
+    txt(svg,260,116,'iptables NAT',8,400,'#94a3b8','middle');
+    txt(svg,260,130,'DNAT rule',8,400,'#94a3b8','middle');
+    arrow(svg,162,105,183,105,'#38bdf8',2);
+
+    // 3 backend pods
+    const bep=[{x:380,y:55,n:'backend-aaa',ok:true},{x:530,y:55,n:'backend-bbb',ok:true},{x:680,y:55,n:'backend-ccc',ok:false}];
+    bep.forEach(({x,y,n,ok})=>{
+      rect(svg,x,y,130,80,ok?'rgba(39,174,96,.08)':'rgba(231,76,60,.08)',ok?'#27AE60':'#E74C3C',7,1.5);
+      txt(svg,x+65,y+22,n.replace('backend-',''),9,700,ok?'#4ade80':'#fca5a5','middle');
+      txt(svg,x+65,y+40,ok?'✓ Ready':'✗ Failing',8.5,400,ok?'#4ade80':'#f87171','middle');
+      txt(svg,x+65,y+56,ok?'port: 8080':'readiness fail',8,400,'#94a3b8','middle');
+    });
+    arrow(svg,337,105,378,85,'#27AE60',1.5);
+    arrow(svg,337,105,528,85,'#27AE60',1.5);
+    line(svg,337,105,678,85,'#E74C3C',1.5,'5,4');
+    txt(svg,710,80,'✗ excluded',7.5,700,'#E74C3C','middle');
+
+    rect(svg,50,175,720,50,'rgba(26,188,156,.06)','#1ABC9C',8,1.5);
+    txt(svg,410,196,'iptables rule: 10.96.50.20:80 → DNAT to aaa OR bbb (ccc excluded — failing)',9.5,400,'#5eead4','middle');
+    txt(svg,410,212,'kube-proxy updates rules within 1s of any endpoint change — no service interruption',8.5,400,'#94a3b8','middle');
+
+    // Command
+    rect(svg,50,250,720,45,'#03050a','#334155',6,1);
+    txt(svg,65,268,'$ kubectl describe svc backend-svc -n prod',9,400,'#fde68a','start');
+    txt(svg,65,286,'Endpoints:  10.244.0.5:8080, 10.244.1.3:8080   (ccc excluded — not ready)',9,400,'#4ade80','start');
+   }},
+  {title:'Pod becomes unhealthy — Service stops routing to it instantly',
+   explain:'When a pod fails its readiness probe (HTTP /health returns 500, or probe times out), the Endpoints controller removes it from the Service endpoint list. kube-proxy updates iptables rules on all nodes within ~1 second. Zero traffic to the unhealthy pod.',
+   narration:'Pod ccc starts failing its readiness probe — maybe a database connection error. The Endpoints controller removes it from the endpoint list within seconds. kube-proxy pushes the iptables update to all nodes. All traffic now goes to aaa and bbb only. ccc keeps running and trying to recover.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'Readiness probe fails on ccc — instantly removed from Service',11,700,'#E74C3C','middle');
+    const states=[
+      {x:80,n:'backend-aaa',ok:true,pct:'50%'},
+      {x:320,n:'backend-bbb',ok:true,pct:'50%'},
+      {x:560,n:'backend-ccc',ok:false,pct:'0%'},
+    ];
+    states.forEach(({x,n,ok,pct})=>{
+      rect(svg,x,55,160,120,ok?'rgba(39,174,96,.08)':'rgba(231,76,60,.08)',ok?'#27AE60':'#E74C3C',7,ok?1.5:2.5);
+      txt(svg,x+80,80,n.replace('backend-',''),10,700,ok?'#4ade80':'#fca5a5','middle');
+      txt(svg,x+80,98,ok?'✓ Healthy':'⚠ Unhealthy',9,700,ok?'#4ade80':'#f87171','middle');
+      txt(svg,x+80,114,ok?'readiness: PASS':'readiness: FAIL',8,400,'#94a3b8','middle');
+      txt(svg,x+80,130,'GET /health →',8,400,'#94a3b8','middle');
+      txt(svg,x+80,146,ok?'200 OK':'503 Error',8,700,ok?'#4ade80':'#f87171','middle');
+      txt(svg,x+80,162,`Traffic: ${pct}`,8.5,700,ok?'#4ade80':'#475569','middle');
+    });
+    rect(svg,30,200,760,50,'rgba(26,188,156,.06)','#1ABC9C',8,1.5);
+    txt(svg,410,220,'Service endpoints UPDATED: only aaa · bbb (ccc removed)',9.5,700,'#5eead4','middle');
+    txt(svg,410,236,'kube-proxy pushes iptables update to ALL nodes in ~1s. No traffic to ccc.',8.5,400,'#94a3b8','middle');
+    rect(svg,30,275,760,90,'rgba(74,144,226,.04)','#4A90E2',8,1);
+    txt(svg,410,295,'Meanwhile, ccc keeps running and trying to recover:',9,700,'#7dd3fc','middle');
+
+    txt(svg,50,315,'• Pod still exists, still trying to connect to database',9,400,'#94a3b8','start');
+    txt(svg,50,332,'• When /health returns 200 again → Endpoints controller adds ccc back',9,400,'#4ade80','start');
+    txt(svg,50,349,'• Traffic resumes to ccc automatically — zero manual action',9,400,'#4ade80','start');
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 6. DAEMONSET EXPANSION
+// ─────────────────────────────────────────────────
+{title:'👁 DaemonSet — One Per Node, Always', icon:'👁', color:'#38bdf8',
+ frames:[
+  {title:'DaemonSet places Fluent Bit on every existing node',
+   explain:'When you create a DaemonSet, the DaemonSet controller immediately places one pod on every node that matches the selector. No manual scheduling, no replica count to set — it is always: 1 per node.',
+   narration:'Apply the DaemonSet and one Fluent Bit pod appears on every existing node immediately. The controller calculates desired equals number of matching nodes. Two nodes means two pods. Three nodes means three pods. You never set replicas for a DaemonSet.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'kubectl apply -f fluent-bit-ds.yaml  →  automatic placement',11,700,'#38bdf8','middle');
+    [{x:60,n:'node-01'},{x:450,n:'node-02'}].forEach(({x,n})=>{
+      rect(svg,x,50,300,280,'rgba(230,126,34,.04)','#E67E22',10,1.5);
+      txt(svg,x+150,72,n,10,700,'#E67E22','middle');
+      // DaemonSet pod (highlighted)
+      rect(svg,x+20,88,260,80,'rgba(56,189,248,.12)','#38bdf8',7,2.5);
+      txt(svg,x+150,110,'fluent-bit (DaemonSet)',9.5,700,'#7dd3fc','middle');
+      txt(svg,x+150,128,'reads /var/log/containers/',8,400,'#94a3b8','middle');
+      txt(svg,x+150,144,'on THIS node only',8,400,'#94a3b8','middle');
+      txt(svg,x+150,160,'← auto-placed',8,700,'#38bdf8','middle');
+      // App pods
+      rect(svg,x+20,178,120,80,'rgba(74,144,226,.06)','#4A90E2',5,1);
+      txt(svg,x+80,198,'app-pod',8.5,400,'#7dd3fc','middle');
+      txt(svg,x+80,214,'logs here',7.5,400,'#94a3b8','middle');
+      rect(svg,x+150,178,110,80,'rgba(74,144,226,.06)','#4A90E2',5,1);
+      txt(svg,x+205,198,'mysql',8.5,400,'#7dd3fc','middle');
+      txt(svg,x+205,214,'logs here',7.5,400,'#94a3b8','middle');
+      // Collect arrows
+      arrow(svg,x+80,218,x+150,230,'#38bdf8',1,'anim-flow');
+      arrow(svg,x+205,218,x+150,230,'#38bdf8',1,'anim-flow');
+    });
+
+    rect(svg,30,360,760,55,'rgba(56,189,248,.05)','#38bdf8',8,1.5);
+    txt(svg,410,382,'Why DaemonSet and not Deployment with 2 replicas?',9.5,700,'#7dd3fc','middle');
+    txt(svg,410,398,'Deployment might put BOTH pods on node-01 → node-02 logs never collected',8.5,400,'#f87171','middle');
+    txt(svg,410,413,'DaemonSet guarantees exactly 1 per node — no log gaps possible',8.5,400,'#4ade80','middle');
+   }},
+  {title:'New node joins — DaemonSet controller auto-places pod',
+   explain:'When a new node joins the cluster (EC2 instance boots, registers with kubelet), the DaemonSet controller immediately places a Fluent Bit pod there. No manual action. The controller watches for new nodes and reacts instantly.',
+   narration:'A third EC2 node joins the cluster. The DaemonSet controller watches for new nodes. It sees node-03 does not have a Fluent Bit pod yet. It creates one immediately. No configuration change, no kubectl command needed. The cluster scales and observability scales with it automatically.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'New node joins → DaemonSet controller auto-places pod',11,700,'#38bdf8','middle');
+    // Existing nodes
+    [{x:20,n:'node-01',age:'10m'},{x:290,n:'node-02',age:'10m'}].forEach(({x,n,age})=>{
+      rect(svg,x,50,240,200,'rgba(230,126,34,.04)','#E67E22',9,1.5);
+      txt(svg,x+120,70,n,9,700,'#E67E22','middle');
+      rect(svg,x+15,82,210,65,'rgba(56,189,248,.1)','#38bdf8',6,1.5);
+      txt(svg,x+120,100,'fluent-bit ✓',9,700,'#7dd3fc','middle');
+      txt(svg,x+120,115,`Running · ${age}`,8,400,'#4ade80','middle');
+    });
+    // New node
+    rect(svg,560,50,240,200,'rgba(230,126,34,.05)','#F39C12',9,2.5);
+    txt(svg,680,70,'node-03 ← NEW',9,700,'#F39C12','middle');
+    txt(svg,680,90,'just joined cluster',8,400,'#94a3b8','middle');
+    // Auto-placed DaemonSet pod
+    rect(svg,575,105,210,65,'rgba(56,189,248,.12)','#38bdf8',6,2.5);
+    txt(svg,680,128,'fluent-bit',9.5,700,'#7dd3fc','middle');
+    txt(svg,680,145,'← AUTO-PLACED',8,700,'#38bdf8','middle');
+    txt(svg,680,162,'by DaemonSet controller',7.5,400,'#94a3b8','middle');
+
+    // Controller action
+    rect(svg,30,275,760,75,'rgba(56,189,248,.04)','#38bdf8',8,1.5);
+    txt(svg,410,297,'DaemonSet controller watches API for new Node objects',9.5,700,'#7dd3fc','middle');
+    txt(svg,50,315,'• node-03 registers with kubelet → NodeReady condition becomes True',9,400,'#94a3b8','start');
+    txt(svg,50,332,'• DaemonSet controller: desired pods = 3, actual = 2 → create pod on node-03',9,400,'#4ade80','start');
+
+    // Stats
+    rect(svg,30,370,230,65,'rgba(56,189,248,.04)','#38bdf8',8,1);
+    txt(svg,145,395,'kubectl get ds',9,700,'#7dd3fc','middle');
+    txt(svg,50,413,'DESIRED: 3   CURRENT: 3',8.5,400,'#4ade80','start');
+    txt(svg,280,370,480,65,'rgba(231,76,60,.04)','#E74C3C',8,1);
+    txt(svg,520,395,'⚠ AWS Fargate',9,700,'#f87171','middle');
+    txt(svg,295,413,'DaemonSets NOT supported on Fargate — needs EC2 nodes',8.5,400,'#f87171','start');
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 7. STATEFULSET IDENTITY
+// ─────────────────────────────────────────────────
+{title:'🗄 StatefulSet — Why Identity Matters', icon:'🗄', color:'#818cf8',
+ frames:[
+  {title:'Deployment vs StatefulSet on restart',
+   explain:'In a Deployment, pod names are random hashes. After a restart, webapp-abc becomes webapp-xyz. For stateless apps, this is fine. For databases, the replica configuration points to "mysql-0" as the primary — a name change breaks replication.',
+   narration:'This is the core difference. Deployment pods have random hash names that change on every restart. StatefulSet pods have stable ordered names that never change. mysql-0 is always the primary. mysql-1 always finds the primary at the same hostname. Identity is permanent.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'Deployment (random) vs StatefulSet (stable) after pod restart',11,700,'#818cf8','middle');
+    // Deployment side
+    txt(svg,200,52,'Deployment — stateless pods',10,700,'#9B59B6','middle');
+    rect(svg,20,65,360,130,'rgba(155,89,182,.05)','#9B59B6',9,1.5);
+    txt(svg,200,88,'Before restart',8,400,'#94a3b8','middle');
+    [{x:40,n:'webapp-abc',c:'#9B59B6'},{x:195,n:'webapp-def',c:'#9B59B6'}].forEach(({x,n,c})=>{
+      rect(svg,x,100,140,55,`rgba(155,89,182,.1)`,c,6,1.5);
+      txt(svg,x+70,122,n.replace('webapp-',''),9,700,c==='#9B59B6'?'#c4b5fd':'#4ade80','middle');
+      txt(svg,x+70,140,'Running',8,400,'#4ade80','middle');
+    });
+    rect(svg,20,205,360,60,'rgba(231,76,60,.06)','#E74C3C',8,1);
+    txt(svg,200,228,'After restart — NEW random names',9,700,'#f87171','middle');
+    txt(svg,200,245,'webapp-xyz · webapp-mno — different every time',8,400,'#94a3b8','middle');
+    txt(svg,200,262,'✓ Fine for stateless apps',8,700,'#4ade80','middle');
+
+    // StatefulSet side
+    txt(svg,610,52,'StatefulSet — stable pods',10,700,'#818cf8','middle');
+    rect(svg,440,65,360,130,'rgba(129,140,248,.05)','#818cf8',9,1.5);
+    txt(svg,610,88,'Before restart',8,400,'#94a3b8','middle');
+    [{x:455,n:'mysql-0',role:'Primary'},{x:615,n:'mysql-1',role:'Replica'}].forEach(({x,n,role})=>{
+      rect(svg,x,100,140,55,'rgba(129,140,248,.1)','#818cf8',6,2);
+      txt(svg,x+70,122,n,9,700,'#c4b5fd','middle');
+      txt(svg,x+70,140,role,8,400,'#94a3b8','middle');
+    });
+    rect(svg,440,205,360,60,'rgba(39,174,96,.06)','#27AE60',8,1);
+    txt(svg,610,228,'After restart — SAME names',9,700,'#4ade80','middle');
+    txt(svg,610,245,'mysql-0 · mysql-1 — always',8,400,'#94a3b8','middle');
+    txt(svg,610,262,'✓ Required for databases',8,700,'#4ade80','middle');
+
+    // DNS
+    rect(svg,30,295,760,80,'rgba(129,140,248,.04)','#818cf8',8,1.5);
+    txt(svg,410,316,'Headless Service gives each pod a stable DNS hostname',9.5,700,'#c4b5fd','middle');
+    txt(svg,410,334,'mysql-0.mysql-headless.prod.svc.cluster.local → always resolves to mysql-0 pod IP',8.5,400,'#94a3b8','middle');
+    txt(svg,410,352,'mysql replication.conf: primary_host=mysql-0.mysql-headless.prod — never changes',8.5,700,'#4ade80','middle');
+   }},
+  {title:'PVC per pod — data survives pod death',
+   explain:'Each StatefulSet pod gets its own PersistentVolumeClaim created automatically (volumeClaimTemplates). When mysql-0 crashes and a new mysql-0 pod is created, it binds to the SAME PVC (data-mysql-0). The data is still there.',
+   narration:'StatefulSets automatically create a PVC for each pod from the volumeClaimTemplates. mysql-0 gets data-mysql-0 bound to a 10 gigabyte EBS volume. When mysql-0 crashes, the new mysql-0 pod that starts binds to the exact same EBS volume. All data intact. Zero data loss.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'Each StatefulSet pod → own PVC → own EBS volume',11,700,'#818cf8','middle');
+    // mysql-0
+    rect(svg,30,55,330,140,'rgba(129,140,248,.08)','#818cf8',9,2);
+    txt(svg,195,78,'mysql-0',12,700,'#c4b5fd','middle');
+    txt(svg,195,98,'node-01',9,400,'#E67E22','middle');
+    txt(svg,195,115,'Primary · port 3306',8,400,'#94a3b8','middle');
+    arrow(svg,195,197,195,225,'#818cf8',2);
+    rect(svg,30,228,330,70,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,195,255,'PVC: data-mysql-0',9.5,700,'#7dd3fc','middle');
+    txt(svg,195,272,'10Gi · EBS vol-0abc123',8,400,'#94a3b8','middle');
+
+    // mysql-1
+    rect(svg,460,55,330,140,'rgba(129,140,248,.08)','#818cf8',9,2);
+    txt(svg,625,78,'mysql-1',12,700,'#c4b5fd','middle');
+    txt(svg,625,98,'node-02',9,400,'#E67E22','middle');
+    txt(svg,625,115,'Replica · port 3306',8,400,'#94a3b8','middle');
+    arrow(svg,625,197,625,225,'#818cf8',2);
+    rect(svg,460,228,330,70,'rgba(74,144,226,.08)','#4A90E2',8,1.5);
+    txt(svg,625,255,'PVC: data-mysql-1',9.5,700,'#7dd3fc','middle');
+    txt(svg,625,272,'10Gi · EBS vol-0def456',8,400,'#94a3b8','middle');
+
+    // What happens on crash
+    rect(svg,30,330,760,90,'rgba(129,140,248,.04)','#818cf8',8,1.5);
+    txt(svg,410,352,'mysql-0 crashes and restarts:',9.5,700,'#c4b5fd','middle');
+    [
+      '1. Old mysql-0 pod deleted — PVC data-mysql-0 stays (not deleted)',
+      '2. New mysql-0 pod created on node-01 (or available node)',
+      '3. New pod binds to SAME PVC data-mysql-0 → same EBS volume',
+      '4. MySQL starts, reads its data files from the attached EBS → all data intact ✓',
+    ].forEach((t,i)=>txt(svg,50,370+i*14,t,8.5,400,i>=2?'#4ade80':'#94a3b8','start'));
+   }},
+ ]},
+
+// ─────────────────────────────────────────────────
+// 8. NAMESPACE ISOLATION
+// ─────────────────────────────────────────────────
+{title:'📁 Namespace Isolation — Boundaries Matter', icon:'📁', color:'#F39C12',
+ frames:[
+  {title:'Without namespaces: everything in default, chaos',
+   explain:'Without namespaces, Team A and Team B share the same flat namespace. Service name "mysql" from Team A conflicts with Team B. RBAC must be applied to individual resources instead of all resources in a namespace. Billing attribution is impossible.',
+   narration:'Without namespaces, every team drops all their resources into the default namespace. Team A has a service called mysql. Team B also names theirs mysql. One overwrites the other. There is no way to give Team A access to only their pods. It is chaos.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,25,'No namespaces — everything in default — name conflicts!',11,700,'#E74C3C','middle');
+    rect(svg,20,50,780,300,'rgba(255,255,255,.02)','#334155',10,1.5);
+    txt(svg,410,73,'namespace: default',10,700,'#475569','middle');
+    // Team A
+    const teamA=[['svc/mysql','#E74C3C'],['pod/api-server','#4A90E2'],['secret/db-pass','#E74C3C']];
+    teamA.forEach(([n,c],i)=>{
+      rect(svg,40+i*160,88,148,50,`rgba(${c==='#E74C3C'?'231,76,60':'74,144,226'},.06)`,c,5,1.5);
+      txt(svg,40+i*160+74,118,n,8.5,700,c,'middle');
+    });
+    txt(svg,280,88,'Team A',8,700,'#94a3b8','middle');
+    // Team B
+    const teamB=[['svc/mysql','#E74C3C'],['pod/frontend','#27AE60'],['configmap/cfg','#38bdf8']];
+    teamB.forEach(([n,c],i)=>{
+      rect(svg,40+i*160,165,148,50,`rgba(${c==='#E74C3C'?'231,76,60':c==='#27AE60'?'39,174,96':'56,189,248'},.06)`,c,5,1.5);
+      txt(svg,40+i*160+74,195,n,8.5,700,c,'middle');
+    });
+    txt(svg,280,165,'Team B',8,700,'#94a3b8','middle');
+    // Conflict arrow
+    const cx=svg;
+    const conf=el('line',{x1:114,y1:138,x2:114,y2:163,stroke:'#E74C3C','stroke-width':2.5,'stroke-dasharray':'4'});
+    cx.appendChild(conf);
+    txt(svg,160,152,'💥 CONFLICT!',9,700,'#f87171','middle');
+    rect(svg,20,260,780,80,'rgba(231,76,60,.04)','#E74C3C',8,1);
+    txt(svg,410,283,'Team B deploys svc/mysql — overwrites Team A svc/mysql',10,700,'#f87171','middle');
+    txt(svg,410,300,'Team A app now connects to Team B database. Silent data corruption.',8.5,400,'#f87171','middle');
+    txt(svg,410,318,'RBAC: impossible to say "Team A can only touch their pods"',8.5,400,'#94a3b8','middle');
+   }},
+  {title:'With namespaces: complete isolation per team',
+   explain:'Each team gets their own namespace. The same service name "mysql" exists in prod AND staging — no conflict. RBAC is scoped to a namespace. Network Policies prevent cross-namespace traffic. Billing is attributed per namespace.',
+   narration:'With namespaces, each team has their own isolated space. Team A has mysql in the prod namespace. Team B has mysql in the staging namespace. Completely independent. RBAC can say: Team A has admin access to the prod namespace only. Network policies prevent any cross-namespace traffic.',
+   render(svg){
+    clear(svg);
+    txt(svg,410,22,'With namespaces — complete team isolation',11,700,'#F39C12','middle');
+    const ns=[
+      {x:20,label:'ns: prod',color:'#F39C12',items:['svc/mysql','pod/api','secret/db-pass']},
+      {x:290,label:'ns: staging',color:'#38bdf8',items:['svc/mysql','pod/frontend','cm/config']},
+      {x:560,label:'ns: kube-system',color:'#94a3b8',items:['ds/fluent-bit','svc/kube-dns','pod/coredns']},
+    ];
+    ns.forEach(({x,label,color,items})=>{
+      rect(svg,x,42,240,230,`rgba(${color==='#F39C12'?'243,156,18':color==='#38bdf8'?'56,189,248':'148,163,184'},.04)`,color,9,1.5,'stroke-dasharray: 5');
+      txt(svg,x+120,63,label,9.5,700,color,'middle');
+      items.forEach((item,i)=>{
+        rect(svg,x+15,78+i*52,210,42,`rgba(${color==='#F39C12'?'243,156,18':color==='#38bdf8'?'56,189,248':'148,163,184'},.06)`,color,5,1);
+        txt(svg,x+120,103+i*52,item,8.5,400,color==='#94a3b8'?'#94a3b8':'#f1f5f9','middle');
+      });
+    });
+    // Block cross-namespace
+    rect(svg,20,300,760,65,'rgba(231,76,60,.04)','#E74C3C',8,1);
+    txt(svg,410,322,'Cross-namespace traffic blocked by default (+ explicit Network Policy)',9.5,700,'#f87171','middle');
+    txt(svg,410,340,'prod/mysql and staging/mysql — same name, completely isolated, never conflict',8.5,400,'#4ade80','middle');
+
+    // RBAC scope
+    rect(svg,20,385,760,50,'rgba(39,174,96,.04)','#27AE60',8,1);
+    txt(svg,410,405,'RBAC: "Team A" group → admin Role in prod namespace only',9.5,700,'#4ade80','middle');
+    txt(svg,410,422,'kubectl config set-context --namespace=prod  →  default ns for all commands',8.5,400,'#94a3b8','middle');
+   }},
+ ]},
+
+];
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let currentTopic = 0;
+let currentFrame = 0;
+let playing = false, ptimer = null;
+
+function topic(){ return TOPICS[currentTopic]; }
+function frame(){ return topic().frames[currentFrame]; }
+const FRAMES_TOTAL = () => topic().frames.length;
+const svg = document.getElementById('main-svg');
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function render(){
+  const t = topic();
+  const f = frame();
+  // SVG
+  f.render(svg);
+  // Explain
+  document.getElementById('exlbl').textContent = `TOPIC ${currentTopic+1} · FRAME ${currentFrame+1} OF ${FRAMES_TOTAL()}`;
+  document.getElementById('extitle').textContent = f.title;
+  document.getElementById('exbody').innerHTML = f.explain;
+  document.getElementById('narr').textContent = f.narration;
+  const exEl=document.getElementById('explain'); if(exEl) exEl.style.borderLeftColor=t.color;
+  // Navbar
+  document.getElementById('step-title').textContent = f.title;
+  document.getElementById('pcnt').textContent = `${currentFrame+1}/${FRAMES_TOTAL()}`;
+  document.getElementById('pfill').style.width = `${((currentFrame+1)/FRAMES_TOTAL())*100}%`;
+  document.getElementById('bprev').disabled = currentFrame===0;
+  document.getElementById('bnext').disabled = currentFrame>=FRAMES_TOTAL()-1;
+  // Sidebar
+  document.querySelectorAll('.topic-btn').forEach((b,i)=>b.classList.toggle('active',i===currentTopic));
+  speak(f.narration);
+}
+
+function selectTopic(idx){
+  currentTopic = idx;
+  currentFrame = 0;
+  stopPlay();
+  render();
+}
+function next(){ if(currentFrame<FRAMES_TOTAL()-1){ currentFrame++; render(); } else stopPlay(); }
+function prev(){ if(currentFrame>0){ currentFrame--; render(); } }
+function play(){ if(playing)return stopPlay(); playing=true; document.getElementById('bplay').textContent='⏸ Pause'; tick(); }
+function stopPlay(){ playing=false; clearTimeout(ptimer); document.getElementById('bplay').textContent='▶ Play'; }
+function tick(){ ptimer=setTimeout(()=>{ if(!playing)return; if(currentFrame>=FRAMES_TOTAL()-1){stopPlay();return;} currentFrame++;render();tick(); },4500); }
+
+document.getElementById('bnext').onclick  = next;
+document.getElementById('bprev').onclick  = prev;
+document.getElementById('bplay').onclick  = play;
+document.getElementById('breset').onclick = ()=>{ stopPlay();currentFrame=0;render(); };
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.key==='ArrowRight')next();
+  else if(e.key==='ArrowLeft')prev();
+  else if(e.key===' '){e.preventDefault();play();}
+  else if(e.key==='m'||e.key==='M')document.getElementById('bmute').click();
+});
+
+// ═══════════════════════════════════════════════════
+//  TOPIC LIST
+// ═══════════════════════════════════════════════════
+function buildSidebar(){
+  const c = document.getElementById('topic-list');
+  TOPICS.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.className='topic-btn';
+    b.innerHTML=`<span class="tico">${t.icon}</span><span class="tnum">${i+1}</span><span class="tlabel">${t.title.replace(/^[^ ]+ /,'')}</span>`;
+    b.onclick=()=>selectTopic(i);
+    c.appendChild(b);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  VOICE
+// ═══════════════════════════════════════════════════
+let muted=localStorage.getItem('vc-muted')==='1',selV=null;
+const synth=window.speechSynthesis;
+const PREF=['Ava','Zoe','Allison','Samantha','Karen'];
+function vscore(v){let s=0;if(/Premium/i.test(v.name))s+=100;else if(/Siri/i.test(v.name))s+=80;else if(/Enhanced/i.test(v.name))s+=60;const i=PREF.indexOf(v.name.replace(/\s*\([^)]*\)\s*/g,'').trim());if(i!==-1)s+=20-i;if(v.lang==='en-US')s+=5;return s;}
+function populateV(){if(!synth)return;const vs=synth.getVoices().filter(v=>v.lang.startsWith('en')).sort((a,b)=>vscore(b)-vscore(a));const sel=document.getElementById('vsel');sel.innerHTML='';vs.forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=(/Premium|Siri|Enhanced/i.test(v.name)?'⭐ ':'')+v.name;sel.appendChild(o);});selV=(localStorage.getItem('vc-voice')&&vs.find(v=>v.name===localStorage.getItem('vc-voice')))||vs[0];if(selV)sel.value=selV.name;document.getElementById('bmute').textContent=muted?'🔇':'🔊';}
+if(synth){synth.onvoiceschanged=populateV;populateV();}
+function speak(t){if(!synth||muted||!t)return;try{synth.cancel();}catch(e){}(t.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g)||[t]).forEach(c=>{const u=new SpeechSynthesisUtterance(c.trim());if(selV)u.voice=selV;u.rate=0.95;synth.speak(u);});}
+document.getElementById('bmute').onclick=()=>{muted=!muted;localStorage.setItem('vc-muted',muted?'1':'0');document.getElementById('bmute').textContent=muted?'🔇':'🔊';if(muted&&synth)try{synth.cancel();}catch(e){}};
+document.getElementById('vsel').onchange=e=>{const v=synth.getVoices().find(x=>x.name===e.target.value);if(v){selV=v;localStorage.setItem('vc-voice',v.name);}};
+document.getElementById('vbtn').onclick=e=>{e.stopPropagation();document.getElementById('vp').classList.toggle('open');};
+document.addEventListener('click',e=>{if(!e.target.closest('#vp')&&!e.target.closest('#vbtn'))document.getElementById('vp').classList.remove('open');});
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+buildSidebar();
+render();
+</script>
+<script src="../course-flashcards/ask-ai.js" data-module="01"></script>
+</body>
+</html>
