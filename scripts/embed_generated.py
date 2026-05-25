@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#
+# DEPRECATED — use scripts/ingest.py instead.
+# This script writes to the legacy public.eks_knowledge table which has
+# been ARCHIVED → public.eks_knowledge_archived_2026_05 in LMS migration 016.
+# Running this script unmodified will error on "relation does not exist".
+# To re-generate course content, use:
+#   /tmp $ ~/Documents/Projects/learnk8s/.venv/bin/python \
+#         ~/Documents/Projects/learnk8s/scripts/ingest.py --clear
+#
 """
 Embed a pre-generated JSON file and store in Supabase.
 Usage:
